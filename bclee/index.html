@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雲林詔安客家个生活——用客語記錄个風俗和日常</title>
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">    
+	<link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+    <!-- 頂部導覽列 -->
+    <header class="main-header">
+		<div class="header-left">
+			<button id="menuBtn" class="icon-btn"><span class="material-icons">menu</span></button>
+			<h1 id="logo">雲林詔安客家个生活</h1>
+			<h1 id="headerArticleTitle" class="header-article-title" title="回到頂端"></h1>
+		</div>
+		<div class="header-right" id="headerRight">
+			<div class="search-wrapper" id="searchWrapper">
+				<input type="text" id="searchInput" class="search-input" placeholder="搜尋文章...">
+				<button id="searchIconBtn" class="icon-btn"><span class="material-icons">search</span></button>
+			</div>
+		</div>
+	</header>
+
+    <!-- 側邊欄與遮罩 -->
+    <div id="sidebarOverlay" class="overlay"></div>
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>網站導覽</h2>
+            <button id="closeSidebarBtn" class="icon-btn"><span class="material-icons">close</span></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-static-link" data-info="preface"><span class="material-icons">menu_book</span> 序言</li>
+            <li class="sidebar-static-link" data-info="zixu"><span class="material-icons">edit_note</span> 自序</li>
+            <li class="sidebar-static-link" data-info="author"><span class="material-icons">person</span> 作者介紹</li>
+        </ul>
+        <div class="sidebar-divider"></div>
+        <ul id="sidebarList" class="sidebar-list">
+            <!-- JS 動態生成的文章目錄 -->
+        </ul>
+    </aside>
+
+    <!-- 滿版橫幅 -->
+    <div id="homeBanner" class="full-width-banner"></div>
+
+    <!-- 主要內容區：首頁目錄 -->
+    <main id="homeView" class="view-section">
+        <div id="directoryGrid" class="directory-grid">
+            <section class="home-group">
+                <h2 class="home-group-title">認識本書</h2>
+                <div class="book-info">
+                    <button type="button" class="info-card" data-info="preface">
+                        <span class="material-icons info-card-icon">menu_book</span>
+                        <span class="info-card-text">
+                            <span class="info-card-title">序言</span>
+                            <span class="info-card-desc">詔安客語教學資源中心 李政勳</span>
+                        </span>
+                    </button>
+                    <button type="button" class="info-card" data-info="zixu">
+                        <span class="material-icons info-card-icon">edit_note</span>
+                        <span class="info-card-text">
+                            <span class="info-card-title">自序</span>
+                            <span class="info-card-desc">作者 李秉璋</span>
+                        </span>
+                    </button>
+                    <button type="button" class="info-card" data-info="author">
+                        <span class="material-icons info-card-icon">person</span>
+                        <span class="info-card-text">
+                            <span class="info-card-title">作者介紹</span>
+                            <span class="info-card-desc">李秉璋老師</span>
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="home-group">
+                <h2 class="home-group-title">文章目錄</h2>
+                <div id="articleCards" class="card-grid"></div>
+            </section>
+        </div>
+        <div id="searchResults" class="search-results"></div>
+    </main>
+
+    <main id="infoView" class="view-section" style="display: none;">
+
+        <!-- ===== 序 ===== -->
+        <section class="info-page" data-page="preface" hidden>
+            <div class="article-header article-header-flex">
+                <button type="button" class="icon-btn back-btn info-back-btn" aria-label="回到目錄"><span class="material-icons">arrow_back</span></button>
+                <h2>序言</h2>
+            </div>
+
+            <article class="info-content">
+                <h3>序言：守護詔安語言，續寫族群記憶</h3>
+                <p>身為詔安客語的學習者，我們始終在思考：如何在瞬息萬變的時代語境中，為這門古老、優雅且充滿生命力的語言，尋得一條通往未來的道路？今日，看著這份《雲林詔安客家个生活—用客語紀錄个風俗和日常》彙整成冊，內心除了欣慰，更多的是一份沉甸甸的使命感。這部作品不只是文字的紀錄，更是我們詔安客家族群對於母語情感的集體投射與承諾。</p>
+                <p>詔安客語在台灣多元的客家文化地圖上，始終是一抹獨特且極具韻味的風景。從雲林崙背、二崙到西螺的阡陌之間，我們聽著最親切的「詔安腔」，看著威武的「開口獅」，這些都是我們身分的識別標誌。然而，面對母語環境的日益限縮，如何讓詔安客語不再只是「耆老的語言」，而是能讓下一代在生活中自然說出口的「日常」，正是詔安客語教學資源中心成立的初衷。我們致力於將傳統精髓轉化為系統化的教學資源，而這部文集的誕生，正是我們在教學推廣路上的重要里程碑。</p>
+                <p>秉璋老師文章包羅萬象，紀錄了鄉野風貌、生活點滴與歷史記憶。每一篇文字背後，都凝聚了先人智慧、文化與作者的心血。我們深信，母語教學的精髓不在於死背字彙，而在於「感同身受」。透過這些豐富的文章，讀者與學習者可以從文字中看見祖輩在土地上勤懇耕耘的身影，感受到客家人敦厚、堅毅且不忘本的精神核心。</p>
+                <p>我們衷心期待，這份文集的出版能成為第一線教學現場最紮實的支撐。它是一座橋樑，連接了過去與未來；它也是一把鑰匙，開啟了孩子們認同族群文化的大門。母語的復興雖然是一場與時間賽跑的馬拉松，但只要文字在，記憶就在；只要讀誦的聲音在，文化的火種便能薪傳不熄。</p>
+                <p>感謝每一位在這條道路上共同前行的夥伴。願這部文集能如同春雨潤物，讓詔安客語的芬芳，在未來的每一片土地上繼續綻放。</p>
+                <p class="info-sign">詔安客語教學資源中心李政勳　謹誌</p>
+            </article>
+
+            <nav class="info-pager" aria-label="頁面切換">
+                <button type="button" class="info-pager-btn info-back-btn"><span class="material-icons">grid_view</span>回到目錄</button>
+                <button type="button" class="info-pager-btn" data-info="zixu"><span class="material-icons">edit_note</span>自序</button>
+            </nav>
+        </section>
+
+        <!-- ===== 自序 ===== -->
+        <section class="info-page" data-page="zixu" hidden>
+            <div class="article-header article-header-flex">
+                <button type="button" class="icon-btn back-btn info-back-btn" aria-label="回到目錄"><span class="material-icons">arrow_back</span></button>
+                <h2>自序</h2>
+            </div>
+
+            <article class="info-content">
+                <h3>自序</h3>
+                <p class="info-book-title">《雲林詔安客家个生活》——用客語記錄个風俗和日常</p>
+                <p>一種語言，承載著族群的記憶；一句熟悉的話，藏著先民生活的智慧與情感。詔安客語不只是溝通的工具，更是雲林詔安客家人生活文化的重要脈絡。如何運用寫作讓這份珍貴的語言與文化繼續傳承下去，一直是我多年來思考的課題。</p>
+                <p>首先感謝教育部自民國102年推出「閱讀越懂閩客語」專欄，提供本土語文一個可以發聲、發表的園地。剛開始寫作時，常絞盡腦汁尋找題材，文章多半是從日常生活的所見所感出發。然而，生活感想總有寫盡的時候。後來想到，與其苦思新的題材，不如回頭看看自己生長的土地，記錄那些正在逐漸淡去的客家語言、風俗和生活記憶。於是，我開始嘗試透過田野調查、訪問耆老、錄音及攝影等方式蒐集資料，再將這些珍貴的口述與生活經驗整理成一篇篇短文，希望為在地文化留下可以閱讀、可以學習的文字紀錄。</p>
+                <p>除了寫作記錄以外，也將這些素材進一步轉化為課文、數位教材放上網路供人線上學習，讓更多人有機會且更方便認識雲林詔安客家文化、聽見詔安客語的聲音。</p>
+                <p>回顧自民國96年起投入詔安客語傳承工作，從參與《臺灣饒平、大埔、詔安客語辭典詔安分冊》審查、「新編客家語六腔辭典」編輯，到部編版客語教材撰寫與對譯、幼幼客語闖通關教材修訂，教育部「閱讀越懂閩客語」專欄文章撰寫；參與卡通、布袋戲及戲劇配音，製作客語線上學習教材。這一路走來，讓我深刻體會到：保存語言，就是保存族群的生活與記憶。</p>
+                <p>本書能夠順利出版，更要特別感謝東興國小李政勳校長的協助，以及烏衣行、林創業老師的核校，還有李汶芯、廖盈捷等人的熱心協助幫忙。因為有大家的支持與付出，這些文字才能從個人的記錄，成為鄉親共同閱讀、認識家鄉文化的一本書。</p>
+                <p>謹以本書獻給我的父母、生長在這片土地上的鄉親，也獻給所有關心詔安客家語言與文化的人。希望透過一篇篇用客語寫下的生活故事，讓我們知道自己從哪裡來，了解在地文化，讓更多人有機會聽見、讀懂，並繼續講出詔安客家話。</p>
+            </article>
+
+            <nav class="info-pager" aria-label="頁面切換">
+                <button type="button" class="info-pager-btn info-back-btn"><span class="material-icons">grid_view</span>回到目錄</button>
+                <button type="button" class="info-pager-btn" data-info="author"><span class="material-icons">person</span>作者介紹</button>
+            </nav>
+        </section>
+
+        <!-- ===== 作者介紹 ===== -->
+        <section class="info-page" data-page="author" hidden>
+            <div class="article-header article-header-flex">
+                <button type="button" class="icon-btn back-btn info-back-btn" aria-label="回到目錄"><span class="material-icons">arrow_back</span></button>
+                <h2>作者介紹</h2>
+            </div>
+
+            <article class="info-content">
+                <h3>李秉璋</h3>
+                <p>1965年生於雲林縣二崙鄉。國立臺灣大學歷史系學士、政治大學歷史研究所碩士、取得中央大學中學客語教師證書，長期致力於詔安客家語言與文化的傳承，113年自國立西螺農工退休。</p>
+                <ul class="info-list">
+                    <li><strong>致力教材編修</strong>：參與審修《新編客家語六腔辭典》及部編版客語教材；撰寫之文章多次入選全國語文競賽朗讀篇目。</li>
+                    <li><strong>多元文化推廣</strong>：跨足影音，參與布袋戲、卡通及戲劇客語配音，並錄製「來上客」等線上教學影片。</li>
+                    <li><strong>屢獲獎項肯定</strong>：
+                        <ul>
+                            <li>97年全國語文競賽客語演說中學教師組第二名、99年全國語文競賽客語演說教師組第一名。</li>
+                            <li>99年及110年獲頒教育部「推展本土語言傑出貢獻個人獎」。</li>
+                            <li>110年獲客委會「客語教學語言獎勵」。</li>
+                            <li>108年榮獲客家委員會「三等客家事務專業獎章」、114年榮獲客家委員會「二等客家事務專業獎章」。</li>
+                        </ul>
+                    </li>
+                </ul>
+            </article>
+
+            <nav class="info-pager" aria-label="頁面切換">
+                <button type="button" class="info-pager-btn info-back-btn"><span class="material-icons">grid_view</span>回到目錄</button>
+                <button type="button" class="info-pager-btn" data-info="preface"><span class="material-icons">menu_book</span>序言</button>
+            </nav>
+        </section>
+
+    </main>
+
+    <!-- 主要內容區：文章閱讀頁 -->
+    <main id="articleView" class="view-section" style="display: none;">
+		<div class="article-header article-header-flex">
+		<button id="backBtn" class="icon-btn back-btn"><span class="material-icons">arrow_back</span></button>
+			<h2 id="articleTitle">文章標題</h2>
+			<span id="articleLevel" class="article-stars">☆☆★★</span>
+		</div>
+
+		<img id="articleImage" class="article-hero-image" src="" alt="文章插圖" style="display: none;">
+		
+		<div class="article-tools">
+			<div class="tools-row">
+				<div class="audio-tools">
+					<button id="playPauseBtn" class="play-btn" aria-label="播放 / 暫停"><span class="material-icons" id="playIcon">play_arrow</span></button>
+				</div>
+				<button id="toggleRubyBtn" class="toggle-ruby-btn active">字音</button>
+				<button id="toggleViewModeBtn" class="toggle-ruby-btn active">段落</button>
+				<div id="fontSizeControls" class="font-controls">
+					<button id="fontSizeMinusBtn" class="tool-btn"><span class="material-icons">remove</span></button>
+					<button id="fontSizePlusBtn" class="tool-btn"><span class="material-icons">add</span></button>
+				</div>
+				<button id="toggleLangBtn" class="toggle-ruby-btn active">客語</button>
+			</div>
+
+			<input type="range" id="progressBar" class="progress-bar" value="0" min="0" max="100" step="0.1" aria-label="播放進度">
+
+			<audio id="audioVoice" preload="metadata"></audio>
+		</div>
+
+        <div id="articleContent" class="article-content"></div>
+        <div class="vocabulary-section">
+            <h3>詞彙學習</h3>
+            <ol id="articleVocab"></ol>
+        </div>
+    </main>
+	
+	<footer class="site-footer">
+        <p><a href="https://sites.google.com/view/oikasu/books" target="_blank" rel="noopener noreferrer">詔安客語教學資源中心</a></p>
+    </footer>
+
+
+    <script src="srtdata.js" onerror="console.warn('srtdata.js 不存在，將改用 fetch 讀取 srt 檔');"></script>
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

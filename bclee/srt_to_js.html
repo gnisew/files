@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字幕檔(srt)批次轉換工具</title>
+    <style>
+        :root {
+            --primary: #00897B;
+            --primary-hover: #00695C;
+            --bg: #F4F7F6;
+            --border: #E0E0E0;
+            --text: #2C3E50;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container { width: 100%; max-width: 900px; }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: var(--primary); }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header p { color: #7F8C8D; margin-top: 5px; }
+        input[type="file"] {
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .btn-row { display: flex; gap: 10px; justify-content: flex-end; }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        .file-list { font-size: 0.9rem; color: #555; line-height: 1.8; }
+        .file-list .ok { color: var(--primary); }
+        .file-list .err { color: #C0392B; }
+        .note { font-size: 0.85rem; color: #7F8C8D; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1 style="color: var(--primary); margin:0;">字幕檔(srt)批次轉換工具</h1>
+        <p>把 srt 資料夾裡所有字幕檔一次轉成 srtdata.js，讓網頁不用 fetch 就能離線讀取逐句時間</p>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <h2>📂 步驟一：選取所有 srt 檔案</h2>
+            <p class="note">請直接進入 srt 資料夾，用滑鼠框選「全部」.srt 檔案後一次選取上傳（不會真的上傳到網路，只在瀏覽器裡讀取內容）。檔名需要是 voice_數字.srt 這種格式，才抓得到對應的文章編號。</p>
+            <input type="file" id="fileInput" accept=".srt" multiple>
+            <div id="fileList" class="file-list"></div>
+            <div class="btn-row">
+                <button id="convertBtn">⚡ 開始轉換</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📤 步驟二：複製結果，另存成 srtdata.js</h2>
+            <p class="note">把下方內容整段複製，貼到一個新檔案存成 <b>srtdata.js</b>，放在跟 index.html 同一層資料夾即可。</p>
+            <textarea id="outputText" readonly placeholder="轉換後的 JS 程式碼會顯示在這裡..."></textarea>
+            <div class="btn-row">
+                <button id="copyBtn">📋 複製程式碼</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const convertBtn = document.getElementById('convertBtn');
+        const outputText = document.getElementById('outputText');
+        const copyBtn = document.getElementById('copyBtn');
+
+        // 將 "00:00:04,510" 這種 srt 時間格式轉換成秒數
+        function srtTimeToSeconds(t) {
+            const [hms, ms] = t.trim().split(',');
+            const [h, m, s] = hms.split(':').map(Number);
+            return h * 3600 + m * 60 + s + (Number(ms || 0) / 1000);
+        }
+
+        // 解析單一 srt 檔案內容，依照檔案內順序回傳 [{start, end}, ...]
+        function parseSRT(text) {
+            const blocks = text.replace(/\r/g, '').split(/\n\s*\n/).filter(b => b.trim() !== '');
+            const times = [];
+            blocks.forEach(block => {
+                const lines = block.split('\n').filter(l => l.trim() !== '');
+                const timeLine = lines.find(l => l.includes('-->'));
+                if (!timeLine) return;
+                const [startStr, endStr] = timeLine.split('-->');
+                times.push({
+                    start: Number(srtTimeToSeconds(startStr).toFixed(3)),
+                    end: Number(srtTimeToSeconds(endStr).toFixed(3))
+                });
+            });
+            return times;
+        }
+
+        fileInput.addEventListener('change', () => {
+            const files = Array.from(fileInput.files);
+            fileList.innerHTML = files.map(f => `<div>📄 ${f.name}</div>`).join('') || '<div>尚未選取檔案</div>';
+        });
+
+        convertBtn.addEventListener('click', async () => {
+            const files = Array.from(fileInput.files);
+            if (files.length === 0) {
+                alert('請先選取 srt 檔案喔！');
+                return;
+            }
+
+            const srtTimesData = {};
+            const logLines = [];
+
+            for (const file of files) {
+                const match = file.name.match(/voice_(\d+)\.srt$/i);
+                if (!match) {
+                    logLines.push(`<div class="err">✘ ${file.name}：檔名格式不符 (需要 voice_數字.srt)，已略過</div>`);
+                    continue;
+                }
+                const num = match[1];
+                const text = await file.text();
+                const times = parseSRT(text);
+                srtTimesData[num] = times;
+                logLines.push(`<div class="ok">✔ ${file.name} → 第 ${num} 篇，共 ${times.length} 句</div>`);
+            }
+
+            fileList.innerHTML = logLines.join('');
+
+            // 每篇文章的句子陣列壓縮成一行，用 [start,end] 取代 {"start":..,"end":..}，
+            // 省去重複的欄位名稱，例如："1":[[4.51,7.5],[7.82,14.44]]
+            const sortedKeys = Object.keys(srtTimesData).sort((a, b) => Number(a) - Number(b));
+            const lines = sortedKeys.map(num => {
+                const compact = srtTimesData[num]
+                    .map(t => `[${t.start},${t.end}]`)
+                    .join(',');
+                return `    "${num}": [${compact}]`;
+            });
+            const jsonString = `{\n${lines.join(',\n')}\n}`;
+            outputText.value = `// 由 srt_to_js.html 自動產生，請勿手動編輯\n// 用途：讓網頁不需要 fetch() 就能離線讀取每篇文章逐句對應的音檔時間\n// 資料格式：srtTimesData[文章編號] = [[start1,end1], [start2,end2], ...]\nconst srtTimesData = ${jsonString};`;
+        });
+
+        copyBtn.addEventListener('click', () => {
+            if (!outputText.value) {
+                alert('請先完成轉換！');
+                return;
+            }
+            outputText.select();
+            document.execCommand('copy');
+
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '✅ 已複製！';
+            setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
+        });
+    </script>
+</body>
+</html>

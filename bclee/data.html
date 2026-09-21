@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客語文章資料轉換器</title>
+    <style>
+        :root {
+            --primary: #00897B;
+            --primary-hover: #00695C;
+            --bg: #F4F7F6;
+            --border: #E0E0E0;
+            --text: #2C3E50;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+        textarea {
+            width: 100%;
+            height: 600px; 
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            white-space: pre; 
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.2);
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header p { color: #7F8C8D; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1 style="color: var(--primary); margin:0;">客語文章資料轉換器</h1>
+        <p>自動生成 JS 變數、流水號多媒體路徑，以及專屬 Emoji</p>
+    </div>
+
+    <div class="container">
+        <!-- 左側：輸入區 -->
+        <div class="panel">
+            <h2>📥 原始文字輸入區</h2>
+            <textarea id="inputText" placeholder="請貼上原始文字..."></textarea>
+            <div class="btn-row">
+                <button id="convertBtn">⚡ 開始轉換</button>
+            </div>
+        </div>
+
+        <!-- 右側：輸出區 -->
+        <div class="panel">
+            <h2>📤 程式碼輸出結果</h2>
+            <textarea id="outputText" readonly placeholder="轉換後的 JS 程式碼會顯示在這裡..."></textarea>
+            <div class="btn-row">
+                <button id="copyBtn">📋 複製程式碼</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ★ 建立文章標題與專屬 Emoji 的映射表 ★
+        const emojiMap = {
+            "SARS日記": "😷",
+            "七月時": "👻",
+            "死貓吊樹頭": "🐈‍⬛",
+            "來去得𠊎請": "🍽️",
+            "供蜂个人": "🐝",
+            "拚番薯": "🍠",
+            "割草": "🌿",
+            "換工": "🤝",
+            "菜金菜泥": "🥬",
+            "跌米籮": "🧺",
+            "禁忌": "🈲",
+            "落雨天": "🌧️",
+            "福建行一輪": "🎒",
+            "臺灣个地名真心色": "📍",
+            "蒔田": "🌱",
+            "寫論文": "📝",
+            "擐雞酒": "🍲",
+            "橫頭个菜股": "🥦",
+            "燈籠花和粄葉樹": "🌺",
+            "羅漢腳": "🚶",
+            "西螺大橋": "🌉",
+            "大陸過臺灣": "🚢",
+            "水資源": "💧",
+            "寶惜老儕──臺灣社會老儕个照護問題": "👵",
+            "牛角掛書，實現自家": "🐂",
+            "田尾公路花園": "🌷",
+            "虎尾中元祭": "🏮",
+            "拜溪王": "🌊",
+            "掃泥下": "🧹",
+            "著瘴": "🤒",
+            "夢想": "✨",
+            "聽臺灣百姓个心聲": "👂",
+            "客臺錄影記": "🎥",
+            "記「102年全國中小學客語藝文競賽-中區初賽」": "🏆",
+            "崇遠堂": "🏛️"
+        };
+
+        const inputText = document.getElementById('inputText');
+        const outputText = document.getElementById('outputText');
+        const convertBtn = document.getElementById('convertBtn');
+        const copyBtn = document.getElementById('copyBtn');
+
+        convertBtn.addEventListener('click', () => {
+            const rawText = inputText.value;
+            if (!rawText.trim()) {
+                alert('請先輸入原始文字喔！');
+                return;
+            }
+
+            const lines = rawText.split('\n');
+            const articles = [];
+            let currentArticle = null;
+            let currentState = 'init'; 
+            let articleIdCounter = 1; 
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
+
+                // 1. 偵測新文章
+                if (line.includes('／') && (line.includes('☆') || line.includes('★'))) {
+                    // 儲存前一篇文章
+                    if (currentArticle) {
+                        currentArticle.content = currentArticle.content.trim();
+                        articles.push(currentArticle);
+                    }
+
+                    const parts = line.split('／');
+                    const level = parts[parts.length - 1].trim();
+                    const currentNum = articleIdCounter++; 
+
+                    // 初始化新文章，預留標題與 icon 位子
+                    currentArticle = {
+                        id: `article_${currentNum}`,
+                        title: "",
+                        level: level,
+                        icon: "📄", // 暫定預設值
+                        image: `images/article_${currentNum}.jpg`,
+                        audioVoice: `audio/voice_${currentNum}.mp3`,
+                        audioBgm: `audio/bgm_${currentNum}.mp3`,
+                        content: "",
+                        vocab: []
+                    };
+                    currentState = 'title'; 
+                    continue;
+                }
+
+                if (!currentArticle) continue;
+
+                // 2. 處理標題並自動配對 Emoji
+                if (currentState === 'title') {
+                    currentArticle.title = line;
+                    
+                    // ★ 核心邏輯：比對字典，如果找到對應的 Emoji 就替換，找不到就保留預設值
+                    if (emojiMap[line]) {
+                        currentArticle.icon = emojiMap[line];
+                    }
+
+                    currentState = 'content'; 
+                    continue;
+                }
+
+                // 3. 偵測詞彙區塊
+                if (line === '詞彙學習') {
+                    currentState = 'vocab';
+                    continue;
+                }
+
+                // 4. 處理內文
+                if (currentState === 'content') {
+                    currentArticle.content += (currentArticle.content ? '\n' : '') + line;
+                } 
+                // 5. 處理詞彙
+                else if (currentState === 'vocab') {
+                    const match = line.match(/^\d+\.\s*(.+)/);
+                    if (match) {
+                        currentArticle.vocab.push(match[1]);
+                    } else if (line.startsWith('【')) {
+                        currentArticle.vocab.push(line);
+                    }
+                }
+            }
+
+            // 存入最後一篇文章
+            if (currentArticle) {
+                currentArticle.content = currentArticle.content.trim();
+                articles.push(currentArticle);
+            }
+
+            // 將陣列轉為 JSON 並附加變數宣告
+            const jsonString = JSON.stringify(articles, null, 4);
+            outputText.value = `const articlesData = ${jsonString};`;
+        });
+
+        // 複製按鈕功能
+        copyBtn.addEventListener('click', () => {
+            if (!outputText.value) {
+                alert('沒有內容可以複製！');
+                return;
+            }
+            outputText.select();
+            document.execCommand('copy');
+            
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '✅ 已複製！';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
