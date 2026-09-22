@@ -33,6 +33,20 @@ const audioVoice = document.getElementById('audioVoice');
 const playPauseBtn = document.getElementById('playPauseBtn');
 const playIcon = document.getElementById('playIcon');
 const progressBar = document.getElementById('progressBar');
+const currentTimeLabel = document.getElementById('currentTimeLabel');
+const durationLabel = document.getElementById('durationLabel');
+
+// 將秒數格式化成 0:00 或 1:02:03（有超過一小時才顯示時）
+function formatTime(seconds) {
+    if (!isFinite(seconds) || seconds < 0) return '0:00';
+    const total = Math.floor(seconds);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
 
 function setProgress(percent) {
     const p = Number(percent) || 0;
@@ -389,6 +403,8 @@ function loadArticle(id, pushHistory = true) {
     
     articleVocab.innerHTML = article.vocab.map(v => `<li>${v}</li>`).join('');
     audioVoice.src = article.audioVoice; setProgress(0);
+    currentTimeLabel.textContent = '0:00';
+    durationLabel.textContent = '0:00';
     loadSrtForArticle(article);
     syncStateToUrl();
 
@@ -925,9 +941,14 @@ playPauseBtn.addEventListener('click', function() {
         currentSentencePlaying = null;
     }
 });
+audioVoice.addEventListener('loadedmetadata', function() {
+    durationLabel.textContent = formatTime(audioVoice.duration);
+});
 audioVoice.addEventListener('timeupdate', function() {
     const percentage = (audioVoice.currentTime / audioVoice.duration) * 100;
     if (!isNaN(percentage)) setProgress(percentage);
+
+    currentTimeLabel.textContent = formatTime(audioVoice.currentTime);
 
     updateReadingHighlight(audioVoice.currentTime);
 });
@@ -939,6 +960,7 @@ progressBar.addEventListener('input', function() {
     setProgress(progressBar.value);
     const seekTime = (progressBar.value / 100) * audioVoice.duration;
     audioVoice.currentTime = seekTime;
+    currentTimeLabel.textContent = formatTime(seekTime);
 
     if (currentSentencePlaying) {
         if (currentSentencePlaying.btnEl) {

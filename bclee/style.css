@@ -261,6 +261,23 @@ body {
 .play-btn:active { transform: scale(0.92); }
 .play-btn .material-icons { font-size: 22px; }
 
+.progress-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.progress-row .progress-bar { flex: 1; }
+
+.time-label {
+    flex: 0 0 auto;
+    min-width: 32px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    user-select: none;
+}
+
 .progress-bar {
     --progress: 0%;
     -webkit-appearance: none; appearance: none;
