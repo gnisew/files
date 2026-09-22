@@ -558,6 +558,21 @@ let currentSrtTimes = [];
 let srtLoadToken = 0;
 let currentSentencePlaying = null; // { label, endTime, btnEl }
 
+// 確保音檔已經載入到可以設定 currentTime 的狀態（readyState >= 1 = HAVE_METADATA）
+// 如果 src 剛換過、瀏覽器還沒讀完 metadata，直接設定 currentTime 常會被瀏覽器忽略，
+// 導致「跳到指定時間點播放」失敗、變成從頭（或上次的位置）開始播，也就是開頭時間不準確的原因。
+function whenAudioReady(callback) {
+    if (audioVoice.readyState >= 1) {
+        callback();
+    } else {
+        const onReady = () => {
+            audioVoice.removeEventListener('loadedmetadata', onReady);
+            callback();
+        };
+        audioVoice.addEventListener('loadedmetadata', onReady);
+    }
+}
+
 // 載入目前文章對應的 srt 字幕時間
 function loadSrtForArticle(article) {
     currentSrtTimes = [];
@@ -608,18 +623,34 @@ function playSentence(label, btnEl) {
 
     if (currentSentencePlaying) stopSentencePlayback();
 
-    audioVoice.currentTime = timingStart(timing);
-    audioVoice.play();
-    isPlaying = true;
-    playIcon.textContent = 'pause';
-
     btnEl.textContent = '■';
     btnEl.classList.add('playing');
     currentSentencePlaying = { label, endTime: timingEnd(timing), btnEl };
 
-
     currentPlaybackIndex = data.srtIndex;
     syncStateToUrl();
+
+    whenAudioReady(() => {
+        // 等待期間如果使用者已經切換播放別句，就不要再執行這個過期的播放請求
+        if (!currentSentencePlaying || currentSentencePlaying.label !== label) return;
+        audioVoice.currentTime = timingStart(timing);
+        audioVoice.play();
+        isPlaying = true;
+        playIcon.textContent = 'pause';
+        sentenceEndWatch();
+    });
+}
+
+// 用 requestAnimationFrame 逐格檢查是否到達句子結尾時間，
+// 精確度遠高於 timeupdate（瀏覽器對 timeupdate 的觸發頻率通常較低、間隔不固定，
+// 常常會「超過」設定的結尾時間才觸發，造成結尾時間不準確）。
+function sentenceEndWatch() {
+    if (!currentSentencePlaying) return;
+    if (audioVoice.currentTime >= currentSentencePlaying.endTime) {
+        stopSentencePlayback();
+        return;
+    }
+    requestAnimationFrame(sentenceEndWatch);
 }
 
 // ================= 段落模式：跟讀底線 =================
@@ -899,10 +930,6 @@ audioVoice.addEventListener('timeupdate', function() {
     if (!isNaN(percentage)) setProgress(percentage);
 
     updateReadingHighlight(audioVoice.currentTime);
-
-    if (currentSentencePlaying && audioVoice.currentTime >= currentSentencePlaying.endTime) {
-        stopSentencePlayback();
-    }
 });
 audioVoice.addEventListener('ended', function() {
     if (currentSentencePlaying) stopSentencePlayback();
@@ -962,7 +989,11 @@ function restorePlaybackPosition(index) {
 
     const timing = currentSrtTimes[index];
     if (timing) {
-        audioVoice.currentTime = timingStart(timing);
+        whenAudioReady(() => {
+            // 等待期間如果使用者已經切換到別的播放位置，就不要再執行這個過期的 seek
+            if (currentPlaybackIndex !== index) return;
+            audioVoice.currentTime = timingStart(timing);
+        });
     }
 }
 
