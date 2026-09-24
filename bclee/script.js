@@ -234,13 +234,7 @@ function hideAllViews() {
     audioVoice.pause();
     isPlaying = false; playIcon.textContent = 'play_arrow';
 
-    if (currentSentencePlaying) {
-        if (currentSentencePlaying.btnEl) {
-            currentSentencePlaying.btnEl.textContent = '▶';
-            currentSentencePlaying.btnEl.classList.remove('playing');
-        }
-        currentSentencePlaying = null;
-    }
+    if (currentSentencePlaying) stopSentencePlayback();
 
     clearReadingHighlight();
 }
@@ -572,7 +566,50 @@ function getSrtPathForArticle(article) {
 
 let currentSrtTimes = [];
 let srtLoadToken = 0;
-let currentSentencePlaying = null; // { label, endTime, btnEl }
+let currentSentencePlaying = null; // { label, btnEl, source }
+
+// ---- 斷句模式改用 Web Audio API 播放單句 ----
+// 原因：<audio> 元素對 mp3 這類壓縮格式做 currentTime 跳轉（seek）時，
+// 瀏覽器是用「平均位元率」去估計要跳到檔案的哪個位置，如果 mp3 是 VBR（可變位元率）
+// 又沒有精確的索引表，這個估計就會有落差，導致跳到的實際播放位置比預期早（或晚），
+// 而且愈後面的句子誤差可能愈明顯——這正是「段落模式（從頭連續播放、不用 seek）都準，
+// 斷句模式（每次都要 seek 到任意時間點）卻開頭結尾都偏早」的原因。
+// 解法：把整篇音檔完整解碼成 PCM 資料（AudioBuffer）後，用 AudioBufferSourceNode
+// 依「取樣點」播放指定片段，就不會再依賴壓縮格式的 seek 估算，時間才會準確。
+let audioCtx = null;
+const decodedBufferCache = new Map(); // 音檔路徑 -> 解碼完成的 AudioBuffer（Promise）
+const DECODED_CACHE_LIMIT = 3; // 最多快取幾篇文章的解碼結果，避免記憶體用量無限增加
+
+function getAudioContext() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
+
+function getDecodedAudioBuffer(url) {
+    if (decodedBufferCache.has(url)) return decodedBufferCache.get(url);
+
+    const promise = fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error('音檔下載失敗：' + url);
+            return res.arrayBuffer();
+        })
+        .then(arrayBuffer => getAudioContext().decodeAudioData(arrayBuffer))
+        .catch(err => {
+            decodedBufferCache.delete(url); // 失敗就不要快取，下次還能重試
+            throw err;
+        });
+
+    decodedBufferCache.set(url, promise);
+    if (decodedBufferCache.size > DECODED_CACHE_LIMIT) {
+        const oldestKey = decodedBufferCache.keys().next().value;
+        decodedBufferCache.delete(oldestKey);
+    }
+    return promise;
+}
 
 // 確保音檔已經載入到可以設定 currentTime 的狀態（readyState >= 1 = HAVE_METADATA）
 // 如果 src 剛換過、瀏覽器還沒讀完 metadata，直接設定 currentTime 常會被瀏覽器忽略，
@@ -619,8 +656,12 @@ function stopSentencePlayback() {
         currentSentencePlaying.btnEl.textContent = '▶';
         currentSentencePlaying.btnEl.classList.remove('playing');
     }
+    const source = currentSentencePlaying.source;
     currentSentencePlaying = null;
-    audioVoice.pause();
+    if (source) {
+        source.onended = null; // 避免手動停止時 onended 又觸發一次重複收尾
+        try { source.stop(); } catch (e) { /* 可能已經播完自動停止了，忽略即可 */ }
+    }
     isPlaying = false;
     playIcon.textContent = 'play_arrow';
 }
@@ -630,7 +671,7 @@ function playSentence(label, btnEl) {
     if (!data || data.srtIndex === undefined) return;
     const timing = currentSrtTimes[data.srtIndex];
     if (!timing) return;
-
+    if (!currentArticleData || !currentArticleData.audioVoice) return;
 
     if (currentSentencePlaying && currentSentencePlaying.label === label) {
         stopSentencePlayback();
@@ -638,35 +679,41 @@ function playSentence(label, btnEl) {
     }
 
     if (currentSentencePlaying) stopSentencePlayback();
+    audioVoice.pause(); // 避免跟整篇播放的聲音疊在一起
 
     btnEl.textContent = '■';
     btnEl.classList.add('playing');
-    currentSentencePlaying = { label, endTime: timingEnd(timing), btnEl };
+    currentSentencePlaying = { label, btnEl, source: null };
+    isPlaying = true;
+    playIcon.textContent = 'pause';
 
     currentPlaybackIndex = data.srtIndex;
     syncStateToUrl();
 
-    whenAudioReady(() => {
-        // 等待期間如果使用者已經切換播放別句，就不要再執行這個過期的播放請求
+    getDecodedAudioBuffer(currentArticleData.audioVoice).then(buffer => {
+        // 解碼期間使用者可能已經切到別句或離開文章，這種過期的播放請求就不要執行
         if (!currentSentencePlaying || currentSentencePlaying.label !== label) return;
-        audioVoice.currentTime = timingStart(timing);
-        audioVoice.play();
-        isPlaying = true;
-        playIcon.textContent = 'pause';
-        sentenceEndWatch();
-    });
-}
 
-// 用 requestAnimationFrame 逐格檢查是否到達句子結尾時間，
-// 精確度遠高於 timeupdate（瀏覽器對 timeupdate 的觸發頻率通常較低、間隔不固定，
-// 常常會「超過」設定的結尾時間才觸發，造成結尾時間不準確）。
-function sentenceEndWatch() {
-    if (!currentSentencePlaying) return;
-    if (audioVoice.currentTime >= currentSentencePlaying.endTime) {
-        stopSentencePlayback();
-        return;
-    }
-    requestAnimationFrame(sentenceEndWatch);
+        const ctx = getAudioContext();
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+
+        const start = timingStart(timing);
+        const duration = Math.max(0, timingEnd(timing) - start);
+
+        source.onended = () => {
+            if (currentSentencePlaying && currentSentencePlaying.source === source) {
+                stopSentencePlayback();
+            }
+        };
+
+        currentSentencePlaying.source = source;
+        source.start(0, start, duration); // 依取樣點精準播放，播完會自動觸發 onended
+    }).catch(err => {
+        console.warn('句子音檔解碼失敗：', err);
+        if (currentSentencePlaying && currentSentencePlaying.label === label) stopSentencePlayback();
+    });
 }
 
 // ================= 段落模式：跟讀底線 =================
@@ -926,20 +973,14 @@ document.getElementById('fontSizeMinusBtn').addEventListener('click', () => {
 });
 
 playPauseBtn.addEventListener('click', function() {
+    if (currentSentencePlaying) stopSentencePlayback();
+
     if (isPlaying) {
         audioVoice.pause(); playIcon.textContent = 'play_arrow';
     } else {
         audioVoice.play(); playIcon.textContent = 'pause';
     }
     isPlaying = !isPlaying;
-
-    if (currentSentencePlaying) {
-        if (currentSentencePlaying.btnEl) {
-            currentSentencePlaying.btnEl.textContent = '▶';
-            currentSentencePlaying.btnEl.classList.remove('playing');
-        }
-        currentSentencePlaying = null;
-    }
 });
 audioVoice.addEventListener('loadedmetadata', function() {
     durationLabel.textContent = formatTime(audioVoice.duration);
@@ -957,18 +998,12 @@ audioVoice.addEventListener('ended', function() {
     clearReadingHighlight();
 });
 progressBar.addEventListener('input', function() {
+    if (currentSentencePlaying) stopSentencePlayback();
+
     setProgress(progressBar.value);
     const seekTime = (progressBar.value / 100) * audioVoice.duration;
     audioVoice.currentTime = seekTime;
     currentTimeLabel.textContent = formatTime(seekTime);
-
-    if (currentSentencePlaying) {
-        if (currentSentencePlaying.btnEl) {
-            currentSentencePlaying.btnEl.textContent = '▶';
-            currentSentencePlaying.btnEl.classList.remove('playing');
-        }
-        currentSentencePlaying = null;
-    }
 });
 
 // ================= 7. 網址參數與瀏覽器歷史紀錄 =================
