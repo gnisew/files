@@ -1073,8 +1073,31 @@ function applyDataParam(dataStr) {
     }
 }
 
+// ===== 新增：首頁橫幅每次載入隨機顯示 data.js 內的圖片 =====
+function setRandomBanner() {
+    if (typeof articlesData === 'undefined' || !articlesData.length) return;
+
+    // 只從指定的文章編號中挑選（要增減首頁圖片，改這個陣列即可）
+    const BANNER_IDS = [3, 5, 8, 9, 12, 13, 14, 15, 18, 19, 21, 22, 23, 25, 26, 31, 34, 35];
+    const images = articlesData
+        .filter(a => BANNER_IDS.includes(Number(a.id.replace('article_', ''))))
+        .map(a => a.image)
+        .filter(Boolean);
+    if (!images.length) return;
+
+    const randomSrc = images[Math.floor(Math.random() * images.length)];
+
+    // 先預載圖片，載入成功才替換；失敗就保留灰底
+    const img = new Image();
+    img.onload = () => {
+        homeBanner.style.backgroundImage = `url('${randomSrc}')`;
+    };
+    img.src = randomSrc;
+}
+
 // 1. 網頁初次載入時，檢查網址參數
 window.addEventListener('DOMContentLoaded', () => {
+    setRandomBanner();   // ← 新增：隨機橫幅
     const urlParams = new URLSearchParams(window.location.search);
     const articleId = urlParams.get('id');
     const viewName = urlParams.get('view');
