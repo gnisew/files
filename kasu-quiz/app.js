@@ -1,6 +1,7 @@
 'use strict';
 /* ===== 工具 ===== */
 const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const TONES = 'ˊˇˋˆ', rTone = /[ˊˇˋˆ]+$/;
 const rnd = a => a[Math.random() * a.length | 0];
@@ -132,7 +133,7 @@ function startQuiz(cfg) {
   const { mode, n, ts } = cfg;
   DONE = cfg.skip ? new Set(Object.keys(store.get('hk_done', {}))) : new Set();
   const qs = mode === 'p' ? genPredict(n, cfg.mix, ts) : mode === 'h' ? genHist(cfg.yr, n, ts) : mode === 'w' ? genWrong(n, ts) : genSim(mode[1], n, ts);
-  if (!qs.length) return alert('沒有符合條件的題目（錯題本可能是空的）。');
+  if (!qs.length) return void askDlg('沒有符合條件的題目（錯題本可能是空的）。', '知道了', null);
   Q = { chk: qs.map(() => false), lt: qs.map(() => []), rep: cfg.skip ? qs.filter(isDone).length : 0, cfg, qs, ans: Array(qs.length).fill(''), i: 0, t0: Date.now(), done: false };
   Q.tm = setInterval(() => { const c = $('#clk'); if (c) c.textContent = '⏱ ' + fmt((Date.now() - Q.t0) / 1000); }, 1000);
   viewQ();
@@ -146,19 +147,27 @@ function viewQ() {
   const nav = qs.map((_, k) => `<button data-k="${k}" class="${k === i ? 'cur ' : ''}${ins && Q.chk[k] ? (isOk(qs[k], ans[k]) ? 'ok' : 'ng') : ans[k] ? 'done' : ''}">${k + 1}</button>`).join('');
   const am = Q.cfg.am === 'l' ? (q.type === '音' ? 'l' : 'c') : Q.cfg.am;   // 拼字組合只用在字音題
   const input = am === 'c'
-    ? `<div class="opts">${options(q).map(o => `<button class="opt ${lock ? (o === q.ans ? 'right' : ans[i] === o ? 'wrong' : '') : ans[i] === o ? 'sel' : ''}" data-v="${esc(o)}" ${lock ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
+    ? `<div class="opts">${options(q).map((o, n) => `<button class="opt ${lock ? (o === q.ans ? 'right' : ans[i] === o ? 'wrong' : '') : ans[i] === o ? 'sel' : ''}" data-v="${esc(o)}" ${lock ? 'disabled' : ''}><span class="no">${n + 1}</span>${esc(o)}</button>`).join('')}</div>`
     : am === 'l' ? letterUI(q, i, lock)
-    : `<input class="ans" id="ai" value="${esc(ans[i])}" ${lock ? 'readonly' : ''} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${q.type === '形' ? '輸入漢字' : '輸入拼音，如 ziaˊ'}">
+    : `<input class="ans${lock ? (right ? ' ok' : ' ng') : ''}" id="ai" value="${esc(ans[i])}" ${lock ? 'readonly' : ''} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${q.type === '形' ? '輸入漢字' : '輸入拼音，如 ziaˊ'}">
        ${q.type === '音' ? `<div class="tones">${[...TONES].map(t => `<button data-t="${t}" ${lock ? 'disabled' : ''}>${t}</button>`).join('')}</div>` : ''}`;
+  const fill = `<span class="fill">${esc(q.ans)}</span>`, show = lock && am !== 'c';   // 填寫／拼字題檢查後：頂端空格填上正確答案
+  const stemH = show && q.type === '形' ? esc(q.stem).replace('□', fill) : esc(q.stem);
+  const pyH = show && q.type === '音' ? esc(q.py).replace('＿＿＿', fill) : esc(q.py);
+  const unfinished = ans.some(a => !a);   // 還有題目沒作答：最後一題不顯示「交卷」
+  const nxBtn = last && unfinished ? '' : `<button class="btn" id="nx" ${ins && am === 'c' && !lock ? 'disabled' : ''}>${last ? '交卷' : '下一題'}</button>`;
+  const actions = am === 'c'
+    // 選擇題：點選即作答並自動下一題；只有「立即顯示對錯」鎖定後、或最後一題已作答時才需要按鈕
+    ? ((ins || (last && ans[i])) && nxBtn ? `<div class="row actions">${nxBtn}</div>` : '')
+    : `<div class="row actions"><button class="btn ghost" id="pv" ${i ? '' : 'disabled'}>上一題</button>${am === 'l' ? '' : `<button class="btn ghost" id="clr" ${ans[i] && !lock ? '' : 'disabled'}>清除作答</button>`}
+    ${ins && !lock ? `<button class="btn" id="chk" ${ans[i] ? '' : 'disabled'}>檢查答案</button>` : ''}
+    ${nxBtn}</div>`;
   $('#quiz').innerHTML = `<div class="card"><div class="muted">第 ${i + 1} / ${qs.length} 題　<span class="tag">${q.type === '形' ? '字形' : '字音'}</span><span id="clk"></span></div>
     <div class="bar"><i style="width:${cnt / qs.length * 100}%"></i></div>
     ${Q.rep ? `<div class="muted">未答對過的題目不足，已補入 ${Q.rep} 題曾答對的題目。</div>` : ''}
     <div class="muted">${q.type === '形' ? '請寫出 □ 的漢字' : '請寫出【】字的拼音（含聲調）'}</div>
-    <div class="stem">${esc(q.stem)}</div><div class="py">${esc(q.py)}</div>${input}
-    ${lock ? `<div class="fb ${right ? 'ok' : 'ng'}">${right ? '✔ 答對了' : '✘ 答錯了　正確答案：<b>' + esc(q.ans) + '</b>'}<br><span class="muted">${esc(q.word)}（${esc(q.full)}）</span></div>` : ''}
-    <div class="row actions"><button class="btn ghost" id="pv" ${i ? '' : 'disabled'}>上一題</button><button class="btn ghost" id="clr" ${ans[i] && !lock ? '' : 'disabled'}>清除作答</button>
-    ${ins && am !== 'c' && !lock ? `<button class="btn" id="chk" ${ans[i] ? '' : 'disabled'}>檢查答案</button>` : ''}
-    <button class="btn" id="nx">${last ? '交卷' : '下一題'}</button></div></div>
+    <div class="stem">${stemH}</div><div class="py">${pyH}</div>${input}
+    ${actions}</div>
     <div class="card"><div class="muted">題號（已作答 ${cnt} 題${ins ? `；已檢查答對 ${qs.filter((x, k) => Q.chk[k] && isOk(x, ans[k])).length} / ${Q.chk.filter(Boolean).length} 題` : ''}）</div><div class="grid">${nav}</div><button class="btn ghost" id="sub">提前交卷</button></div>`;
   const ai = $('#ai'); if (ai) { ai.focus(); ai.oninput = () => { Q.ans[Q.i] = ai.value; $('#clr').disabled = !ai.value; const c = $('#chk'); if (c) c.disabled = !ai.value; };
     ai.onkeydown = e => e.key === 'Enter' && $(ins && !lock ? '#chk' : '#nx').click(); }
@@ -168,7 +177,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const ins = Q.cfg.instant, lock = ins && Q.chk[Q.i];
   if (lock && (b.dataset.v !== undefined || b.dataset.l !== undefined || b.dataset.lb || b.dataset.t || b.id === 'clr')) return;   // 已檢查的題目不能再改
-  if (b.dataset.v !== undefined) { Q.ans[Q.i] = ins ? b.dataset.v : (Q.ans[Q.i] === b.dataset.v ? '' : b.dataset.v); if (ins) Q.chk[Q.i] = true; viewQ(); }   // 立即模式：點選即檢查；一般模式：再點一次＝取消作答
+  if (b.dataset.v !== undefined) { Q.ans[Q.i] = b.dataset.v; if (ins) Q.chk[Q.i] = true; else if (Q.i < Q.qs.length - 1) Q.i++; viewQ(); }   // 立即模式：點選即檢查（按下一題繼續）；一般模式：點選即作答並自動下一題
   else if (b.id === 'chk') { Q.chk[Q.i] = true; viewQ(); }
   else if (b.dataset.l !== undefined) { Q.lt[Q.i].push(+b.dataset.l); setLetters(); viewQ(); }
   else if (b.dataset.lb) { Q.lt[Q.i].pop(); setLetters(); viewQ(); }
@@ -179,25 +188,48 @@ document.addEventListener('click', e => {
   else if (b.id === 'nx') { Q.i < Q.qs.length - 1 ? (Q.i++, viewQ()) : submit(); }
   else if (b.id === 'sub') submit();
 });
+
+/* 鍵盤：選擇題按 1～9 選項；有「下一題／交卷」按鈕時按 Enter 或 → 前進 */
+document.addEventListener('keydown', e => {
+  if (!Q || Q.done || $('#quiz').hidden || $('.dlg-mask') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if (/^[1-9]$/.test(e.key)) { const b = $$('#quiz .opt')[+e.key - 1]; if (b && !b.disabled) { e.preventDefault(); b.click(); } }
+  else if (e.key === 'Enter' || e.key === 'ArrowRight') { const b = $('#nx'); if (b) { e.preventDefault(); b.click(); } }
+});
 /* 拼字組合：把答案拆成字母（含聲調符號）亂數排列，依序點選拼出 */
 function letterUI(q, i, lock) {
   if (!q.lets) { let t, n = 0; do { t = shuffle(Array.from(q.ans)); } while (t.length > 1 && t.join('') === q.ans && ++n < 10); q.lets = t; }
   const ch = Q.lt[i], used = new Set(ch);
-  return `<div class="built">${ch.length ? esc(ch.map(k => q.lets[k]).join('')) : '<span class="muted">點下方字母，依序拼出讀音</span>'}</div>
+  return `<div class="built${lock ? (isOk(q, Q.ans[i]) ? ' b-ok' : ' b-ng') : ''}">${ch.length ? esc(ch.map(k => q.lets[k]).join('')) : '<span class="muted">點下方字母，依序拼出讀音</span>'}</div>
     <div class="letters">${q.lets.map((c, k) => `<button class="lt" data-l="${k}" ${used.has(k) || lock ? 'disabled' : ''}>${esc(c)}</button>`).join('')}</div>
     <button class="btn ghost" data-lb="1" ${ch.length && !lock ? '' : 'disabled'}>退一格</button>`;
 }
-const setLetters = () => { const q = Q.qs[Q.i]; Q.ans[Q.i] = Q.lt[Q.i].map(k => q.lets[k]).join(''); };
-function submit() {
+// 字母按鈕是完整的答案字母：全部點完才算作答（才能檢查），沒點完視為尚未作答
+const setLetters = () => { const q = Q.qs[Q.i]; Q.ans[Q.i] = Q.lt[Q.i].length === q.lets.length ? Q.lt[Q.i].map(k => q.lets[k]).join('') : ''; };
+/* 自訂對話框（取代瀏覽器內建 confirm / alert）；回傳 Promise<boolean> */
+function askDlg(msg, okText = '確定', cancelText = '取消') {
+  return new Promise(res => {
+    if ($('.dlg-mask')) return res(false);
+    const m = document.createElement('div'); m.className = 'dlg-mask';
+    m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><p>${esc(msg)}</p><div class="dlg-btns">${cancelText ? `<button class="btn ghost" data-r="0">${esc(cancelText)}</button>` : ''}<button class="btn dark" data-r="1">${esc(okText)}</button></div></div>`;
+    const close = v => { document.removeEventListener('keydown', kd, true); m.remove(); res(v); };
+    const kd = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); } };
+    document.addEventListener('keydown', kd, true);
+    m.onclick = e => { const b = e.target.closest('button'); if (b) close(b.dataset.r === '1'); else if (e.target === m && cancelText) close(false); };
+    document.body.appendChild(m); $('.dlg .dark', m).focus();
+  });
+}
+async function submit() {
   const blank = Q.ans.filter(a => !a).length;
-  if (blank && !confirm(`還有 ${blank} 題未作答，確定交卷？`)) return;
+  if (blank && !(await askDlg(`還有 ${blank} 題未作答，確定交卷？`, '確定交卷', '繼續作答'))) return;
+  if (Q.done) return;
   clearInterval(Q.tm); Q.done = true; Q.sec = Math.round((Date.now() - Q.t0) / 1000);
   Q.res = Q.qs.map((q, k) => isOk(q, Q.ans[k]));
   const W = store.get('hk_wrong', {}), D = store.get('hk_done', {});
   Q.qs.forEach((q, k) => { const key = qk(q);
     if (!Q.ans[k]) return;                                   // 未作答：不進錯題本，也不算答對
     if (Q.res[k]) { D[key] = 1; if (Q.cfg.mode === 'w') delete W[key]; }
-    else { W[key] = { ...q, opts: null, lets: null }; delete D[key]; } });
+    else { const p = W[key]; W[key] = { ...q, opts: null, lets: null, wn: (p ? (p.wn || 1) : 0) + 1, wt: Date.now() }; delete D[key]; } });
   store.set('hk_wrong', W); store.set('hk_done', D);
   const L = store.get('hk_log', []); L.unshift({ t: new Date().toLocaleString('zh-TW'), mode: modeName(Q.cfg), n: Q.qs.length, s: Q.res.filter(Boolean).length, sec: Q.sec });
   store.set('hk_log', L.slice(0, 100));
@@ -205,19 +237,33 @@ function submit() {
 }
 const modeName = c => ({ p: '115 預測題', h: '歷屆 ' + c.yr, w: '錯題本' }[c.mode] || '模擬卷 ' + c.mode[1]);
 
+/* ===== 結果列：單行詞＋拼音（答案處標色）、答錯才顯示對照、來源資訊合併成一行 ===== */
+function resultRow(q, k, a, ok) {
+  const cs = Array.from(q.word), ps = String(q.full || '').trim().split(/\s+/);
+  const idx = Array.from(q.stem).findIndex(x => x === '□' || x === '【');
+  const aligned = ps.length === cs.length;
+  const word = cs.map((c, i) => i === idx ? `<mark>${esc(c)}</mark>` : esc(c)).join('');
+  const py = aligned ? ps.map((p, i) => i === idx ? `<mark>${esc(p)}</mark>` : esc(p)).join(' ') : esc(q.full);
+  const meta = [q.src + (q.prob ? ' ' + pct(q.prob) : '')];
+  if (q.years && !/歷屆/.test(q.src)) meta.push('歷屆 ' + q.years);
+  const diff = ok ? '' : `<div class="rs-d">${a ? `你填 <s>${esc(a)}</s> → ` : '未作答　'}正確 <b>${esc(q.ans)}</b></div>`;
+  return `<div class="rs-row ${ok ? 'r-ok' : 'r-ng'}"><div class="rs-n"><b>${k + 1}</b><span class="tag ${ok ? 'ok' : 'ng'}">${ok ? '答對' : a ? '答錯' : '未答'}</span></div>
+    <div class="rs-b"><div class="rs-w">${word}<span class="rs-py">${py}</span><span class="rs-t">${q.type === '音' ? '字音' : '字形'}</span></div>${diff}
+    <div class="rs-m">${meta.map(esc).join('　·　')}</div></div></div>`;
+}
+
 /* ===== 測驗：結果 ===== */
 function viewResult(onlyWrong) {
   const { qs, ans, res } = Q, s = res.filter(Boolean).length, by = t => { const k = qs.map((q, i) => i).filter(i => qs[i].type === t); return k.length ? `${k.filter(i => res[i]).length}/${k.length}` : '—'; };
   $('#quiz').innerHTML = `<div class="card"><div class="score">${s} <small style="font-size:1rem">/ ${qs.length} 分（${Math.round(s / qs.length * 100)}%）</small></div>
     <p class="muted">${esc(modeName(Q.cfg))}　用時 ${fmt(Q.sec)}　字形 ${by('形')}　字音 ${by('音')}</p>
     <div class="row"><button class="btn" id="again">同設定再產生一份</button><button class="btn ghost" id="back">回設定</button>
-    <button class="btn ghost" id="flt">${onlyWrong ? '顯示全部' : '只看錯題'}</button></div>
+    <button class="btn ghost" id="flt">${onlyWrong ? '顯示全部' : '只看錯題'}</button>
+    <button class="btn ghost" id="mt">${store.get('hk_meta', false) ? '隱藏來源資訊' : '顯示來源資訊'}</button></div>
     <p class="muted">未作答的題目不會加入錯題本。</p></div>
-    <div class="card">${qs.map((q, k) => (onlyWrong && res[k]) ? '' : `<div class="rv"><span class="tag ${res[k] ? 'ok' : 'ng'}">${res[k] ? '答對' : ans[k] ? '答錯' : '未答'}</span>
-      <b>${k + 1}.</b> <span style="font-size:1.2rem">${esc(q.stem)}</span> <span class="muted">${esc(q.py)}</span><br>
-      <span class="muted">你的答案：${esc(ans[k] || '（未答）')}　正確答案：<b style="color:var(--ok)">${esc(q.ans)}</b>　完整：${esc(q.word)}（${esc(q.full)}）
-      <br><span class="tag">${esc(q.src)}</span>${q.prob ? `<span class="tag">預測 ${pct(q.prob)}</span>` : ''}<span class="tag">歷屆：${esc(q.years || '—')}</span></span></div>`).join('')}</div>`;
+    <div class="card rs-list${store.get('hk_meta', false) ? '' : ' hide-meta'}">${qs.map((q, k) => (onlyWrong && res[k]) ? '' : resultRow(q, k, ans[k], res[k])).join('') || '<div class="muted">全部答對，沒有錯題 🎉</div>'}</div>`;
   $('#again').onclick = () => startQuiz(Q.cfg); $('#back').onclick = viewSetup; $('#flt').onclick = () => viewResult(!onlyWrong);
+  $('#mt').onclick = () => { const on = !store.get('hk_meta', false); store.set('hk_meta', on); $('.rs-list').classList.toggle('hide-meta', !on); $('#mt').textContent = on ? '隱藏來源資訊' : '顯示來源資訊'; };
 }
 
 /* ===== 詞與拼音對照（惰性建立）：歷屆題優先，再用詞庫補 ===== */
@@ -340,13 +386,14 @@ function importData(txt, mode) {
 }
 
 /* ===== 紀錄・錯題本 ===== */
+let WPG = 1, WSORT = store.get('hk_wsort', 't'); const WSZ = 20;
 function viewLog(msg = '') {
   const L = store.get('hk_log', []), W = Object.values(store.get('hk_wrong', {})), avg = L.length ? Math.round(L.reduce((a, x) => a + x.s / x.n, 0) / L.length * 100) : 0;
   $('#log').innerHTML = storeWarn() + `<div class="card"><b>作答紀錄</b>　<span class="muted">共 ${L.length} 次，平均 ${avg}%</span>
     <div class="tbl"><table><tr><th>時間</th><th>來源</th><th>得分</th><th>用時</th></tr>${L.slice(0, 30).map(x => `<tr><td>${esc(x.t)}</td><td>${esc(x.mode)}</td><td>${x.s}/${x.n}</td><td>${fmt(x.sec)}</td></tr>`).join('')}</table></div>
     <button class="btn ghost" id="cl">清除紀錄</button></div>
     <div class="card"><b>錯題本</b>　<span class="muted">${W.length} 題（到「測驗」選「錯題本複習」，答對後自動移除）</span>
-    <div class="tbl"><table><tr><th>題型</th><th>詞</th><th>拼音</th><th>答案</th></tr>${W.map(q => `<tr><td>${q.type === '形' ? '字形' : '字音'}</td><td>${esc(q.word)}</td><td>${esc(q.full)}</td><td>${esc(q.ans)}</td></tr>`).join('')}</table></div>
+    <div id="wb"></div>
     <button class="btn ghost" id="cw">清空錯題本</button></div>
     <div class="card"><b>已答對題目</b>　<span class="muted">共 ${Object.keys(store.get('hk_done', {})).length} 題（自動出題時預設略過）</span><br><br><button class="btn ghost" id="cd">清除已答對記錄</button></div>
     <div class="card"><b>備份與還原</b>　<span class="muted">換裝置或清除瀏覽器資料前先匯出；到新裝置再匯入。</span>
@@ -358,6 +405,26 @@ function viewLog(msg = '') {
     <div id="pz" hidden><textarea id="bk" rows="4" placeholder="貼上備份碼" style="width:100%;margin-top:10px"></textarea>
     <div class="row" id="imrow" style="margin-top:8px"><button class="btn" id="im">匯入貼上內容</button></div></div>
     <p class="muted" id="bm">${esc(msg)}</p></div>`;
+  /* 錯題本：排序＋分頁（每頁 WSZ 題）。舊資料沒有次數／時間：次數視為 1，時間依原本加入順序排在最舊 */
+  const base = W.map((q, i) => ({ q, n: q.wn || 1, t: q.wt ?? i }));
+  const tone = /[ˊˇˋˆ`´^]+/g, py = q => String(q.full || '').toLowerCase().replace(tone, '');
+  const SORTS = {
+    t: ['時間（新 → 舊）', (x, y) => y.t - x.t],
+    n: ['錯的次數（多 → 少）', (x, y) => y.n - x.n || y.t - x.t],
+    p: ['拼音（A → Z）', (x, y) => py(x.q).localeCompare(py(y.q)) || String(x.q.full).localeCompare(String(y.q.full)) || y.t - x.t],
+    h: ['漢字（字碼序）', (x, y) => (x.q.word < y.q.word ? -1 : x.q.word > y.q.word ? 1 : 0) || y.t - x.t]
+  };
+  const drawW = () => {
+    if (!SORTS[WSORT]) WSORT = 't';
+    const WL = base.slice().sort(SORTS[WSORT][1]), pages = Math.max(1, Math.ceil(WL.length / WSZ)); WPG = Math.min(Math.max(1, WPG), pages);
+    const from = (WPG - 1) * WSZ, pg = pages > 1 ? `<div class="pager"><button data-p="1" ${WPG <= 1 ? 'disabled' : ''}>«</button><button data-p="${WPG - 1}" ${WPG <= 1 ? 'disabled' : ''}>‹</button>
+      <span>第 ${WPG} / ${pages} 頁</span><button data-p="${WPG + 1}" ${WPG >= pages ? 'disabled' : ''}>›</button><button data-p="${pages}" ${WPG >= pages ? 'disabled' : ''}>»</button></div>` : '';
+    const sort = WL.length > 1 ? `<label class="ws">排序<select id="ws">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === WSORT ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></label>` : '';
+    $('#wb').innerHTML = WL.length ? `${sort}${pg}<div class="tbl"><table><tr><th>#</th><th>題型</th><th>詞</th><th>拼音</th><th>答案</th><th>錯次</th></tr>${WL.slice(from, from + WSZ).map(({ q, n }, j) => `<tr><td class="muted">${from + j + 1}</td><td>${q.type === '形' ? '字形' : '字音'}</td><td>${esc(q.word)}</td><td>${esc(q.full)}</td><td>${esc(q.ans)}</td><td>${n}</td></tr>`).join('')}</table></div>${pg}` : '<p class="muted">目前沒有錯題。</p>';
+  };
+  $('#wb').onclick = e => { const b = e.target.closest('button[data-p]'); if (!b) return; WPG = +b.dataset.p; drawW(); if (b.closest('.pager') !== $('#wb .pager')) $('#wb').scrollIntoView(); };
+  $('#wb').onchange = e => { if (e.target.id === 'ws') { WSORT = e.target.value; store.set('hk_wsort', WSORT); WPG = 1; drawW(); } };
+  drawW();
   $('#cl').onclick = () => { store.set('hk_log', []); viewLog(); };
   $('#ex').onclick = () => {   // 只下載檔案，不產生備份碼
     try { const u = URL.createObjectURL(new Blob([exportData()], { type: 'application/json' })), a = document.createElement('a');
@@ -374,6 +441,6 @@ function viewLog(msg = '') {
   $('#imf').onchange = e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader();
     rd.onload = () => { e.target.value = ''; run(rd.result); }; rd.onerror = () => { e.target.value = ''; $('#bm').textContent = '匯入失敗：無法讀取這個檔案'; }; rd.readAsText(f); };
   $('#cd').onclick = () => { store.set('hk_done', {}); viewLog(); };
-  $('#cw').onclick = () => { store.set('hk_wrong', {}); viewLog(); };
+  $('#cw').onclick = () => { store.set('hk_wrong', {}); WPG = 1; viewLog(); };
 }
 viewSetup();

@@ -76,3 +76,60 @@ td.w{white-space:normal;min-width:240px}.wc{display:inline-block;margin:2px 14px
 .letters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .lt{font:inherit;font-size:1.6rem;min-width:52px;height:52px;border:2px solid var(--line);background:var(--bg);color:var(--tx);border-radius:10px;cursor:pointer}
 .lt:disabled{opacity:.25;cursor:default}
+
+/* 結果列表 */
+.rs-list{padding:4px 14px}
+.rs-row{display:flex;gap:12px;padding:12px 0 12px 10px;border-bottom:1px solid var(--line);border-left:4px solid transparent;margin-left:-10px}
+.rs-row:last-child{border-bottom:0}
+.rs-row.r-ng{border-left-color:var(--ng)}.rs-row.r-ok{border-left-color:var(--ok)}
+.rs-n{flex:0 0 58px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.rs-n b{font-size:1.05rem;line-height:1}.rs-n .tag{margin:0;padding:0 8px}
+.rs-b{flex:1;min-width:0}
+.rs-w{font-size:1.45rem;line-height:1.4;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px}
+.rs-py{font-size:1rem;color:var(--sub)}
+.rs-t{margin-left:auto;font-size:.72rem;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:0 8px}
+.rs-row.r-ok mark{color:var(--ok);border-color:var(--ok)}.rs-row.r-ng mark{color:var(--ok);border-color:var(--ok)}
+.rs-d{margin-top:2px;font-size:.98rem}.rs-d s{color:var(--ng);text-decoration-thickness:2px}.rs-d b{color:var(--ok);font-size:1.15rem}
+.rs-m{margin-top:3px;font-size:.8rem;color:var(--sub)}
+@media(max-width:600px){.rs-n{flex-basis:48px}.rs-w{font-size:1.3rem}}
+
+.rs-list.hide-meta .rs-m{display:none}
+
+/* 選項編號（電腦版按數字鍵選擇） */
+.opt{position:relative}.opt .no{position:absolute;left:9px;top:5px;font-size:.72rem;line-height:1;color:var(--sub);font-weight:400}
+@media(hover:none){.opt .no{display:none}}
+
+/* 尚未作答時的「下一題」：灰色不可按 */
+#nx:disabled{background:var(--line);border-color:var(--line);color:var(--sub);opacity:1;cursor:not-allowed}
+
+/* 「下一題／檢查答案／交卷」：柔和的暖灰（非紅、非黑），避免被誤認為答錯 */
+:root{--nx-bg:#e8e4d9;--nx-bd:#d3cebf;--nx-tx:#3b382f;--nx-hv:#dfdacc;--ring:rgba(112,104,84,.28);--ring-bd:#a39d8b}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--nx-bg:#34343a;--nx-bd:#46464d;--nx-tx:#e6e6e2;--nx-hv:#3d3d44;--ring:rgba(200,196,180,.25);--ring-bd:#7d7d84}}
+:root[data-theme="dark"]{--nx-bg:#34343a;--nx-bd:#46464d;--nx-tx:#e6e6e2;--nx-hv:#3d3d44;--ring:rgba(200,196,180,.25);--ring-bd:#7d7d84}
+.btn.dark,#nx,#chk{background:var(--nx-bg);border-color:var(--nx-bd);color:var(--nx-tx);font-weight:600;transition:background .15s}
+.btn.dark:hover,#nx:hover:not(:disabled),#chk:hover:not(:disabled){background:var(--nx-hv)}
+#nx:disabled,#chk:disabled{background:transparent;border:1px dashed var(--line);color:var(--sub);opacity:.7;cursor:not-allowed;font-weight:400}
+/* 題號格：立即顯示模式下，已檢查的題目標示對錯（先前被 .grid button 的底色蓋掉） */
+.grid button.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok);font-weight:700}
+.grid button.ng{background:var(--ngbg);border-color:var(--ng);color:var(--ng);font-weight:700}
+.grid button.cur{outline:0;border-color:var(--ring-bd);box-shadow:0 0 0 3px var(--ring)}
+.grid button.ok.cur{border-color:var(--ok)}.grid button.ng.cur{border-color:var(--ng)}
+.grid button.done{background:var(--nx-bg);border-color:var(--nx-bd);color:var(--nx-tx)}
+/* 自訂對話框 */
+.dlg-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.dlg{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:14px;padding:20px 22px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.dlg p{margin:0 0 18px;font-size:1.05rem}
+.dlg-btns{display:flex;gap:10px;justify-content:flex-end}.dlg-btns .btn{flex:1}
+
+.ws{flex-direction:row;align-items:center;gap:8px;margin:10px 0 4px}
+
+/* 填寫／拼字題的對錯：直接標示在答案上，答錯時才多一行正確答案 */
+.built.b-ok{color:var(--ok);border-bottom:2px solid var(--ok)}
+.built.b-ng{color:var(--ng);border-bottom:2px solid var(--ng)}
+.ans.ok,.ans.ng{border-width:2px}
+.fb2{margin-top:10px;color:var(--sub)}.fb2 b{color:var(--ok);font-size:1.25rem;margin-left:4px}
+
+/* 檢查後：頂端空格填入正確答案（綠）；答錯的作答以紅色刪除線標示 */
+.fill{color:var(--ok);font-weight:700;border-bottom:3px solid var(--ok);letter-spacing:normal;padding:0 2px}
+.built.b-ng{color:var(--ng);border-bottom-color:var(--ng);text-decoration:line-through;text-decoration-thickness:3px}
+.ans.ng{text-decoration:line-through;text-decoration-thickness:2px}
