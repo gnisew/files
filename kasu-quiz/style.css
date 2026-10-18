@@ -133,3 +133,24 @@ td.w{white-space:normal;min-width:240px}.wc{display:inline-block;margin:2px 14px
 .fill{color:var(--ok);font-weight:700;border-bottom:3px solid var(--ok);letter-spacing:normal;padding:0 2px}
 .built.b-ng{color:var(--ng);border-bottom-color:var(--ng);text-decoration:line-through;text-decoration-thickness:3px}
 .ans.ng{text-decoration:line-through;text-decoration-thickness:2px}
+
+.kbhint{margin-top:10px;padding:8px 10px;font-size:.8rem;background:var(--bg);border:1px solid var(--line);border-radius:8px}.kbhint b{color:var(--tx)}
+@media(hover:none){.kbhint,.kbq{display:none}}
+/* 右上角「？」說明按鈕 */
+.card:has(.kbq){position:relative}
+.kbq{position:absolute;top:10px;right:10px;width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--bg);color:var(--sub);font:inherit;font-size:.9rem;cursor:pointer}
+.kbq.on,.kbq:hover{color:var(--tx);border-color:var(--ring-bd)}
+/* 拼字組合：聲調鈕左上角的淺色鍵盤字母；頂端空格即時顯示已拼內容 */
+.lt{position:relative}.lt .no{position:absolute;left:6px;top:4px;font-size:.68rem;line-height:1;color:var(--sub);opacity:.6;font-weight:400}
+.live{color:var(--tx);font-weight:700;border-bottom:3px solid var(--line);padding:0 2px}
+/* 首頁設定：分組、恢復預設放標題列右側 */
+.set-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.set-h h2{margin:0}
+.link{font:inherit;font-size:.88rem;background:none;border:0;color:var(--sub);cursor:pointer;padding:6px 4px;text-decoration:underline;text-underline-offset:3px}.link:hover{color:var(--pri)}
+.set-g{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.set-t{font-size:.8rem;font-weight:700;color:var(--sub);letter-spacing:.08em;margin-bottom:10px}
+.ck{flex-direction:row;align-items:center;gap:8px;color:var(--tx);font-size:.95rem}.row>.ck{flex:0 0 auto}.set-h{margin-bottom:10px}.ck input{width:20px;height:20px}
+.btn.go{width:100%}
+/* 表格裡標示的字：只上色加底線，不粗體 */
+td mark{font-weight:400}
+/* 相關詞的漢字：不粗體，筆畫才看得清楚 */
+.wc b{font-weight:400}

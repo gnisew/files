@@ -4,6 +4,10 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const TONES = 'ˊˇˋˆ', rTone = /[ˊˇˋˆ]+$/;
+// 鍵盤聲調：z ˊ　v ˇ　s ˋ　x ˆ　f ⁺（含資料中可能出現的其他寫法）
+const TONEKEY = { z: 'ˊ', v: 'ˇ', s: 'ˋ', x: 'ˆ', f: '⁺' };
+const TONEALT = { 'ˊ': 'ˊ´\'', 'ˇ': 'ˇ', 'ˋ': 'ˋ`', 'ˆ': 'ˆ^', '⁺': '⁺+˖' };
+const toneOf = c => Object.keys(TONEALT).find(t => TONEALT[t].includes(c)) || '';
 const rnd = a => a[Math.random() * a.length | 0];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pct = p => (p * 100).toFixed(1) + '%';
@@ -110,7 +114,8 @@ let Q = null;
 function viewSetup() {
   Q = null;
   const yrs = [...new Set(DB.hist.map(r => r[0]))].sort((a, b) => b - a), wn = Object.keys(store.get('hk_wrong', {})).length;
-  $('#quiz').innerHTML = storeWarn() + `<div class="card"><h2 style="margin-top:0">開始測驗</h2><div class="row">
+  $('#quiz').innerHTML = storeWarn() + `<div class="card"><div class="set-h"><h2>開始測驗</h2><button class="link" id="rst" type="button">恢復預設</button></div>
+    <div class="row">
     <label>題目來源<select id="mode"><option value="p">115 年預測題（自動產生）</option><option value="s1">預製模擬卷 1</option>
       <option value="s2">預製模擬卷 2</option><option value="s3">預製模擬卷 3</option><option value="h">歷屆試題（96–114）</option>
       <option value="w">錯題本複習（${wn} 題）</option></select></label>
@@ -118,14 +123,26 @@ function viewSetup() {
     <label>題數<input type="number" id="n" value="50" min="5" max="200"></label>
     <label>題型<select id="ts"><option>混合</option><option value="形">只考字形</option><option value="音">只考字音</option></select></label>
     <label>作答方式<select id="am"><option value="c">選擇題</option><option value="t">輸入答案</option><option value="l">拼字組合（字音題；字形題用選擇）</option></select></label>
-    <label class="m-ph" style="flex-direction:row;align-items:center;gap:8px;color:var(--tx)"><input type="checkbox" id="skip" checked style="width:20px;height:20px">略過已答對的題目（累計 ${Object.keys(store.get('hk_done', {})).length} 題）</label>
-    <label style="flex-direction:row;align-items:center;gap:8px;color:var(--tx)"><input type="checkbox" id="inst" ${store.get('hk_inst', false) ? 'checked' : ''} style="width:20px;height:20px">作答後立即顯示對錯（答錯會顯示正確答案）</label></div>
-    <div class="row m-p" style="margin-top:12px"><label>預測高頻 %<input type="number" id="ma" value="35"></label>
+    <label class="m-ph ck"><input type="checkbox" id="skip" checked style="width:20px;height:20px">略過已答對的題目（累計 ${Object.keys(store.get('hk_done', {})).length} 題）</label>
+    <label class="ck"><input type="checkbox" id="inst" ${store.get('hk_inst', false) ? 'checked' : ''} style="width:20px;height:20px">作答後立即顯示對錯（答錯會顯示正確答案）</label></div>
+    <div class="row m-p" style="margin-top:10px"><label>預測高頻 %<input type="number" id="ma" value="35"></label>
     <label>換字變化 %<input type="number" id="mb" value="15"></label><label>新詞候補 %<input type="number" id="mc" value="50"></label></div>
-    <p class="muted">預測題依「115預測」工作表的機率加權抽題，每次按開始都會重新產生；字音題需輸入聲調符號 ˊ ˇ ˋ ˆ（作答區有按鈕）。</p>
-    <button class="btn" id="go">開始作答</button></div>`;
+    <div class="actions"><button class="btn go" id="go">開始作答</button></div></div>`;
   const sync = () => { const v = $('#mode').value; document.querySelectorAll('.m-p').forEach(x => x.hidden = v !== 'p'); document.querySelectorAll('.m-ph').forEach(x => x.hidden = !'ph'.includes(v)); document.querySelectorAll('.m-h').forEach(x => x.hidden = v !== 'h'); };
-  $('#mode').onchange = sync; sync();
+  /* 記住上次的設定；「恢復預設」清掉記憶並還原 */
+  const CFG0 = { mode: 'p', yr: '全部', n: 50, ts: '混合', am: 'c', ma: 35, mb: 15, mc: 50, skip: true, inst: false };
+  const FIELDS = ['mode', 'yr', 'n', 'ts', 'am', 'ma', 'mb', 'mc'];
+  const applyCfg = c => {
+    FIELDS.forEach(k => { const el = $('#' + k); if (!el || c[k] === undefined) return; el.value = c[k]; if (el.tagName === 'SELECT' && el.selectedIndex < 0) el.selectedIndex = 0; });
+    $('#skip').checked = !!c.skip; $('#inst').checked = !!c.inst; sync();
+  };
+  const readCfg = () => ({ ...Object.fromEntries(FIELDS.map(k => [k, $('#' + k).value])), skip: $('#skip').checked, inst: $('#inst').checked });
+  const card = $('#quiz .card');
+  applyCfg({ ...CFG0, inst: store.get('hk_inst', false), ...store.get('hk_cfg', {}) });
+  const save = () => store.set('hk_cfg', readCfg());
+  card.addEventListener('change', save); card.addEventListener('input', save);
+  $('#rst').onclick = () => { store.set('hk_cfg', {}); store.set('hk_inst', false); applyCfg(CFG0); };
+  $('#mode').addEventListener('change', sync); sync();
   $('#go').onclick = () => startQuiz({ mode: $('#mode').value, yr: $('#yr').value, n: +$('#n').value || 50, ts: $('#ts').value, am: $('#am').value, instant: store.set('hk_inst', $('#inst').checked) ?? $('#inst').checked, skip: $('#skip').checked && 'ph'.includes($('#mode').value),
     mix: [+$('#ma').value || 0, +$('#mb').value || 0, +$('#mc').value || 0] });
 }
@@ -153,7 +170,10 @@ function viewQ() {
        ${q.type === '音' ? `<div class="tones">${[...TONES].map(t => `<button data-t="${t}" ${lock ? 'disabled' : ''}>${t}</button>`).join('')}</div>` : ''}`;
   const fill = `<span class="fill">${esc(q.ans)}</span>`, show = lock && am !== 'c';   // 填寫／拼字題檢查後：頂端空格填上正確答案
   const stemH = show && q.type === '形' ? esc(q.stem).replace('□', fill) : esc(q.stem);
-  const pyH = show && q.type === '音' ? esc(q.py).replace('＿＿＿', fill) : esc(q.py);
+  // 拼字組合：只有一個空格（一個音節），拼的過程直接顯示在頂端空格裡
+  const liveTxt = am === 'l' && !lock ? Q.lt[i].map(k => q.lets[k]).join('') : '';
+  const pyH = show && q.type === '音' ? esc(q.py).replace('＿＿＿', fill)
+    : liveTxt ? esc(q.py).replace('＿＿＿', `<span class="live">${esc(liveTxt)}</span>`) : esc(q.py);
   const unfinished = ans.some(a => !a);   // 還有題目沒作答：最後一題不顯示「交卷」
   const nxBtn = last && unfinished ? '' : `<button class="btn" id="nx" ${ins && am === 'c' && !lock ? 'disabled' : ''}>${last ? '交卷' : '下一題'}</button>`;
   const actions = am === 'c'
@@ -178,6 +198,7 @@ document.addEventListener('click', e => {
   const ins = Q.cfg.instant, lock = ins && Q.chk[Q.i];
   if (lock && (b.dataset.v !== undefined || b.dataset.l !== undefined || b.dataset.lb || b.dataset.t || b.id === 'clr')) return;   // 已檢查的題目不能再改
   if (b.dataset.v !== undefined) { Q.ans[Q.i] = b.dataset.v; if (ins) Q.chk[Q.i] = true; else if (Q.i < Q.qs.length - 1) Q.i++; viewQ(); }   // 立即模式：點選即檢查（按下一題繼續）；一般模式：點選即作答並自動下一題
+  else if (b.id === 'kbq') { Q.kb = !Q.kb; viewQ(); }
   else if (b.id === 'chk') { Q.chk[Q.i] = true; viewQ(); }
   else if (b.dataset.l !== undefined) { Q.lt[Q.i].push(+b.dataset.l); setLetters(); viewQ(); }
   else if (b.dataset.lb) { Q.lt[Q.i].pop(); setLetters(); viewQ(); }
@@ -193,17 +214,31 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (!Q || Q.done || $('#quiz').hidden || $('.dlg-mask') || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  const lts = $$('#quiz .lt');
+  if (lts.length) {   // 拼字組合：字母鍵＝點對應字母；該字母按鈕沒有（或已用完）時，z v s x f 才當聲調
+    const k = e.key.toLowerCase(); let b = null;
+    if (e.key === 'Backspace') b = $('#quiz [data-lb]');
+    else if (/^[a-z]$/.test(k)) {
+      const free = lts.filter(x => !x.disabled);
+      b = free.find(x => x.dataset.ch.toLowerCase() === k) || free.find(x => TONEKEY[k] && toneOf(x.dataset.ch) === TONEKEY[k]);
+    }
+    if (b && !b.disabled) { e.preventDefault(); b.click(); return; }
+    if (e.key === 'Backspace') return;
+  }
   if (/^[1-9]$/.test(e.key)) { const b = $$('#quiz .opt')[+e.key - 1]; if (b && !b.disabled) { e.preventDefault(); b.click(); } }
-  else if (e.key === 'Enter' || e.key === 'ArrowRight') { const b = $('#nx'); if (b) { e.preventDefault(); b.click(); } }
+  else if (e.key === 'Enter' || e.key === 'ArrowRight') { const c = $('#chk'), b = c && !c.disabled && e.key === 'Enter' ? c : $('#nx'); if (b) { e.preventDefault(); b.click(); } }
 });
 /* 拼字組合：把答案拆成字母（含聲調符號）亂數排列，依序點選拼出 */
 function letterUI(q, i, lock) {
   if (!q.lets) { let t, n = 0; do { t = shuffle(Array.from(q.ans)); } while (t.length > 1 && t.join('') === q.ans && ++n < 10); q.lets = t; }
   const ch = Q.lt[i], used = new Set(ch);
-  return `<div class="built${lock ? (isOk(q, Q.ans[i]) ? ' b-ok' : ' b-ng') : ''}">${ch.length ? esc(ch.map(k => q.lets[k]).join('')) : '<span class="muted">點下方字母，依序拼出讀音</span>'}</div>
-    <div class="letters">${q.lets.map((c, k) => `<button class="lt" data-l="${k}" ${used.has(k) || lock ? 'disabled' : ''}>${esc(c)}</button>`).join('')}</div>
-    <button class="btn ghost" data-lb="1" ${ch.length && !lock ? '' : 'disabled'}>退一格</button>`;
+  return `<div class="built${lock ? (isOk(q, Q.ans[i]) ? ' b-ok' : ' b-ng') : ''}">${ch.length ? esc(ch.map(k => q.lets[k]).join('')) : '<span class="muted">點下方字母（或用鍵盤輸入），依序拼出讀音</span>'}</div>
+    <div class="letters">${q.lets.map((c, k) => `<button class="lt" data-l="${k}" data-ch="${esc(c)}" ${used.has(k) || lock ? 'disabled' : ''}>${tk(c) ? `<span class="no">${tk(c)}</span>` : ''}${esc(c)}</button>`).join('')}</div>
+    <button class="btn ghost" data-lb="1" ${ch.length && !lock ? '' : 'disabled'}>退一格</button>
+    <button class="kbq${Q.kb ? ' on' : ''}" id="kbq" aria-label="鍵盤操作說明" aria-expanded="${!!Q.kb}">?</button>
+    ${Q.kb ? `<div class="kbhint muted">直接打字母；Backspace 退一格。聲調鍵：<b>z</b>ˊ　<b>v</b>ˇ　<b>s</b>ˋ　<b>x</b>ˆ　<b>f</b>⁺（有同字母的按鈕時優先當字母）</div>` : ''}`;
 }
+const tk = c => Object.keys(TONEKEY).find(k => TONEKEY[k] === toneOf(c)) || '';   // 聲調符號對應的鍵盤字母
 // 字母按鈕是完整的答案字母：全部點完才算作答（才能檢查），沒點完視為尚未作答
 const setLetters = () => { const q = Q.qs[Q.i]; Q.ans[Q.i] = Q.lt[Q.i].length === q.lets.length ? Q.lt[Q.i].map(k => q.lets[k]).join('') : ''; };
 /* 自訂對話框（取代瀏覽器內建 confirm / alert）；回傳 Promise<boolean> */
@@ -309,10 +344,20 @@ const predSrc = () => PS ||= (() => {
       rules: [{ name: '依排名每 100 名', cat: r => { const s = (r[0] - 1) / 100 | 0; return `${s * 100 + 1}–${Math.min(s * 100 + 100, DB.bz.length)} 名`; } }, readRules(3)] }
   };
 })();
+/* 歷屆重複題：同一個詞、同一個答案字視為重複；統計出現次數，去重時只留最近一年那筆 */
+let HF;
+const histFreq = () => HF ||= (() => {
+  const n = new Map(), at = new Map();
+  DB.hist.forEach((r, i) => { const k = r[3] + '|' + r[5]; n.set(k, (n.get(k) || 0) + 1);
+    const j = at.get(k); if (j === undefined || r[0] > DB.hist[j][0] || (r[0] === DB.hist[j][0] && r[1] < DB.hist[j][1])) at.set(k, i); });
+  return { n, keep: new Set(at.values()) };
+})();
+const fq = r => histFreq().n.get(r[3] + '|' + r[5]);
 const dbSrc = () => DS ||= {
-  hist: { name: `歷屆題庫（${DB.hist.length} 題）`, head: ['年度', '序號', '詞', '拼音', '答案字', '答案音'], get: () => DB.hist,
-    cells: r => { const c = Array.from(r[3]); let i = r[2] - 1; if (c[i] !== r[5]) i = c.indexOf(r[5]); return [r[0], r[1], { h: hl(r[3], i) }, r[4], big(r[5]), r[6]]; },
+  hist: { name: `歷屆題庫（${DB.hist.length} 題）`, head: ['年度', '序號', '詞', '拼音', '答案字', '答案音', '考過次數'], get: () => DB.hist, keep: (r, i) => histFreq().keep.has(i),
+    cells: r => { const c = Array.from(r[3]); let i = r[2] - 1; if (c[i] !== r[5]) i = c.indexOf(r[5]); return [r[0], r[1], { h: hl(r[3], i) }, r[4], big(r[5]), r[6], fq(r) + ' 次']; },
     rules: [{ name: '依年度', cat: r => r[0] + ' 年', sort: (a, b) => a[0] - b[0] || a[1] - b[1] },
+      { name: '依出現頻率（多 → 少）', rev: true, cat: r => '考過 ' + fq(r) + ' 次', sort: (a, b) => fq(b) - fq(a) || a[3].localeCompare(b[3]) || b[0] - a[0] || a[1] - b[1] },
       { name: '依答案音首字母（A–Z）', cat: r => letter(r[6]), sort: (a, b) => a[6].localeCompare(b[6]) || a[0] - b[0] || a[1] - b[1] },
       { name: '依詞長', cat: r => wlen(r[3]), sort: (a, b) => a[0] - b[0] || a[1] - b[1] }] },
   lex: { name: `詞庫（${DB.lex.length} 詞）`, head: ['詞', '拼音', '歷屆'], get: () => DB.lex,
@@ -325,20 +370,26 @@ const dbSrc = () => DS ||= {
 const plain = c => typeof c === 'object' ? c.h.replace(/<[^>]*>/g, '') : String(c);
 const cellHtml = c => typeof c === 'object' ? `<td${c.w ? ' class="w"' : ''}>${c.h}</td>` : `<td>${esc(c)}</td>`;
 function browse(el, src, st) {
-  const keys = Object.keys(src); st.k ||= keys[0]; st.ri ??= 0; st.cat ??= '全部'; st.q ??= ''; st.pg ??= 1; st.sz ??= 50;
+  const keys = Object.keys(src); st.k ||= keys[0]; st.ri ??= 0; st.cat ??= '全部'; st.q ??= ''; st.pg ??= 1; st.sz ??= 50; st.dd ??= store.get('hk_dd', false); st.cols ??= store.get('hk_cols', {});
   const S = () => { const s = src[st.k]; if (!s.rows) { s.rows = s.get(); s.cell = s.rows.map(s.cells); s.idx = s.cell.map(c => c.map(plain).join(' ').toLowerCase()); } return s; };
   el.innerHTML = `<div class="card"><div class="row"><label>資料表<select id="bs">${keys.map(k => `<option value="${k}" ${k === st.k ? 'selected' : ''}>${src[k].name}</option>`).join('')}</select></label>
     <label>瀏覽方式<select id="br"></select></label>
     <label>每頁<select id="bz">${[20, 50, 100].map(n => `<option ${n === st.sz ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-    <label>搜尋（字、詞、拼音）<input id="bq" value="${esc(st.q)}" placeholder="例如：殮、liam"></label></div>
+    <label>搜尋（字、詞、拼音）<input id="bq" value="${esc(st.q)}" placeholder="例如：殮、liam"></label>
+    <label class="ck" id="bdl" hidden title="同一個詞、同一個答案字只留最近一年的那題"><input type="checkbox" id="bd">不顯示重複</label>
+    <button class="btn ghost" id="bcb" type="button">欄位 ▾</button></div><div class="set-g" id="bcp" hidden style="margin-top:12px"></div>
     <div class="chips" id="bc"></div><div id="bp1"></div><div class="tbl" id="bt"></div><div id="bp2"></div></div>`;
   const fillRules = () => $('#br', el).innerHTML = src[st.k].rules.map((r, i) => `<option value="${i}" ${i === st.ri ? 'selected' : ''}>${r.name}</option>`).join('');
+  const fillCols = () => { const s = src[st.k], hid = st.cols[st.k] || [];
+    $('#bcp', el).innerHTML = `<div class="row">${s.head.map((h, c) => `<label class="ck"><input type="checkbox" data-col="${c}" ${hid.includes(c) ? '' : 'checked'}>${esc(h)}</label>`).join('')}</div>`; };
   const draw = () => {
     const s = S(), rule = s.rules[st.ri] || s.rules[0], q = st.q.trim().toLowerCase();
     rule.lab ||= s.rows.map(rule.cat);
-    const ids = []; for (let i = 0; i < s.rows.length; i++) if (!q || s.idx[i].includes(q)) ids.push(i);
+    $('#bdl', el).hidden = !s.keep; $('#bd', el).checked = !!st.dd;
+    const dd = !!(st.dd && s.keep), hid = st.cols[st.k] || [], vis = s.head.map((_, c) => c).filter(c => !hid.includes(c));
+    const ids = []; for (let i = 0; i < s.rows.length; i++) if ((!q || s.idx[i].includes(q)) && (!dd || s.keep(s.rows[i], i))) ids.push(i);
     const cnt = new Map(); ids.forEach(i => cnt.set(rule.lab[i], (cnt.get(rule.lab[i]) || 0) + 1));
-    const labs = [...cnt.keys()].sort((a, b) => a.localeCompare(b, 'zh-Hant', { numeric: true }));
+    const labs = [...cnt.keys()].sort((a, b) => a.localeCompare(b, 'zh-Hant', { numeric: true })); if (rule.rev) labs.reverse();
     if (st.cat !== '全部' && !cnt.has(st.cat)) st.cat = '全部';
     let sel = st.cat === '全部' ? ids : ids.filter(i => rule.lab[i] === st.cat);
     if (rule.sort) sel = sel.sort((a, b) => rule.sort(s.rows[a], s.rows[b]));
@@ -351,18 +402,23 @@ function browse(el, src, st) {
       <span class="muted">共 ${sel.length} 筆</span></div>`;
     $('#bp1', el).innerHTML = $('#bp2', el).innerHTML = pg;
     const from = (st.pg - 1) * st.sz;
-    $('#bt', el).innerHTML = sel.length ? `<table><tr>${s.head.map(h => `<th>${h}</th>`).join('')}</tr>${sel.slice(from, from + st.sz).map(i => `<tr>${s.cell[i].map(cellHtml).join('')}</tr>`).join('')}</table>` : '<p class="muted">沒有符合的資料</p>';
+    $('#bt', el).innerHTML = sel.length ? `<table><tr>${vis.map(c => `<th>${s.head[c]}</th>`).join('')}</tr>${sel.slice(from, from + st.sz).map(i => `<tr>${vis.map(c => cellHtml(s.cell[i][c])).join('')}</tr>`).join('')}</table>` : '<p class="muted">沒有符合的資料</p>';
   };
   el.onclick = e => { const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.c !== undefined) { st.cat = b.dataset.c; st.pg = 1; draw(); }
+    if (b.id === 'bcb') $('#bcp', el).hidden = !$('#bcp', el).hidden;
+    else if (b.dataset.c !== undefined) { st.cat = b.dataset.c; st.pg = 1; draw(); }
     else if (b.dataset.p) { st.pg = +b.dataset.p; draw(); if (b.closest('#bp2')) el.scrollIntoView(); } };
   el.onchange = e => { const t = e.target;
-    if (t.id === 'bs') { st.k = t.value; st.ri = 0; st.cat = '全部'; st.pg = 1; fillRules(); draw(); }
+    if (t.dataset.col !== undefined) { const h = new Set(st.cols[st.k] || []); t.checked ? h.delete(+t.dataset.col) : h.add(+t.dataset.col);
+      if (h.size >= src[st.k].head.length) { t.checked = true; return; }   // 至少留一欄
+      st.cols[st.k] = [...h]; store.set('hk_cols', st.cols); draw(); }
+    else if (t.id === 'bd') { st.dd = t.checked; store.set('hk_dd', st.dd); st.pg = 1; draw(); }
+    else if (t.id === 'bs') { st.k = t.value; st.ri = 0; st.cat = '全部'; st.pg = 1; fillRules(); fillCols(); draw(); }
     else if (t.id === 'br') { st.ri = +t.value; st.cat = '全部'; st.pg = 1; draw(); }
     else if (t.id === 'bz') { st.sz = +t.value; st.pg = 1; draw(); }
     else if (t.classList.contains('pn')) { st.pg = +t.value || 1; draw(); } };
   $('#bq', el).oninput = e => { st.q = e.target.value; st.pg = 1; draw(); };
-  fillRules(); draw();
+  fillRules(); fillCols(); draw();
 }
 const PST = {}, DST = {};
 function viewPred() { browse($('#pred'), predSrc(), PST); }
