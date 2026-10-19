@@ -8,41 +8,52 @@ body{font-family:system-ui,"Noto Sans TC",sans-serif;max-width:860px;margin:24px
 h1{font-size:1.4rem}h2{font-size:1.1rem;margin-top:1.6em;border-bottom:1px solid #ccc;padding-bottom:4px}
 table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:3px 10px;font-size:.9rem}th{background:#f0f0f0}
 .card{border:1px solid #ccc;border-radius:8px;padding:12px 16px;margin:10px 0}
-button{padding:8px 16px;font-size:1rem;cursor:pointer;margin:4px 6px 4px 0}
+button{padding:8px 16px;font-size:1rem;cursor:pointer;margin:4px 6px 4px 0}button:disabled{cursor:not-allowed}
 .log{white-space:pre-wrap;background:#f7f7f7;border-radius:6px;padding:10px;font-size:.88rem;min-height:2em}
-.warn{color:#b45309}.err{color:#b91c1c}.ok{color:#15803d}small,.muted{color:#666}
+.warn{color:#b45309}.err{color:#b91c1c}.ok{color:#15803d}small{color:#666}
 </style></head><body>
-<h1>data.js 轉換工具（Excel → data.js）</h1>
-<p>把「歷屆題庫」「詞庫」兩份 Excel 轉成 <code>data.js</code>。資料在你的瀏覽器內處理，不會上傳。</p>
+<h1>data.js ⇄ Excel 轉換工具</h1>
+<p>可匯出／匯入全部資料（歷屆題庫、詞庫、預測榜、背誦清單、新詞候補、模擬卷）。流程：<b>① data.js 匯出成 Excel 範本</b> → 在 Excel 修改 → <b>② Excel 轉回 data.js</b>。資料只在你的瀏覽器內處理，不會上傳。</p>
 
-<h2>一、Excel 欄位格式（第 1 列為標題列）</h2>
-<div class="card"><b>歷屆題庫</b>（工作表名稱建議 <code>歷屆題庫</code>）
-<table><tr><th>A 年度</th><th>B 題號</th><th>C 詞</th><th>D 拼音</th><th>E 答案字</th><th>F 答案音</th><th>G 字位（選填）</th></tr>
-<tr><td>96</td><td>1</td><td>做生理</td><td>zooˆ senˇ liˆ</td><td>理</td><td>liˆ</td><td>3</td></tr>
-<tr><td>97</td><td>29</td><td>捷捷</td><td>ciabˋ ciabˋ</td><td>捷</td><td>ciabˋ</td><td>1</td></tr></table>
-<small>• 字位＝答案字在詞中是第幾個字。留空時自動取答案字在詞中第一次出現的位置；詞中有重複字且答案不是第一個時，請填 G 欄。<br>
-• 年度、題號、字位須為數字。拼音以半形空格分音節，保留聲調符號 ˊ ˇ ˋ ˆ ⁺。</small></div>
+<h2>Excel 欄位格式（第 1 列為標題列，兩個工作表）</h2>
+<div class="card"><b>工作表「歷屆題庫」</b>
+<table><tr><th>年度</th><th>題號</th><th>詞</th><th>拼音</th><th>字位</th><th>答案字（特例才填）</th><th>答案音（特例才填）</th></tr>
+<tr><td>96</td><td>1</td><td>做生理</td><td>zooˆ senˇ liˆ</td><td>3</td><td></td><td></td></tr>
+<tr><td>98</td><td>26</td><td>递藤</td><td>teˇ tenˋ</td><td>1</td><td>递</td><td>taiˆ</td></tr></table>
+<small>必填只有前五欄。字位＝答案字是詞中第幾個字；<b>答案字</b>＝詞的第「字位」個字，<b>答案音</b>＝拼音的第「字位」個音節，兩者自動取得。<br>
+只有少數題的答案音與題目所示拼音不同（例：徑著人 答案音 gangˇ，題目拼音為 gangˆ），這種才需填最後兩欄，空白即自動取得。匯出的範本已幫你把這類特例填好。</small></div>
+<div class="card"><b>工作表「詞庫」</b>
+<table><tr><th>詞</th><th>拼音</th></tr><tr><td>胞衣</td><td>bauˇ rhiˇ</td></tr></table>
+<small>拼音以半形空格分音節，保留聲調符號 ˊ ˇ ˋ ˆ ⁺。年度、題號、字位須為數字。</small></div>
 
-<div class="card"><b>詞庫</b>（工作表名稱建議 <code>詞庫</code>）
-<table><tr><th>A 詞</th><th>B 拼音</th></tr>
-<tr><td>胞衣</td><td>bauˇ rhiˇ</td></tr><tr><td>包山塞海</td><td>bauˇ sanˇ cedˊ hoiˆ</td></tr></table></div>
+<div class="card"><b>其他工作表</b>（欄位順序即下表；標題列文字請保留）
+<table>
+<tr><th>工作表</th><th>欄位</th><th>說明</th></tr>
+<tr><td>預測答案字</td><td>排名、字、機率、相關詞、讀音、說明</td><td>115 預測・答案字</td></tr>
+<tr><td>預測詞彙</td><td>排名、詞、完整拼音、考的字、機率、考過次數、年度</td><td>115 預測・詞彙</td></tr>
+<tr><td>新詞候補</td><td>排名、詞、完整拼音、考的字、考的字音、機率</td><td>考的字音可空白</td></tr>
+<tr><td>背誦清單</td><td>排名、字、機率、讀音、相關詞</td><td>全部答案字</td></tr>
+<tr><td>模擬卷</td><td>卷別、序號、題型、題幹、題幹拼音、答案字、答案音、來源、年度、機率、完整詞、完整拼音</td><td>卷別 1–3；機率可空白</td></tr>
+</table><small>機率為小數（如 0.3438）；排名、卷別、序號為數字。</small></div>
 
-<p>兩份資料可放同一個 Excel 的兩個工作表（名稱含「歷屆」「詞」即可自動辨識），也可各自一個檔案，支援 .xlsx / .xls / .csv。</p>
-<button id="tpl">下載空白範本（.xlsx）</button>
-
-<h2>二、選擇檔案</h2>
+<h2>① data.js → Excel 範本</h2>
 <div class="card">
-<p><b>現有 data.js</b>（建議提供）<br><input type="file" id="fOld" accept=".js"><br>
-<small>預測榜、字形、相似詞等其他資料（bz / pc / pw / nw / sim）由你的原程式產生，本工具不會重算；提供舊 data.js 才能保留它們，只替換歷屆題庫與詞庫。</small></p>
-<p><b>歷屆題庫 Excel</b>（不選＝沿用舊 data.js 的歷屆題庫）<br><input type="file" id="fHist" accept=".xlsx,.xls,.csv"></p>
-<p><b>詞庫 Excel</b>（不選＝沿用舊 data.js 的詞庫）<br><input type="file" id="fLex" accept=".xlsx,.xls,.csv"></p>
+<p>選擇現有 data.js：<input type="file" id="fOld" accept=".js"></p>
+<button id="exp" disabled>下載 Excel 範本（含目前全部資料）</button>
+<p><small>也可以下載<a href="#" id="blank">空白範本</a>。</small></p>
+</div>
+
+<h2>② Excel → data.js</h2>
+<div class="card">
+<p>Excel 檔（缺哪張工作表，就沿用舊 data.js 的那份）：<br><input type="file" id="fX" accept=".xlsx,.xls"></p>
+<p><small>上面①選的 data.js 會當作基底，Excel 裡沒有的工作表就沿用它；沒選 data.js 時，缺的工作表會是空的。<br>注意：本工具只做「匯出／匯入」，不會依歷屆題庫重算預測榜、模擬卷，那些內容就是你在 Excel 看到、改成什麼就轉成什麼。</small></p>
 <button id="go">轉換</button><button id="dl" disabled>下載 data.js</button>
 </div>
-<h2>三、結果</h2><div class="log" id="log">尚未轉換。</div>
+<div class="log" id="log">尚未操作。</div>
 
 <script>
 const $=id=>document.getElementById(id);
-let out=null;
+let out=null,OLD=null;
 const logEl=$('log');
 const L=(m,c)=>{logEl.innerHTML+=(logEl.innerHTML?'\n':'')+(c?`<span class="${c}">${m}</span>`:m)};
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -50,36 +61,29 @@ const txt=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r
 const buf=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsArrayBuffer(f)});
 const S=v=>v==null?'':String(v).normalize('NFC').trim();
 const num=v=>{const n=Number(S(v));return S(v)!==''&&Number.isFinite(n)?n:null};
-
-async function readBook(f){
-  if(/\.csv$/i.test(f.name)){return XLSX.read(await txt(f),{type:'string'})}
-  return XLSX.read(await buf(f),{type:'array'});
-}
-function pickSheet(wb,kw,fallbackFirst){
-  const n=wb.SheetNames.find(x=>kw.some(k=>x.includes(k)));
-  return wb.Sheets[n||(fallbackFirst?wb.SheetNames[0]:null)];
-}
-function rowsOf(ws){return XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:'',blankrows:false})}
-function colMap(head,names,defaults){
-  return names.map((alts,i)=>{const k=head.findIndex(h=>alts.includes(S(h)));return k>=0?k:defaults[i]});
-}
-function hasHead(row,alts){return row.some(h=>alts.includes(S(h)))}
+const HH=['年度','題號','詞','拼音','字位','答案字（特例才填）','答案音（特例才填）'];
+const rowsOf=ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:false});
+const hasHead=(row,alts)=>row.some(h=>alts.includes(S(h)));
+const colMap=(head,names,def)=>names.map((alts,i)=>{const k=head.findIndex(h=>alts.includes(S(h)));return k>=0?k:def[i]});
+const pickSheet=(wb,kw)=>{const n=wb.SheetNames.find(x=>kw.some(k=>x.includes(k)));return n?wb.Sheets[n]:null};
 
 function parseHist(rows){
-  const al=[['年度','年'],['題號','序號','題'],['詞'],['拼音'],['答案字','答案'],['答案音'],['字位','位置']];
+  const al=[['年度','年'],['題號','序號'],['詞'],['拼音'],['字位','位置'],['答案字','答案字（特例才填）'],['答案音','答案音（特例才填）']];
   let start=0,m=[0,1,2,3,4,5,6];
-  if(rows.length&&hasHead(rows[0],['年度','詞','拼音','答案字'])){m=colMap(rows[0],al,m);start=1}
+  if(rows.length&&hasHead(rows[0],['年度','詞','拼音','字位'])){m=colMap(rows[0],al,m);start=1}
   const res=[],warns=[];let n=0;
   for(let i=start;i<rows.length;i++){
     const r=rows[i],ln=i+1;
     if(r.every(c=>S(c)==='')) continue;
     n++;
-    const y=num(r[m[0]]),q=num(r[m[1]]),w=S(r[m[2]]),p=S(r[m[3]]).replace(/\s+/g,' '),a=S(r[m[4]]),ap=S(r[m[5]]).replace(/\s+/g,' ');
-    if(y==null||q==null||!w||!p||!a||!ap){warns.push(`第 ${ln} 列略過：年度、題號、詞、拼音、答案字、答案音皆須填寫（${esc(r.slice(0,6).join(' | '))}）`);continue}
-    let pos=num(r[m[6]]);
-    if(pos==null){pos=w.indexOf(a)+1;if(pos===0){warns.push(`第 ${ln} 列略過：答案字「${esc(a)}」不在詞「${esc(w)}」中`);continue}}
-    else if([...w][pos-1]!==a) warns.push(`第 ${ln} 列提醒：字位 ${pos} 的字不是答案字「${esc(a)}」（詞「${esc(w)}」），已照填寫值輸出`);
-    if([...w].length!==p.split(' ').length) warns.push(`第 ${ln} 列提醒：詞「${esc(w)}」字數與拼音音節數不同`);
+    const y=num(r[m[0]]),q=num(r[m[1]]),w=S(r[m[2]]),p=S(r[m[3]]).replace(/\s+/g,' '),pos=num(r[m[4]]);
+    if(y==null||q==null||!w||!p||pos==null){warns.push(`第 ${ln} 列略過：年度、題號、詞、拼音、字位皆須填寫（${esc(r.slice(0,5).join(' | '))}）`);continue}
+    const chars=[...w],syl=p.split(' ');
+    if(!Number.isInteger(pos)||pos<1||pos>chars.length){warns.push(`第 ${ln} 列略過：字位 ${pos} 超出詞「${esc(w)}」的範圍（1–${chars.length}）`);continue}
+    let a=S(r[m[5]]),ap=S(r[m[6]]).replace(/\s+/g,' ');
+    if(!a)a=chars[pos-1];
+    if(!ap){ap=syl[pos-1];if(ap===undefined){warns.push(`第 ${ln} 列略過：拼音「${esc(p)}」沒有第 ${pos} 個音節，且未填答案音`);continue}}
+    if(chars.length!==syl.length) warns.push(`第 ${ln} 列提醒：詞「${esc(w)}」字數與拼音音節數不同，請確認答案音`);
     res.push([y,q,pos,w,p,a,ap]);
   }
   return {data:res,warns,n};
@@ -100,48 +104,100 @@ function parseLex(rows){
   if(dup) warns.push(`提醒：有 ${dup} 筆「詞＋拼音」完全重複（仍照原樣輸出，需要的話請在 Excel 先刪除）`);
   return {data:res,warns,n};
 }
-function showWarns(w){w.slice(0,40).forEach(x=>L('  '+x,'warn'));if(w.length>40)L(`  …另有 ${w.length-40} 則提醒未顯示`,'warn')}
+// 其餘資料表：t 每個字元代表一欄 — n 必填數字、N 數字（可空白）、s 必填文字、S 文字（可空白）
+const EXTRA=[
+  {key:'pc',sheet:'預測答案字',kw:['預測答案','答案字'],cols:['排名','字','機率','相關詞','讀音','說明'],t:'nsnsss'},
+  {key:'pw',sheet:'預測詞彙',kw:['預測詞'],cols:['排名','詞','完整拼音','考的字','機率','考過次數','年度'],t:'nsssnns'},
+  {key:'nw',sheet:'新詞候補',kw:['新詞'],cols:['排名','詞','完整拼音','考的字','考的字音','機率'],t:'nsssSn'},
+  {key:'bz',sheet:'背誦清單',kw:['背誦'],cols:['排名','字','機率','讀音','相關詞'],t:'nsnss'},
+  {key:'sim',sheet:'模擬卷',kw:['模擬'],cols:['卷別','序號','題型','題幹','題幹拼音','答案字','答案音','來源','年度','機率','完整詞','完整拼音'],t:'nnsssssssNss'}
+];
+function parseGeneric(sp,rows){
+  const nc=sp.cols.length;let m=[...Array(nc).keys()],start=0;
+  if(rows.length&&sp.cols.every(c=>rows[0].some(h=>S(h)===c))){m=sp.cols.map(c=>rows[0].findIndex(h=>S(h)===c));start=1}
+  else if(rows.length&&rows[0].some(h=>sp.cols.includes(S(h)))) start=1;
+  const res=[],warns=[];let n=0;
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i],ln=i+1;
+    if(r.every(c=>S(c)==='')) continue;
+    n++;
+    const o=[];let bad=null;
+    for(let j=0;j<nc&&!bad;j++){
+      const v=r[m[j]],c=sp.t[j];
+      if(c==='n'||c==='N'){const x=num(v);if(x==null){if(c==='N'&&S(v)==='')o.push('');else bad=`「${sp.cols[j]}」須為數字`}else o.push(x)}
+      else{const x=S(v);if(!x&&c==='s')bad=`「${sp.cols[j]}」不可空白`;else o.push(x)}
+    }
+    if(bad){warns.push(`第 ${ln} 列略過：${bad}`);continue}
+    res.push(o);
+  }
+  return {data:res,warns,n};
+}
+function toSim(rows){const g={};rows.forEach(r=>{(g[r[0]]=g[r[0]]||[]).push(r.slice(1))});return g}
+function fromSim(sim){return Object.keys(sim).sort((a,b)=>a-b).flatMap(k=>sim[k].map(r=>[Number(k),...r]))}
+const showWarns=w=>{w.slice(0,40).forEach(x=>L('  '+x,'warn'));if(w.length>40)L(`  …另有 ${w.length-40} 則提醒未顯示`,'warn')};
+
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+
+$('fOld').onchange=async e=>{
+  OLD=null;$('exp').disabled=true;
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const t=await txt(f);
+    OLD=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
+    logEl.innerHTML='';L(`已讀入 data.js：歷屆題庫 ${OLD.hist?.length??0} 題、詞庫 ${OLD.lex?.length??0} 詞`,'ok');
+    $('exp').disabled=false;
+  }catch(err){logEl.innerHTML='';L('讀取 data.js 失敗：'+esc(err.message),'err')}
+};
+function makeBook(hist,lex,DB){
+  const wb=XLSX.utils.book_new();
+  const add=(name,head,rows,w)=>{const ws=XLSX.utils.aoa_to_sheet([head,...rows]);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,name)};
+  add('歷屆題庫',HH,hist,[6,6,14,26,6,16,16]);
+  add('詞庫',['詞','拼音'],lex,[16,30]);
+  const W={pc:[6,6,8,28,14,30],pw:[6,12,24,8,8,10,26],nw:[6,12,24,8,10,8],bz:[6,6,8,12,36],sim:[6,6,6,14,24,8,12,14,22,8,12,24]};
+  EXTRA.forEach(sp=>add(sp.sheet,sp.cols,sp.key==='sim'?fromSim(DB?.sim||{}):(DB?.[sp.key]||[]),W[sp.key]));
+  return wb;
+}
+$('exp').onclick=()=>{
+  let sp=0;
+  const hist=OLD.hist.map(r=>{
+    const [y,q,pos,w,p,a,ap]=r;
+    const da=[...w][pos-1],dap=p.split(' ')[pos-1];
+    const xa=a===da?'':a,xap=ap===dap?'':ap;
+    if(xa||xap)sp++;
+    return [y,q,w,p,pos,xa,xap];
+  });
+  XLSX.writeFile(makeBook(hist,OLD.lex,OLD),'data範本.xlsx');
+  L(`已匯出 Excel：歷屆題庫 ${hist.length} 題（其中 ${sp} 題的答案字／答案音與自動取得的不同，已填在最後兩欄）、詞庫 ${OLD.lex.length} 詞，以及預測榜等 ${EXTRA.length} 張工作表。`,'ok');
+};
+$('blank').onclick=e=>{e.preventDefault();
+  XLSX.writeFile(makeBook([[96,1,'做生理','zooˆ senˇ liˆ',3,'','']],[['胞衣','bauˇ rhiˇ']],null),'data空白範本.xlsx')};
 
 $('go').onclick=async()=>{
   logEl.innerHTML='';out=null;$('dl').disabled=true;
   try{
-    let DB=null;
-    if($('fOld').files[0]){
-      const t=await txt($('fOld').files[0]);
-      DB=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
-      L(`已讀入舊 data.js：歷屆題庫 ${DB.hist?.length??0} 題、詞庫 ${DB.lex?.length??0} 詞`,'ok');
-    }else{
-      DB={bz:[],hist:[],lex:[],pc:[],pw:[],nw:[],sim:{}};
-      L('未提供舊 data.js：輸出的 bz / pc / pw / nw / sim 會是空的，網站的預測榜等功能將沒有資料。','warn');
-    }
-    const fh=$('fHist').files[0],fl=$('fLex').files[0];
-    if(!fh&&!fl){L('請至少選擇一份 Excel。','err');return}
-    let hb=null,lb=null;
-    if(fh)hb=await readBook(fh);
-    if(fl)lb=(fh&&fl.name===fh.name&&fl.size===fh.size)?hb:await readBook(fl);
-    if(fh){
-      let ws=pickSheet(hb,['歷屆','題庫','hist'],false)||(fl?hb.Sheets[hb.SheetNames[0]]:hb.Sheets[hb.SheetNames[0]]);
-      const r=parseHist(rowsOf(ws));
-      DB.hist=r.data;L(`歷屆題庫：讀取 ${r.n} 列，輸出 ${r.data.length} 題`,r.data.length?'ok':'err');showWarns(r.warns);
-    }
-    if(fl){
-      let ws=pickSheet(lb,['詞庫','lex'],false)||pickSheet(lb,['詞'],false)||lb.Sheets[lb.SheetNames[0]];
-      const r=parseLex(rowsOf(ws));
-      DB.lex=r.data;L(`詞庫：讀取 ${r.n} 列，輸出 ${r.data.length} 詞`,r.data.length?'ok':'err');showWarns(r.warns);
+    const f=$('fX').files[0];
+    if(!f){L('請先選擇 Excel 檔。','err');return}
+    let DB;
+    if(OLD){DB=JSON.parse(JSON.stringify(OLD));L('以所選 data.js 為基底。','ok')}
+    else{DB={bz:[],hist:[],lex:[],pc:[],pw:[],nw:[],sim:{}};L('未選 data.js：bz / pc / pw / nw / sim 會是空的，網站的預測榜等功能將沒有資料。','warn')}
+    const wb=XLSX.read(await buf(f),{type:'array'});
+    const hs=pickSheet(wb,['歷屆','題庫']),ls=pickSheet(wb,['詞庫']);
+    const xs=EXTRA.map(sp=>[sp,pickSheet(wb,[sp.sheet,...sp.kw])]);
+    if(!hs&&!ls&&!xs.some(x=>x[1])){L('找不到可辨識的工作表（歷屆題庫、詞庫、預測答案字、預測詞彙、新詞候補、背誦清單、模擬卷）。','err');return}
+    if(hs){const r=parseHist(rowsOf(hs));DB.hist=r.data;L(`歷屆題庫：讀取 ${r.n} 列，輸出 ${r.data.length} 題`,r.data.length?'ok':'err');showWarns(r.warns)}
+    else L('Excel 沒有「歷屆題庫」工作表，沿用舊資料。','warn');
+    if(ls){const r=parseLex(rowsOf(ls));DB.lex=r.data;L(`詞庫：讀取 ${r.n} 列，輸出 ${r.data.length} 詞`,r.data.length?'ok':'err');showWarns(r.warns)}
+    else L('Excel 沒有「詞庫」工作表，沿用舊資料。','warn');
+    for(const [sp,ws] of xs){
+      if(!ws){L(`Excel 沒有「${sp.sheet}」工作表，沿用舊資料。`,'warn');continue}
+      const r=parseGeneric(sp,rowsOf(ws));
+      DB[sp.key]=sp.key==='sim'?toSim(r.data):r.data;
+      L(`${sp.sheet}：讀取 ${r.n} 列，輸出 ${r.data.length} 筆`,r.data.length?'ok':'err');showWarns(r.warns);
     }
     out='window.DB='+JSON.stringify(DB)+';';
     $('dl').disabled=false;
-    L(`\n完成。data.js 大小約 ${(out.length/1024).toFixed(0)} KB，請按「下載 data.js」，覆蓋網站資料夾中的舊檔。`,'ok');
+    L(`\n完成。data.js 約 ${(out.length/1024).toFixed(0)} KB，請按「下載 data.js」並覆蓋網站資料夾中的舊檔。`,'ok');
   }catch(e){L('轉換失敗：'+esc(e.message||e),'err');console.error(e)}
 };
-$('dl').onclick=()=>{
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'text/javascript;charset=utf-8'}));
-  a.download='data.js';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-};
-$('tpl').onclick=()=>{
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['年度','題號','詞','拼音','答案字','答案音','字位（選填）'],[96,1,'做生理','zooˆ senˇ liˆ','理','liˆ',''],[97,29,'捷捷','ciabˋ ciabˋ','捷','ciabˋ',1]]),'歷屆題庫');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['詞','拼音'],['胞衣','bauˇ rhiˇ'],['包山塞海','bauˇ sanˇ cedˊ hoiˆ']]),'詞庫');
-  XLSX.writeFile(wb,'data範本.xlsx');
-};
+$('dl').onclick=()=>save(new Blob([out],{type:'text/javascript;charset=utf-8'}),'data.js');
 </script></body></html>
