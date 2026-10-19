@@ -190,6 +190,8 @@ td mark{font-weight:400}
 /* 題目置中、右上角切換版面 */
 #quiz .card{position:relative}
 .qbox{text-align:center;margin:6px 0 14px}
+.qbox .stem .fill{font-weight:400}   /* 字形題填入的答案不用粗體 */
+.qbox .stem.hid{visibility:hidden}   /* 字形題：漢字行未顯示時仍保留空間，避免版面跳動 */
 .qbox .stem.pyl{word-break:normal;overflow-wrap:anywhere;letter-spacing:.03em}
 .vt{position:absolute;top:10px;right:12px;font:inherit;font-size:.8rem;min-height:30px;padding:2px 12px;border:1px solid var(--line);border-radius:99px;background:var(--bg);color:var(--sub);cursor:pointer}
 .vt:hover{color:var(--tx);border-color:var(--ring-bd)}

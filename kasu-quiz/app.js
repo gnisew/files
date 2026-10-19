@@ -315,9 +315,9 @@ function viewQ() {
     : am === 'l' ? letterUI(q, i, lock)
     : `<input class="ans${lock ? (right ? ' ok' : ' ng') : ''}" id="ai" value="${esc(ans[i])}" ${lock ? 'readonly' : ''} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${q.type === '形' ? '輸入漢字' : '輸入拼音，如 ziaˊ'}">
        ${q.type === '音' ? `<div class="tones">${[...TONES].map(t => `<button data-t="${t}" ${lock ? 'disabled' : ''}>${t}</button>`).join('')}</div><div class="muted" style="font-size:.85rem">字尾直接打 <b>z</b>ˊ　<b>v</b>ˇ　<b>s</b>ˋ　<b>x</b>ˆ　<b>f</b>⁺ 會自動轉成聲調符號</div>` : ''}`;
-  const fill = `<span class="fill">${esc(q.ans)}</span>`, show = lock && am !== 'c';   // 填寫／拼字題檢查後：頂端空格填上正確答案
+  const fill = `<span class="fill">${esc(q.ans)}</span>`, show = lock && am !== 'c', showF = lock;   // show：字音題（填寫／拼字）檢查後頂端空格填上答案；showF：字形題檢查後（任何作答方式）顯示完整漢字
   const vm = store.get(q.type === '形' ? 'hk_vf' : 'hk_vy', q.type === '形' ? 'A' : 'B');   // 版面：形題預設 A（只看拼音）、音題預設 B（字與拼音分兩行）
-  const stemH = q.type === '形' ? (show ? esc(q.stem).replace('□', fill) : esc(q.stem)) : esc(q.stem).replace(/【/g, '「').replace(/】/g, '」');
+  const stemH = q.type === '形' ? (showF ? esc(q.stem).replace('□', fill) : esc(q.stem)) : esc(q.stem).replace(/【/g, '「').replace(/】/g, '」');
   // 拼字組合：只有一個空格（一個音節），拼的過程直接顯示在頂端空格裡
   const liveTxt = am === 'l' && !lock ? Q.lt[i].map(k => q.lets[k]).join('') : '';
   const pyH = show && q.type === '音' ? esc(q.py).replace('＿＿＿', fill)
@@ -325,7 +325,7 @@ function viewQ() {
   // 形題：A＝只顯示 ten 「tooˆ」；B＝再換行顯示 定□　音題：A＝只顯示 通「透」；B＝再換行顯示 tungˇ ＿＿＿
   // 填寫類題目檢查後，一律多顯示一行，才看得到填入的正確答案
   const box = q.type === '形'
-    ? `<div class="stem pyl">${pyBr(q)}</div>${vm === 'B' || show ? `<div class="stem">${stemH}</div>` : ''}`
+    ? `<div class="stem pyl">${pyBr(q)}</div><div class="stem${vm === 'B' || showF ? '' : ' hid'}"${vm === 'B' || showF ? '' : ' aria-hidden="true"'}>${stemH}</div>`
     : `<div class="stem">${stemH}</div>${vm === 'B' || show ? `<div class="py">${pyH}</div>` : ''}`;
   const unfinished = ans.some(a => !a);   // 還有題目沒作答：最後一題不顯示「交卷」
   const nxBtn = last && unfinished ? '' : `<button class="btn" id="nx" ${ins && am === 'c' && !lock ? 'disabled' : ''}>${last ? '交卷' : '下一題'}</button>`;
