@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>字拆碼 匯出／匯入工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{font-family:system-ui,"Noto Sans TC",sans-serif;max-width:860px;margin:24px auto;padding:0 16px;line-height:1.6;color:#222}
+h1{font-size:1.4rem}h2{font-size:1.1rem;margin-top:1.6em;border-bottom:1px solid #ccc;padding-bottom:4px}
+table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:3px 10px;font-size:.9rem}th{background:#f0f0f0}
+.card{border:1px solid #ccc;border-radius:8px;padding:12px 16px;margin:10px 0}
+button{padding:8px 16px;font-size:1rem;cursor:pointer;margin:4px 6px 4px 0}button:disabled{cursor:not-allowed}
+label.r{display:block;margin:4px 0}
+.log{white-space:pre-wrap;background:#f7f7f7;border-radius:6px;padding:10px;font-size:.88rem;min-height:2em}
+.warn{color:#b45309}.err{color:#b91c1c}.ok{color:#15803d}small{color:#666}
+</style></head><body>
+<h1>字拆碼 ⇄ Excel 匯出／匯入工具</h1>
+<p>管理測驗「拆字」模式用的 <b>chai.js</b>。流程：<b>① 選現有 chai.js</b> → 匯出成 Excel 修改，或直接 <b>② 匯入 Excel</b> 並選擇合併方式 → 下載新的 chai.js 覆蓋網站資料夾中的舊檔。資料只在你的瀏覽器內處理，不會上傳。</p>
+
+<h2>Excel 格式（第 1 列為標題列）</h2>
+<div class="card">
+<table><tr><th>字</th><th>拆碼</th></tr><tr><td>偷</td><td>亻 俞</td></tr><tr><td>敵</td><td>啇 攵</td></tr></table>
+<small>每列一個字（只能一個字）。拆碼的部件以空格分開；沒有空格時（如「亻俞」）會自動把每個字元拆開。同一個字出現多列時，以最後一列為準。讀第一個工作表（有名為「字拆碼」的會優先）；也接受 .csv。</small>
+</div>
+
+<h2>① 現有 chai.js</h2>
+<div class="card">
+<p>選擇現有 chai.js：<input type="file" id="fOld" accept=".js"></p>
+<button id="exp" disabled>匯出 Excel（目前全部拆碼）</button>
+<small>也可以下載<a href="#" id="blank">空白範本</a>。沒選 chai.js 時，匯入會視為「現有資料是空的」。</small>
+</div>
+
+<h2>② 匯入 Excel</h2>
+<div class="card">
+<p>Excel 檔：<input type="file" id="fX" accept=".xlsx,.xls,.csv"></p>
+<b>合併方式</b>
+<label class="r"><input type="radio" name="md" value="add" checked> <b>添加</b>：只新增 chai.js 還沒有的字，已有的字不動</label>
+<label class="r"><input type="radio" name="md" value="over"> <b>覆蓋</b>：新增沒有的字，並用 Excel 的拆碼更新已有的字；Excel 沒列出的字保留</label>
+<label class="r"><input type="radio" name="md" value="upd"> <b>僅更新</b>：只修改 chai.js 已有的字，不新增</label>
+<label class="r"><input type="radio" name="md" value="repl"> <b>替換</b>：完全以 Excel 為準，chai.js 原有但 Excel 沒有的字會被移除</label>
+<label class="r"><input type="checkbox" id="del"> 「覆蓋／僅更新」時，Excel 中拆碼留空的字視為<b>刪除</b>該字（否則忽略）</label>
+<button id="go">預覽並轉換</button><button id="dl" disabled>下載 chai.js</button>
+</div>
+<div class="log" id="log">尚未操作。</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const logEl=$('log');
+const L=(m,c)=>{logEl.innerHTML+=(logEl.innerHTML?'\n':'')+(c?`<span class="${c}">${m}</span>`:m)};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const txt=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(f,'utf-8')});
+const buf=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsArrayBuffer(f)});
+const S=v=>v==null?'':String(v).normalize('NFC').trim();
+const normCode=k=>{k=S(k).replace(/\s+/g,' ');if(k&&!k.includes(' '))k=[...k].join(' ');return k};
+let OLD=null,out=null;
+
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+const book=obj=>{const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([['字','拆碼'],...Object.entries(obj)]);ws['!cols']=[{wch:6},{wch:24}];XLSX.utils.book_append_sheet(wb,ws,'字拆碼');return wb};
+
+$('fOld').onchange=async e=>{
+  OLD=null;$('exp').disabled=true;
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const t=await txt(f);
+    OLD=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
+    logEl.innerHTML='';L(`已讀入 chai.js：${Object.keys(OLD).length} 個字`,'ok');
+    $('exp').disabled=false;
+  }catch(err){logEl.innerHTML='';L('讀取 chai.js 失敗：'+esc(err.message),'err')}
+};
+$('exp').onclick=()=>{XLSX.writeFile(book(OLD),'字拆碼.xlsx');L(`已匯出 Excel：${Object.keys(OLD).length} 個字。`,'ok')};
+$('blank').onclick=e=>{e.preventDefault();XLSX.writeFile(book({'偷':'亻 俞','敵':'啇 攵'}),'字拆碼空白範本.xlsx')};
+
+$('go').onclick=async()=>{
+  logEl.innerHTML='';out=null;$('dl').disabled=true;
+  try{
+    const f=$('fX').files[0];
+    if(!f){L('請先選擇 Excel 檔。','err');return}
+    const mode=document.querySelector('input[name=md]:checked').value,delBlank=$('del').checked;
+    const old=OLD?{...OLD}:{};
+    if(!OLD)L('未選 chai.js：視為現有資料是空的。','warn');
+    const wb=XLSX.read(await buf(f),{type:'array'});
+    const sn=wb.SheetNames.find(n=>n.includes('拆'))||wb.SheetNames[0];
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:'',blankrows:false});
+    let ci=0,ki=1,start=0;
+    if(rows.length){const h=rows[0].map(S);const a=h.indexOf('字'),b=h.findIndex(x=>x==='拆碼'||x==='拆字碼'||x==='拆');if(a>=0&&b>=0){ci=a;ki=b;start=1}else if(a>=0||b>=0)start=1}
+    const x={},blanks=new Set(),warns=[];let n=0;
+    for(let i=start;i<rows.length;i++){
+      const r=rows[i],ln=i+1;if(r.every(c=>S(c)===''))continue;n++;
+      const c=S(r[ci]),k=normCode(r[ki]);
+      if(!c){warns.push(`第 ${ln} 列略過：「字」是空的`);continue}
+      if([...c].length!==1){warns.push(`第 ${ln} 列略過：「${esc(c)}」不是單一個字`);continue}
+      if(!k){blanks.add(c);delete x[c];continue}
+      blanks.delete(c);x[c]=k;
+    }
+    L(`工作表「${esc(sn)}」：讀取 ${n} 列，有效 ${Object.keys(x).length} 字，拆碼留空 ${blanks.size} 字。`,'ok');
+    warns.slice(0,30).forEach(w=>L('  '+w,'warn'));if(warns.length>30)L(`  …另有 ${warns.length-30} 則提醒未顯示`,'warn');
+
+    let res;
+    if(mode==='repl'){res={...x}}
+    else{
+      res={...old};
+      for(const [c,k] of Object.entries(x)){
+        const has=c in old;
+        if(mode==='add'){if(!has)res[c]=k}
+        else if(mode==='over')res[c]=k;
+        else if(has)res[c]=k;   // upd
+      }
+      if(delBlank&&(mode==='over'||mode==='upd'))for(const c of blanks){if(c in res)delete res[c]}
+    }
+    const added=[],changed=[],removed=[];let same=0;
+    for(const [c,k] of Object.entries(res)){if(!(c in old))added.push([c,'',k]);else if(old[c]!==k)changed.push([c,old[c],k]);else same++}
+    for(const c of Object.keys(old))if(!(c in res))removed.push([c,old[c],'']);
+    const show=(t,a,cls)=>{if(!a.length)return;L(`\n${t}：${a.length} 字`,cls);a.slice(0,15).forEach(([c,o,k])=>L(`  ${esc(c)}　${o?esc(o)+' → ':''}${esc(k||'（移除）')}`));if(a.length>15)L(`  …另有 ${a.length-15} 字未顯示`)};
+    L(`\n合併結果：共 ${Object.keys(res).length} 字（原有 ${Object.keys(old).length} 字；未變 ${same}）`,'ok');
+    show('新增',added,'ok');show('修改',changed,'warn');show('移除',removed,removed.length?'err':'');
+    if(!added.length&&!changed.length&&!removed.length)L('沒有任何變動。','warn');
+    out='window.CHAI='+JSON.stringify(res)+';';
+    $('dl').disabled=false;
+    L(`\n完成。chai.js 約 ${(out.length/1024).toFixed(0)} KB，請按「下載 chai.js」並覆蓋網站資料夾中的舊檔。`,'ok');
+  }catch(e){L('轉換失敗：'+esc(e.message||e),'err');console.error(e)}
+};
+$('dl').onclick=()=>save(new Blob([out],{type:'text/javascript;charset=utf-8'}),'chai.js');
+</script></body></html>

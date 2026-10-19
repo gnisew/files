@@ -309,8 +309,9 @@ function viewQ() {
   const ins = Q.cfg.instant, lock = ins && Q.chk[i], right = lock && isOk(q, ans[i]);
   const nav = qs.map((_, k) => `<button data-k="${k}" class="${k === i ? 'cur ' : ''}${ins && Q.chk[k] ? (isOk(qs[k], ans[k]) ? 'ok' : 'ng') : ans[k] ? 'done' : ''}">${k + 1}</button>`).join('');
   const am = Q.cfg.am === 'l' ? (q.type === '音' ? 'l' : 'c') : Q.cfg.am;   // 拼字組合只用在字音題
+  const chai = q.type === '形' && am === 'c' && store.get('hk_chai', true);   // 拆字模式：選項顯示字的拆碼，檢查後才顯示原字
   const input = am === 'c'
-    ? `<div class="opts">${options(q).map((o, n) => `<button class="opt ${lock ? (o === q.ans ? 'right' : ans[i] === o ? 'wrong' : '') : ans[i] === o ? 'sel' : ''}" data-v="${esc(o)}" ${lock ? 'disabled' : ''}><span class="no">${n + 1}</span>${esc(o)}</button>`).join('')}</div>`
+    ? `<div class="opts">${options(q).map((o, n) => `<button class="opt${chai ? ' cm' : ''}${chai && !lock ? ' cz' : ''} ${lock ? (o === q.ans ? 'right' : ans[i] === o ? 'wrong' : '') : ans[i] === o ? 'sel' : ''}" data-v="${esc(o)}" ${lock ? 'disabled' : ''}><span class="no">${n + 1}</span>${chai && !lock ? esc((window.CHAI || {})[o] || o) : esc(o)}</button>`).join('')}</div>`
     : am === 'l' ? letterUI(q, i, lock)
     : `<input class="ans${lock ? (right ? ' ok' : ' ng') : ''}" id="ai" value="${esc(ans[i])}" ${lock ? 'readonly' : ''} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${q.type === '形' ? '輸入漢字' : '輸入拼音，如 ziaˊ'}">
        ${q.type === '音' ? `<div class="tones">${[...TONES].map(t => `<button data-t="${t}" ${lock ? 'disabled' : ''}>${t}</button>`).join('')}</div><div class="muted" style="font-size:.85rem">字尾直接打 <b>z</b>ˊ　<b>v</b>ˇ　<b>s</b>ˋ　<b>x</b>ˆ　<b>f</b>⁺ 會自動轉成聲調符號</div>` : ''}`;
@@ -334,7 +335,7 @@ function viewQ() {
     : `<div class="row actions">${am === 'l' ? '' : `<button class="btn ghost" id="pv" ${i ? '' : 'disabled'}>上一題</button>`}${am === 'l' ? '' : `<button class="btn ghost" id="clr" ${ans[i] && !lock ? '' : 'disabled'}>清除作答</button>`}
     ${ins && !lock ? `<button class="btn" id="chk" ${ans[i] ? '' : 'disabled'}>檢查答案</button>` : ''}
     ${am === 'l' && ins && !lock ? '' : nxBtn}</div>`;   // 拼字組合：檢查前只有「檢查答案」，檢查後同一個位置變成「下一題」
-  const html = `<div class="card" id="qcard"><button class="vt" id="vt" type="button" title="切換題目顯示方式">⇄ 版面</button><div class="muted">第 ${i + 1} / ${qs.length} 題　<span class="tag">${q.type === '形' ? '字形' : '字音'}</span><span id="clk">⏱ ${fmt((Date.now() - Q.t0) / 1000)}</span></div>
+  const html = `<div class="card" id="qcard"><div class="vtw">${q.type === '形' && am === 'c' ? `<button class="vt${chai ? ' on' : ''}" id="cz" type="button" aria-pressed="${!!chai}" title="選項改顯示拆字碼，答對／答錯後才顯示原字">${chai ? '拆字' : '字'}</button>` : ''}<button class="vt" id="vt" type="button" title="切換題目顯示方式">⇄ 版面</button></div><div class="muted">第 ${i + 1} / ${qs.length} 題　<span class="tag">${q.type === '形' ? '字形' : '字音'}</span><span id="clk">⏱ ${fmt((Date.now() - Q.t0) / 1000)}</span></div>
     <div class="bar"><i style="width:${cnt / qs.length * 100}%"></i></div>
     <div class="fgrow"><button class="fg${Q.flag.has(i) ? ' on' : ''}" id="fg" type="button" aria-pressed="${Q.flag.has(i)}" title="不確定答案（或是猜的）時，加入錯題本"><svg viewBox="0 0 24 24" fill="${Q.flag.has(i) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>${Q.flag.has(i) ? '已加入錯題本' : '加入錯題本'}</button></div>
     ${Q.rep ? `<div class="muted">未答對過的題目不足，已補入 ${Q.rep} 題曾答對的題目。</div>` : ''}
@@ -361,6 +362,7 @@ document.addEventListener('click', e => {
     else { Q.flag.add(Q.i); const p = W[key]; Q.fprev[Q.i] = p || null; W[key] = packQ(key, q, { wn: (p ? (p.wn || 1) : 0) + 1, wt: Date.now(), rv: false, rc: 0 }); }
     store.set('hk_wrong', W); viewQ(); }
   else if (b.id === 'vt') { const f = Q.qs[Q.i].type === '形', k = f ? 'hk_vf' : 'hk_vy'; store.set(k, store.get(k, f ? 'A' : 'B') === 'A' ? 'B' : 'A'); viewQ(); }
+  else if (b.id === 'cz') { store.set('hk_chai', !store.get('hk_chai', true)); viewQ(); }
   else if (b.id === 'kbq') { Q.kb = !Q.kb; viewQ(); }
   else if (b.id === 'chk') { Q.chk[Q.i] = true; viewQ(); }
   else if (b.dataset.l !== undefined) { Q.lt[Q.i].push(+b.dataset.l); setLetters(); viewQ(); }
