@@ -214,7 +214,7 @@ function viewSetup() {
     <label>題數<select id="n">${[10, 20, 30, 40, 50, 100].map(v => `<option value="${v}">${v}</option>`).join('')}</select></label>
     <label>題型<select id="ts"><option>混合</option><option value="形">只考字形</option><option value="音">只考字音</option></select></label>
     <label>出題順序<select id="ord"><option value="r">隨機</option><option value="s">依序</option><option value="f">頻率高到低</option></select></label>
-    <label>作答方式<select id="am"><option value="c">選取項目</option><option value="l">拼字組合（字音題；字形題用選取）</option><option value="t">手動輸入</option></select></label>
+    <label>作答方式<select id="am"><option value="c">選取項目</option><option value="l">拼字組合</option><option value="t">手動輸入</option></select></label>
     <label class="m-ph ck"><input type="checkbox" id="skip" checked style="width:20px;height:20px">略過已答對的題目（累計 ${Object.keys(store.get('hk_done', {})).length} 題）</label>
     <label class="ck"><input type="checkbox" id="inst" ${store.get('hk_inst', true) ? 'checked' : ''} style="width:20px;height:20px">立即顯示答案</label>
     <label class="m-h ck"><input type="checkbox" id="dup" checked style="width:20px;height:20px">略過重複的題目</label></div>
