@@ -233,3 +233,8 @@ td>input.wk,.wtool input{width:20px;height:20px}
   #psheet .c{text-align:center;white-space:nowrap}#psheet .w{font-size:14pt;letter-spacing:.08em}#psheet .a{min-width:5em;font-weight:700}
   #psheet mark{background:none;color:#000;font-weight:700;text-decoration:underline}
 }
+
+.wbs{display:inline-flex;gap:4px;white-space:nowrap}
+.wbs button{font:inherit;font-size:.8rem;line-height:1.2;padding:2px 9px;border:1px solid var(--line);border-radius:99px;background:var(--bg);color:var(--sub);cursor:pointer}
+.wbs button.on{background:var(--pri);color:var(--pri-tx);border-color:var(--pri)}
+.wbs button:disabled{opacity:.35;cursor:default}

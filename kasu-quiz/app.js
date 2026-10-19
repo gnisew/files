@@ -214,7 +214,7 @@ function viewSetup() {
     <label>題數<select id="n">${[10, 20, 30, 40, 50, 100].map(v => `<option value="${v}">${v}</option>`).join('')}</select></label>
     <label>題型<select id="ts"><option>混合</option><option value="形">只考字形</option><option value="音">只考字音</option></select></label>
     <label>出題順序<select id="ord"><option value="r">隨機</option><option value="s">依序</option><option value="f">頻率高到低</option></select></label>
-    <label>作答方式<select id="am"><option value="c">選取項目</option><option value="l">拼字組合</option><option value="t">手動輸入</option></select></label>
+    <label>作答方式<select id="am"><option value="c">選取項目</option><option value="l">拼字組合（字音題；字形題用選取）</option><option value="t">手動輸入</option></select></label>
     <label class="m-ph ck"><input type="checkbox" id="skip" checked style="width:20px;height:20px">略過已答對的題目（累計 ${Object.keys(store.get('hk_done', {})).length} 題）</label>
     <label class="ck"><input type="checkbox" id="inst" ${store.get('hk_inst', true) ? 'checked' : ''} style="width:20px;height:20px">立即顯示答案</label>
     <label class="m-h ck"><input type="checkbox" id="dup" checked style="width:20px;height:20px">略過重複的題目</label></div>
@@ -508,6 +508,20 @@ const band3 = (r, a, b, t) => r <= a ? 'A 先背 1–' + a : r <= b ? 'B 次之 
 const wlen = w => { const n = Array.from(w).length; return n >= 5 ? '5 字以上' : n + ' 字詞'; };
 const gi = (w, ch) => Array.from(w).indexOf(ch);
 
+/* ===== 加入錯題本：資料表每列可切換「形」「音」兩種題型（錯題本以 題型|詞|答案字 為鍵） ===== */
+const WBT = ['形', '音'];
+let WK = {};   // 目前畫面用的錯題本快照
+const wbQ = (f, r, t) => { const q = f(r, t); return q && q.type === t ? q : null; };   // 音題但拼音無法逐字對齊時為 null
+const wbRule = f => ({ name: '依錯題本', live: true, sort: (a, b) => a[0] - b[0] || a[1] - b[1],
+  cat: r => WBT.some(t => { const q = wbQ(f, r, t); return q && WK[qk(q)]; }) ? '已加入錯題本' : '未加入錯題本' });
+function toggleWrong(f, r, t) {
+  const q = wbQ(f, r, t); if (!q) return;
+  const key = qk(q), W = store.get('hk_wrong', {});
+  if (W[key]) delete W[key];
+  else { W[key] = packQ(key, q, { wn: 1, wt: Date.now(), rv: false, rc: 0 }); const D = store.get('hk_done', {}); if (D[key]) { delete D[key]; store.set('hk_done', D); } }
+  store.set('hk_wrong', W);
+}
+
 /* ===== 資料來源定義：rules＝瀏覽規則（把全部資料分成不重疊的類別，合計＝全部） ===== */
 let PS, DS;
 const predSrc = () => PS ||= (() => {
@@ -517,12 +531,12 @@ const predSrc = () => PS ||= (() => {
     pc: { name: '115 預測・答案字（300）', head: ['排名', '字', '讀音', '相關詞（漢字＋拼音）', '機率'], get: () => DB.pc,
       cells: r => [r[0], big(r[1]), snd(r[4]), charWords(r[1], rel.get(r[1]) || r[3]), pct(r[2])],
       rules: [{ name: '依排名分級', cat: r => band3(r[0], 50, 150, 300) }, readRules(4)] },
-    pw: { name: '115 預測・詞彙（300）', head: ['排名', '詞', '完整拼音', '考的字音', '機率'], get: () => DB.pw,
-      cells: r => { const i = gi(r[1], r[3]); return [r[0], wd(hl(r[1], i)), r[2], snd(r[2].split(' ')[i] || ''), pct(r[4])]; },
-      rules: [{ name: '依排名分級', cat: r => band3(r[0], 50, 150, 300) }, { name: '依詞長', cat: r => wlen(r[1]) }] },
-    nw: { name: '115 新詞候補（500）', head: ['排名', '詞', '完整拼音', '考的字音', '機率'], get: () => DB.nw,
-      cells: r => [r[0], wd(hl(r[1], gi(r[1], r[3]))), r[2], snd(r[4]), pct(r[5])],
-      rules: [{ name: '依排名分級', cat: r => band3(r[0], 100, 300, 500) }, { name: '依詞長', cat: r => wlen(r[1]) }] },
+    pw: { name: '115 預測・詞彙（300）', head: ['排名', '錯題本', '詞', '完整拼音', '考的字音', '機率'], wb: (r, t) => mk(r[1], r[2], gi(r[1], r[3]), t, {}), get: () => DB.pw,
+      cells: r => { const i = gi(r[1], r[3]); return [r[0], '', wd(hl(r[1], i)), r[2], snd(r[2].split(' ')[i] || ''), pct(r[4])]; },
+      rules: [{ name: '依排名分級', cat: r => band3(r[0], 50, 150, 300) }, { name: '依詞長', cat: r => wlen(r[1]) }, wbRule((r, t) => mk(r[1], r[2], gi(r[1], r[3]), t, {}))] },
+    nw: { name: '115 新詞候補（500）', head: ['排名', '錯題本', '詞', '完整拼音', '考的字音', '機率'], wb: (r, t) => mk(r[1], r[2], gi(r[1], r[3]), t, { snd: r[4] }), get: () => DB.nw,
+      cells: r => [r[0], '', wd(hl(r[1], gi(r[1], r[3]))), r[2], snd(r[4]), pct(r[5])],
+      rules: [{ name: '依排名分級', cat: r => band3(r[0], 100, 300, 500) }, { name: '依詞長', cat: r => wlen(r[1]) }, wbRule((r, t) => mk(r[1], r[2], gi(r[1], r[3]), t, { snd: r[4] }))] },
     bz: { name: '背誦清單・全部答案字（1,707）', head: ['排名', '字', '讀音', '相關詞（漢字＋拼音）', '機率'], get: () => DB.bz,
       cells: r => [r[0], big(r[1]), snd(r[3]), charWords(r[1], r[4]), pct(r[2])],
       rules: [{ name: '依排名每 100 名', cat: r => { const s = (r[0] - 1) / 100 | 0; return `${s * 100 + 1}–${Math.min(s * 100 + 100, DB.bz.length)} 名`; } }, readRules(3)] }
@@ -537,14 +551,15 @@ const histFreq = () => HF ||= (() => {
   return { n, keep: new Set(at.values()) };
 })();
 const fq = r => histFreq().n.get(r[3] + '|' + r[5]);
+const histQ = (r, t) => { const c = Array.from(r[3]); let i = r[2] - 1; if (c[i] !== r[5]) i = c.indexOf(r[5]); return mk(r[3], r[4], i, t, { snd: r[6] }); };
 const dbSrc = () => DS ||= {
-  hist: { name: `歷屆題庫（${DB.hist.length} 題）`, head: ['編號', '年度', '序號', '詞', '拼音', '答案字', '答案音', '考過次數'], hide: [1, 2, 7], serial: true, get: () => DB.hist, keep: (r, i) => histFreq().keep.has(i),
+  hist: { name: `歷屆題庫（${DB.hist.length} 題）`, head: ['編號', '錯題本', '年度', '序號', '詞', '拼音', '答案字', '答案音', '考過次數'], hide: [2, 3, 8], serial: true, wb: histQ, get: () => DB.hist, keep: (r, i) => histFreq().keep.has(i),
     txt: r => r[0] + ' ' + r[1] + ' ' + r[3] + ' ' + r[4] + ' ' + r[5] + ' ' + r[6] + ' ' + fq(r) + ' 次',
-    cells: r => { const c = Array.from(r[3]); let i = r[2] - 1; if (c[i] !== r[5]) i = c.indexOf(r[5]); return ['', r[0], r[1], wd(hl(r[3], i)), r[4], big(r[5]), r[6], fq(r) + ' 次']; },
+    cells: r => { const c = Array.from(r[3]); let i = r[2] - 1; if (c[i] !== r[5]) i = c.indexOf(r[5]); return ['', '', r[0], r[1], wd(hl(r[3], i)), r[4], big(r[5]), r[6], fq(r) + ' 次']; },
     rules: [{ name: '依年度', cat: r => r[0] + ' 年', sort: (a, b) => a[0] - b[0] || a[1] - b[1] },
       { name: '依出現頻率（多 → 少）', rev: true, cat: r => '考過 ' + fq(r) + ' 次', sort: (a, b) => fq(b) - fq(a) || a[3].localeCompare(b[3]) || b[0] - a[0] || a[1] - b[1] },
       { name: '依答案音首字母（A–Z）', cat: r => letter(r[6]), sort: (a, b) => a[6].localeCompare(b[6]) || a[0] - b[0] || a[1] - b[1] },
-      { name: '依詞長', cat: r => wlen(r[3]), sort: (a, b) => a[0] - b[0] || a[1] - b[1] }] },
+      { name: '依詞長', cat: r => wlen(r[3]), sort: (a, b) => a[0] - b[0] || a[1] - b[1] }, wbRule(histQ)] },
   lex: { name: `詞庫（${DB.lex.length} 詞）`, head: ['編號', '詞', '拼音', '歷屆'], serial: true, get: () => DB.lex,
     cells: r => ['', wd(esc(r[0])), r[1], testedSet().has(r[0]) ? '✓ 考過' : ''],
     txt: r => r[0] + ' ' + r[1] + (testedSet().has(r[0]) ? ' ✓ 考過' : ''),
@@ -578,10 +593,13 @@ function browse(el, src, st) {
   const fillRules = () => $('#br', el).innerHTML = src[st.k].rules.map((r, i) => `<option value="${i}" ${i === st.ri ? 'selected' : ''}>${r.name}</option>`).join('');
   const fillCols = () => { const s = src[st.k], hid = hidOf();
     $('#bcp', el).innerHTML = `<div class="row">${s.head.map((h, c) => `<label class="ck"><input type="checkbox" data-col="${c}" ${hid.includes(c) ? '' : 'checked'}>${esc(h)}</label>`).join('')}</div>`; };
+  const wbCell = (s, i) => `<td><span class="wbs">${WBT.map(t => { const q = wbQ(s.wb, s.rows[i], t);
+    return q ? `<button type="button" class="${WK[qk(q)] ? 'on' : ''}" data-wb="${i}|${t}" aria-pressed="${!!WK[qk(q)]}" title="${WK[qk(q)] ? '已在錯題本（字' + t + '題），點一下移除' : '加入錯題本（字' + t + '題）'}">${t}</button>` : `<button type="button" disabled title="拼音無法逐字對齊，不能出字音題">${t}</button>`; }).join('')}</span></td>`;
   const draw = () => {
     clearTimeout(st.tm);   // 手動重畫時，取消還在等的搜尋
     const s = S(), rule = s.rules[st.ri] || s.rules[0], q = st.q.trim().toLowerCase();
-    rule.lab ||= s.rows.map(rule.cat);
+    if (s.wb) WK = wrongRaw();
+    if (rule.live || !rule.lab) rule.lab = s.rows.map(rule.cat);   // 依錯題本的分類會隨時變動，每次重算
     $('#bdl', el).hidden = !s.keep; $('#bd', el).checked = !!st.dd;
     const dd = !!(st.dd && s.keep), hid = hidOf(), vis = s.head.map((_, c) => c).filter(c => !hid.includes(c));
     const ix = q ? idxOf(s) : null, N = s.rows.length;   // 排序只在每個瀏覽方式第一次用到時算一次，之後依此順序篩選
@@ -600,11 +618,12 @@ function browse(el, src, st) {
       <span class="muted">共 ${sel.length} 筆</span></div>`;
     $('#bp1', el).innerHTML = $('#bp2', el).innerHTML = pg;
     const from = (st.pg - 1) * st.sz;
-    $('#bt', el).innerHTML = sel.length ? `<table class="${vis.some(c => /^相關詞/.test(s.head[c])) ? 't-rel' : ''}"><tr>${vis.map(c => `<th>${s.head[c]}</th>`).join('')}</tr>${sel.slice(from, from + st.sz).map((i, j) => `<tr>${vis.map(c => s.serial && c === 0 ? `<td class="muted">${from + j + 1}</td>` : cellHtml(cellsOf(s, i)[c])).join('')}</tr>`).join('')}</table>` : '<p class="muted">沒有符合的資料</p>';
+    $('#bt', el).innerHTML = sel.length ? `<table class="${vis.some(c => /^相關詞/.test(s.head[c])) ? 't-rel' : ''}"><tr>${vis.map(c => `<th>${s.head[c]}</th>`).join('')}</tr>${sel.slice(from, from + st.sz).map((i, j) => `<tr>${vis.map(c => s.serial && c === 0 ? `<td class="muted">${from + j + 1}</td>` : s.wb && c === 1 ? wbCell(s, i) : cellHtml(cellsOf(s, i)[c])).join('')}</tr>`).join('')}</table>` : '<p class="muted">沒有符合的資料</p>';
   };
   el.onclick = e => { const b = e.target.closest('button'); if (!b) return;
     if (b.id === 'bcb') $('#bcp', el).hidden = !$('#bcp', el).hidden;
     else if (b.dataset.c !== undefined) { st.cat = b.dataset.c; st.pg = 1; draw(); }
+    else if (b.dataset.wb) { const [i, t] = b.dataset.wb.split('|'), s = S(); toggleWrong(s.wb, s.rows[+i], t); draw(); }
     else if (b.dataset.p) { st.pg = +b.dataset.p; draw(); jump($('#bt', el)); } };
   el.onchange = e => { const t = e.target;
     if (t.dataset.col !== undefined) { const h = new Set(hidOf()); t.checked ? h.delete(+t.dataset.col) : h.add(+t.dataset.col);
@@ -784,5 +803,6 @@ $('#theme').addEventListener('click', () => { const i = THEMES.findIndex(x => x[
 
 /* 一次性遷移（v4）：舊版錯題本存的是完整題目物件，改存精簡格式 */
 if (!store.get('hk_v5', false)) { const c = store.get('hk_cols', {}) || {}; delete c.lex; store.set('hk_cols', c); store.set('hk_v5', true); }
+if (!store.get('hk_v6', false)) { const c = store.get('hk_cols', {}) || {}; ['hist', 'pw', 'nw'].forEach(k => delete c[k]); store.set('hk_cols', c); store.set('hk_v6', true); }   // 新增「錯題本」欄，欄位位置改變
 if (!store.get('hk_v4', false)) { store.set('hk_wrong', packAll(wrongRaw())); store.set('hk_v4', true); }
 viewSetup();
