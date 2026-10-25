@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>和樂典-烏衣行</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="manifest.webmanifest">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+	<link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+	<link rel="stylesheet" href="styles.css">
+<script>
+// 網址帶有查詢（q / d）或換詞頁（a）時，先隱藏畫面並關閉過場動畫，等 script.js 還原完畢再顯示，避免先看到首頁
+if (/[?&](q|cas|d|a)=/.test(location.search)) {
+  document.documentElement.classList.add('restoring');
+  setTimeout(function () { document.documentElement.classList.remove('restoring'); }, 3000);   // 保險：最久 3 秒
+}
+</script>
+<script>
+// 先套用外觀設定，避免畫面閃動（字體大小 / 字體 / 行距）
+(function () {
+  var FONTS = {
+    'default': 'system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif',
+    'tauhu': 'tauhu-oo, system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif'
+  };
+  var LH = { tight: '1.4', normal: '1.6', loose: '1.9' };
+  var PW = { full: 'none', wide: '1000px', normal: '900px', narrow: '800px' };
+  var VOWEL_COLORS = { red: '#d32f2f', orange: '#c75b00', blue: '#1565c0', green: '#2e7d32' };
+  window.APPEARANCE_FONTS = FONTS; window.APPEARANCE_LH = LH; window.APPEARANCE_PW = PW;
+  window.applyAppearance = function (a) {
+    var r = document.documentElement.style;
+    r.setProperty('--fs', (a.fs || 100) / 100);
+    r.setProperty('--ui-font', FONTS[a.font] || FONTS['default']);
+    r.setProperty('--lh', LH[a.lh] || LH.normal);
+    r.setProperty('--page-w', PW[a.pw] || PW.normal);
+    document.documentElement.dataset.pw = a.pw || 'normal';   // 讓 CSS 知道是否為 100% 寬度
+    window.exMode = (a.ex === 'line' || a.ex === 'seg') ? a.ex : 'ruby';
+    window.romMode = (a.rom === 'main' || a.rom === 'sub') ? a.rom : 'full';
+    window.rwOn = a.rw === 'on';   // 新增：近反義顯示（例句的詞，滑鼠懸停時顯示近義、反義詞；預設關）
+    window.showMixed = a.mx === 'on';   // 是否列出「混拼符合」（預設不顯示）
+    window.sortMode = a.so === 'rom' ? 'rom' : 'han';   // 列表排序：han＝詞目＞音讀（預設）、rom＝音讀＞詞目
+    window.defMode = (a.df === 'full' || a.df === 'std' || a.df === 'brief') ? a.df : 'brief';
+    // 聲調色彩：總開關 / 詞目 / 例句 / 要標示的聲調
+    window.tnOn = a.tn === 'on';
+    window.tnHead = a.tnh !== 'off';
+    window.tnEx = a.tne !== 'off';
+    // 音色（台羅母音）：總開關 / 詞目 / 例句 / 顏色
+    window.vwOn = a.vw === 'on';
+    window.vwHead = a.vwh !== 'off';
+    window.vwEx = a.vwe !== 'off';
+    r.setProperty('--vowel', VOWEL_COLORS[a.vc] || VOWEL_COLORS.red);
+    window.tnSet = new Set(String(a.tns == null ? '12345789' : a.tns).split('').map(Number).filter(function (n) { return n >= 1 && n <= 9; }));
+    if (window._sbRefresh) window._sbRefresh();   // 詳細頁開著時，側邊清單跟著更新（字級、顏色等）
+  };
+  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
+  try { Object.assign(a, JSON.parse(localStorage.getItem('kautian_appearance') || '{}')); } catch (e) {}
+  // 舊版的連續字體大小，換成最接近的選項
+  var FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;
+  a.fs = FS.reduce(function (p, c) { return Math.abs(c - n) < Math.abs(p - n) ? c : p; });
+  window.applyAppearance(a);
+})();
+</script>
+</head>
+<body spellcheck="false">
+<!-- 內嵌 SVG 圖示庫（Material Icons，Apache 2.0）：用 <svg class="icon"><use href="#i-名稱"/></svg> 呼叫 -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></symbol>
+  <symbol id="i-arrow-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+  <symbol id="i-arrow-upward" viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+  <symbol id="i-expand-less" viewBox="0 0 24 24"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></symbol>
+  <symbol id="i-expand-more" viewBox="0 0 24 24"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></symbol>
+  <symbol id="i-format-align-left" viewBox="0 0 24 24"><path d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z"/></symbol>
+  <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></symbol>
+  <symbol id="i-music-note" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></symbol>
+  <symbol id="i-open-in-new" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></symbol>
+  <symbol id="i-text-fields" viewBox="0 0 24 24"><path d="M2.5 4v3h5v12h3V7h5V4h-13zm19 5h-9v3h3v7h3v-7h3V9z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
+  <symbol id="i-content-copy" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></symbol>
+  <symbol id="i-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+  <symbol id="i-swap-horiz" viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></symbol>
+  <symbol id="i-view-column" viewBox="0 0 24 24"><path d="M10 18h5V5h-5v13zm-6 0h5V5H4v13zM16 5v13h5V5h-5z"/></symbol>
+</svg>
+
+<div class="container">
+    <div class="search-header" id="searchHeader">
+        <div class="logo" id="logo">HOLO</div>
+        <div class="search-container" id="searchContainer">
+            <div class="search-wrapper">
+                <input type="text" class="search-box" placeholder="臺灣台語和樂典" id="searchInput" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">
+                <svg class="icon search-clear" id="searchClear" aria-hidden="true"><use href="#i-close"/></svg>
+                <svg class="icon search-icon" id="searchButton" aria-hidden="true"><use href="#i-search"/></svg>
+                <button type="button" class="rx-btn" id="rxBtn"></button>
+				<button id="virtualKeyboardToggle" class="virtual-keyboard-toggle">
+				  <svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg>
+				</button>
+				<div id="virtualKeyboard" class="virtual-keyboard">
+				  <!-- 鍵盤按鈕將由 JavaScript 動態生成 -->
+				</div>
+            </div>
+
+
+
+        </div>
+        <!-- 搜索類型選擇器將動態插入 -->
+    </div>
+    <div class="results" id="results"></div>
+    <footer class="site-footer">資料來源：<a href="https://sutian.moe.edu.tw/zh-hant/piantsip/pankhuan-singbing/#hid1" target="_blank" rel="noopener">教育部《臺灣台語常用詞辭典》</a>。製作：<a href="https://sites.google.com/view/oikasu" target="_blank" rel="noopener">烏衣行</a>。</footer>
+</div>
+
+
+<div id="settingsTriggerContainer">
+<!-- 新增：換詞按鈕（在分類左邊）-->
+<button class="article-trigger" id="articleTrigger" type="button" aria-label="分析" title="分析">
+    <span>分析</span>
+</button>
+<!-- 新增：分類瀏覽按鈕（在齒輪左邊）與分類面板 -->
+<button class="cat-trigger" id="catTrigger" type="button" aria-label="分類瀏覽" aria-expanded="false" title="分類瀏覽">
+    <svg class="icon" aria-hidden="true"><use href="#i-apps"/></svg>
+</button>
+<div class="cat-panel" id="catPanel" role="dialog" aria-label="分類瀏覽">
+    <div class="cat-panel-head">
+        <button type="button" class="cat-back" id="catBack" aria-label="返回大類" hidden><svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg></button>
+        <input type="text" id="catFilter" placeholder="篩選分類⋯⋯" autocomplete="off" spellcheck="false">
+        <button type="button" class="cat-expand" id="catExpand" aria-label="全部檢視" title="全部檢視（展開大版面）"><svg class="icon" aria-hidden="true"><use href="#i-fullscreen"/></svg></button>
+    </div>
+    <div class="cat-grid" id="catGrid"></div>
+</div>
+<button class="settings-trigger" id="settingsTrigger" aria-label="設定" title="設定">
+    <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+</button>
+</div>
+
+<!-- 新增：換詞（語詞替換）頁面，內容由 article.js 產生 -->
+<div class="article-page" id="articlePage" role="dialog" aria-label="換詞" hidden>
+    <div class="article-topbar">
+        <div class="article-topbar-inner">
+            <div class="logofont" id="articleLogo" role="button" tabindex="0" title="回到首頁">HOLO</div>
+            <button type="button" class="article-close" id="articleClose" aria-label="返回" title="返回"><svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg></button>
+            <span class="article-tools" id="arTopTools"></span>
+        </div>
+    </div>
+    <div class="article-body" id="articleHost"></div>
+</div>
+
+<!-- 新增：分類「全部檢視」大版面 -->
+<div class="cat-full" id="catFull" role="dialog" aria-label="分類瀏覽（全部檢視）">
+    <div class="cat-full-card">
+        <div class="cat-full-head">
+            <div class="cat-full-title">分類瀏覽</div>
+            <input type="text" id="catFullFilter" placeholder="篩選分類⋯⋯" autocomplete="off" spellcheck="false">
+            <button type="button" class="cat-full-close" id="catFullClose" aria-label="關閉"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="cat-full-body" id="catFullBody"></div>
+    </div>
+</div>
+
+<!-- 設定頁面 -->
+<div class="settings-page" id="settingsPage">
+
+    <!-- 標題列 -->
+    <div class="settings-header-bar">
+        <button class="settings-trigger" id="settingsTriggerInner">
+            <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+        </button>
+        
+        <button class="settings-close" id="settingsClose">
+            <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+        </button>
+    </div>
+
+    <!-- 側邊欄 -->
+    <div class="settings-sidebar">
+        <div class="settings-sidebar-item active" data-panel="allSettings">
+            <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+            <span>所有設定</span>
+        </div>
+
+        <div class="settings-sidebar-group">外觀</div>
+        <div class="settings-sidebar-item" data-panel="layoutPanel">
+            <svg class="icon" aria-hidden="true"><use href="#i-text-fields"/></svg>
+            <span>版面與字體</span>
+        </div>
+        <div class="settings-sidebar-item" data-panel="contentPanel">
+            <svg class="icon" aria-hidden="true"><use href="#i-format-align-left"/></svg>
+            <span>內容顯示</span>
+        </div>
+        <div class="settings-sidebar-item" data-panel="tonePanel">
+            <svg class="icon" aria-hidden="true"><use href="#i-palette"/></svg>
+            <span>字調色彩</span>
+        </div>
+        <div class="settings-sidebar-item" data-panel="vowelPanel">
+            <svg class="icon" aria-hidden="true"><use href="#i-music-note"/></svg>
+            <span>母音顏色</span>
+        </div>
+
+        <div class="settings-sidebar-group">資料</div>
+        <div class="settings-sidebar-item" data-panel="columnPanel">
+            <svg class="icon" aria-hidden="true"><use href="#i-view-column"/></svg>
+            <span>欄位設定</span>
+        </div>
+
+        <div class="settings-sidebar-footer">
+            <button type="button" class="reset-button js-reset-appearance">重設全部外觀</button>
+        </div>
+    </div>
+
+    <!-- 主要內容區域 -->
+    <div class="settings-content">
+
+        <!-- 版面與字體面板 -->
+        <div class="settings-panel" id="layoutPanel">
+            <div class="settings-header">
+                <h2>版面與字體</h2>
+            </div>
+            <div class="panel-content">
+                <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblFs">字體大小</label><p class="setting-desc">整個網頁文字的大小。</p></div>
+                    <div class="seg" data-key="fs" role="radiogroup" aria-labelledby="lblFs">
+                        <button type="button" data-v="150">甚大</button>
+                        <button type="button" data-v="140">較大</button>
+                        <button type="button" data-v="130">標準</button>
+                        <button type="button" data-v="110">較小</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblFont">字體</label><p class="setting-desc">介面與內容使用的字型。</p></div>
+                    <div class="seg" data-key="font" role="radiogroup" aria-labelledby="lblFont">
+                        <button type="button" data-v="default">預設</button>
+                        <button type="button" data-v="tauhu">豆腐</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblLh">行距</label><p class="setting-desc">內容的行與行之間的距離。</p></div>
+                    <div class="seg" data-key="lh" role="radiogroup" aria-labelledby="lblLh">
+                        <button type="button" data-v="tight">緊湊</button>
+                        <button type="button" data-v="normal">標準</button>
+                        <button type="button" data-v="loose">寬鬆</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblPw">網頁寬度</label><p class="setting-desc">整個頁面內容的最大寬度。</p></div>
+                    <div class="seg" data-key="pw" role="radiogroup" aria-labelledby="lblPw">
+                        <button type="button" data-v="full">100%</button>
+                        <button type="button" data-v="wide">較寬</button>
+                        <button type="button" data-v="normal">標準</button>
+                        <button type="button" data-v="narrow">較窄</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 內容顯示面板 -->
+        <div class="settings-panel" id="contentPanel">
+            <div class="settings-header">
+                <h2>內容顯示</h2>
+            </div>
+            <div class="panel-content">
+                <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblRom">音讀顯示</label><div class="setting-preview mini" id="previewRom"></div></div>
+                    <div class="seg" data-key="rom" role="radiogroup" aria-labelledby="lblRom">
+                        <button type="button" data-v="full">標準</button>
+                        <button type="button" data-v="main">主音讀</button>
+                        <button type="button" data-v="sub">副音讀</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblDf">釋義顯示</label><div class="setting-preview mini" id="previewDf"></div></div>
+                    <div class="seg" data-key="df" role="radiogroup" aria-labelledby="lblDf">
+                        <button type="button" data-v="full">完整</button>
+                        <button type="button" data-v="std">標準</button>
+                        <button type="button" data-v="brief">精簡</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblEx">例句顯示</label><div class="setting-preview mini" id="previewEx"></div></div>
+                    <div class="seg" data-key="ex" role="radiogroup" aria-labelledby="lblEx">
+                        <button type="button" data-v="ruby">RUBY</button>
+                        <button type="button" data-v="line">標準</button>
+                        <button type="button" data-v="seg">分詞</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblRw">近反義顯示</label><p class="setting-desc">電腦版：滑鼠停在例句的詞上，會顯示近義詞、反義詞。手機版：點例句的詞，會顯示原詞與近反義詞。點其中一個詞就能直接查詢。</p></div>
+                    <div class="seg" data-key="rw" role="radiogroup" aria-labelledby="lblRw">
+                        <button type="button" data-v="off">不顯示</button>
+                        <button type="button" data-v="on">顯示</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblSo">排序設定</label><p class="setting-desc">查詢結果列表的排序（同一符合層級內）。也可以點列表的「詞目」表頭切換。</p></div>
+                    <div class="seg" data-key="so" role="radiogroup" aria-labelledby="lblSo">
+                        <button type="button" data-v="han">詞目 &gt; 音讀</button>
+                        <button type="button" data-v="rom">音讀 &gt; 詞目</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblMx">混拼符合</label><p class="setting-desc">輸入法式查詢（有的音節打整個、有的只打開頭）命中的結果，差異較大，預設不顯示。</p></div>
+                    <div class="seg" data-key="mx" role="radiogroup" aria-labelledby="lblMx">
+                        <button type="button" data-v="off">不顯示</button>
+                        <button type="button" data-v="on">顯示</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聲調色彩面板 -->
+        <div class="settings-panel" id="tonePanel">
+            <div class="settings-header">
+                <h2>字調色彩</h2>
+            </div>
+            <div class="panel-content">
+                <div class="setting-group">開關</div>
+                <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblTn">字調色彩</label><p class="setting-desc">用顏色標示台語漢字的聲調（依台羅調符判斷）。詳細頁也可以隨時開關。</p></div>
+                    <div class="seg" data-key="tn" role="radiogroup" aria-labelledby="lblTn">
+                        <button type="button" data-v="on">開</button>
+                        <button type="button" data-v="off">關</button>
+                    </div>
+                </div>
+                </div>
+                <div class="setting-group">套用範圍</div>
+                <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblTnh">套用於詞目</label><p class="setting-desc">列表、例句搜尋與詳細頁標題的詞目漢字。</p></div>
+                    <div class="seg" data-key="tnh" role="radiogroup" aria-labelledby="lblTnh">
+                        <button type="button" data-v="on">套用</button>
+                        <button type="button" data-v="off">不套用</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblTne">套用於例句</label><p class="setting-desc">各處例句的台語漢字。</p></div>
+                    <div class="seg" data-key="tne" role="radiogroup" aria-labelledby="lblTne">
+                        <button type="button" data-v="on">套用</button>
+                        <button type="button" data-v="off">不套用</button>
+                    </div>
+                </div>
+                </div>
+                <div class="setting-group">標示的聲調</div>
+                <div class="setting-card">
+                <div class="setting-row stack">
+                    <div class="setting-text"><label>標示的聲調</label><p class="setting-desc">點選要上色的聲調；沒選的聲調維持原色。音讀沒有單獨的第 6 調（與第 2 調同調符）。</p></div>
+                    <div class="tn-chips" id="tnChips">
+                        <button type="button" class="tn-chip" data-t="1" style="--tn:var(--tn1)"><i class="dot"></i>1<small>陰平</small></button>
+                        <button type="button" class="tn-chip" data-t="2" style="--tn:var(--tn2)"><i class="dot"></i>2<small>陰上</small></button>
+                        <button type="button" class="tn-chip" data-t="3" style="--tn:var(--tn3)"><i class="dot"></i>3<small>陰去</small></button>
+                        <button type="button" class="tn-chip" data-t="4" style="--tn:var(--tn4)"><i class="dot"></i>4<small>陰入</small></button>
+                        <button type="button" class="tn-chip" data-t="5" style="--tn:var(--tn5)"><i class="dot"></i>5<small>陽平</small></button>
+                        <button type="button" class="tn-chip" data-t="6" style="--tn:var(--tn6)" disabled title="音讀沒有單獨的第 6 調"><i class="dot"></i>6<small>陽上</small></button>
+                        <button type="button" class="tn-chip" data-t="7" style="--tn:var(--tn7)"><i class="dot"></i>7<small>陽去</small></button>
+                        <button type="button" class="tn-chip" data-t="8" style="--tn:var(--tn8)"><i class="dot"></i>8<small>陽入</small></button>
+                        <button type="button" class="tn-chip" data-t="9" style="--tn:var(--tn9)"><i class="dot"></i>9<small>高升</small></button>
+                    </div>
+                    <div class="tn-quick"><button type="button" id="tnAll">全選</button><button type="button" id="tnNone">全不選</button></div>
+                    <div class="setting-preview mini" id="previewTn"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 母音顏色面板 -->
+        <div class="settings-panel" id="vowelPanel">
+            <div class="settings-header">
+                <h2>母音顏色</h2>
+            </div>
+            <div class="panel-content">
+                <div class="setting-group">開關</div>
+                <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblVw">母音顏色</label><p class="setting-desc">音讀的母音（a e i o u；m、ng 當主音時也算）用同一個顏色標示。詳細頁也可以隨時開關。</p></div>
+                    <div class="seg" data-key="vw" role="radiogroup" aria-labelledby="lblVw">
+                        <button type="button" data-v="on">開</button>
+                        <button type="button" data-v="off">關</button>
+                    </div>
+                </div>
+                </div>
+                <div class="setting-group">套用範圍</div>
+                <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblVwh">套用於詞目音讀</label><p class="setting-desc">列表、例句搜尋與詳細頁標題的詞目音讀。</p></div>
+                    <div class="seg" data-key="vwh" role="radiogroup" aria-labelledby="lblVwh">
+                        <button type="button" data-v="on">套用</button>
+                        <button type="button" data-v="off">不套用</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblVwe">套用於例句音讀</label><p class="setting-desc">各處例句的音讀（含 RUBY 標在漢字上方的音讀）。</p></div>
+                    <div class="seg" data-key="vwe" role="radiogroup" aria-labelledby="lblVwe">
+                        <button type="button" data-v="on">套用</button>
+                        <button type="button" data-v="off">不套用</button>
+                    </div>
+                </div>
+                </div>
+                <div class="setting-group">標示顏色</div>
+                <div class="setting-card">
+                <div class="setting-row stack">
+                    <div class="setting-row-line">
+                        <div class="setting-text"><label id="lblVc">選擇顏色</label></div>
+                        <div class="seg seg-color" data-key="vc" role="radiogroup" aria-labelledby="lblVc">
+                            <button type="button" data-v="red" style="--c:#d32f2f">紅</button>
+                            <button type="button" data-v="orange" style="--c:#c75b00">橘</button>
+                            <button type="button" data-v="blue" style="--c:#1565c0">藍</button>
+                            <button type="button" data-v="green" style="--c:#2e7d32">綠</button>
+                        </div>
+                    </div>
+                    <div class="setting-preview mini" id="previewVw"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 手機版：重設外觀（桌面版隱藏，改用側邊欄底部按鈕） -->
+        <div class="settings-footer-mobile">
+            <button type="button" class="reset-button js-reset-appearance">重設全部外觀</button>
+        </div>
+
+        <!-- 欄位設定面板 -->
+        <div class="settings-panel" id="columnPanel">
+            <div class="settings-header">
+                <h2>顯示欄位</h2>
+            </div>
+            <div class="panel-content">
+
+                <div class="column-selector" id="columnSelector">
+                    <ul id="columnList">
+                        <!-- 欄位列表由 JavaScript 動態生成 -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button id="scrollToTopBtn" type="button" title="起去面上（回到搜尋框）" aria-label="回到頁面頂端並重新查詢"><svg class="icon" aria-hidden="true"><use href="#i-arrow-upward"/></svg></button>
+
+<!-- 更新模態框結構 -->
+<div id="fullDataModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <div id="fullDataContent"></div>
+  </div>
+</div>
+
+<!-- 新增側邊欄結構 -->
+<div id="sidebarModal" class="sidebar-modal">
+  <div class="detail-topbar">
+    <div class="detail-topbar-inner">
+      <button type="button" class="settings-trigger detail-settings" id="settingsTriggerDetail" aria-label="設定" title="設定">
+        <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+      </button>
+      <button class="sidebar-back-button" id="detailBack" aria-label="返回結果">
+        <svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg>
+      </button>
+      <div class="logofont" id="detailLogo">和樂典</div>
+      <button class="detail-search" id="detailSearch" aria-label="回到搜尋">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span id="detailQuery"></span>
+      </button>
+    </div>
+  </div>
+  <div class="sidebar-inner">
+    <div class="sidebar">
+      <div class="sb-tools" id="sbTools">
+        <div class="sb-nav">
+          <button type="button" id="sbPrev" aria-label="上一筆" title="上一筆（↑）"><svg class="icon" aria-hidden="true"><use href="#i-expand-less"/></svg></button>
+          <label class="sb-pos" title="輸入編號後按 Enter 跳過去"><input type="text" id="sbJump" inputmode="numeric" autocomplete="off" aria-label="目前第幾筆，可輸入編號跳轉"><span id="sbTotal"></span></label>
+          <button type="button" id="sbNext" aria-label="下一筆" title="下一筆（↓）"><svg class="icon" aria-hidden="true"><use href="#i-expand-more"/></svg></button>
+        </div>
+        <div class="sb-filter">
+          <svg class="icon sb-fi" aria-hidden="true"><use href="#i-search"/></svg>
+          <input type="text" id="sbFilter" placeholder="在結果中篩選⋯" autocomplete="off" spellcheck="false" aria-label="在目前結果中篩選詞目或音讀">
+          <span class="sb-fcount" id="sbFcount"></span>
+          <button type="button" class="sb-fclear" id="sbFclear" aria-label="清除篩選" hidden><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="sb-tier" id="sbTier" hidden></div>
+      </div>
+      <div class="sb-scroll" id="sbScroll"><div id="sidebarList"></div></div>
+    </div>
+    <div class="sidebar-content">
+      <div id="sidebarFullDataContent"></div>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="category.js"></script>
+<script src="name.js"></script>
+<script src="script.js"></script>
+<script>
+// 註冊 Service Worker（需 https 或 localhost）；離線可用、第二次以後開啟更快
+// 修改：加上新版偵測。sw.js 會在背景比對檔案內容，有新版就通知這裡，顯示「有新版本，點此重新整理」
+if ('serviceWorker' in navigator) window.addEventListener('load', () => {
+  const hadController = !!navigator.serviceWorker.controller;   // 開頁時就已受 SW 控制＝不是第一次安裝（第一次安裝不必提示）
+  let shown = false;
+  const showUpdateToast = () => {
+    if (shown) return; shown = true;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'update-toast'; b.textContent = '有新版本，點此重新整理';
+    b.addEventListener('click', () => location.reload());
+    document.body.appendChild(b);
+  };
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'HOLO_UPDATED') showUpdateToast(); });   // 網頁檔案有新版
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) showUpdateToast(); });                   // sw.js 本身換了新版
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // 長時間開著的網頁／已加到主畫面的 App：每次回到前景就檢查一次
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      const sw = navigator.serviceWorker.controller || reg.active;
+      if (sw) sw.postMessage({ type: 'HOLO_CHECK' });
+      reg.update().catch(() => {});
+    });
+  }).catch(() => {});
+});
+</script>
+</body>
+</html>
