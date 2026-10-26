@@ -484,6 +484,7 @@ function refreshColorUI() {   // 設定或開關改變後：更新詳細頁與�
   document.querySelectorAll('.entry-han[data-han]').forEach(el => { el.innerHTML = toneHanHtml(el.dataset.han, el.dataset.rom); });
   document.querySelectorAll('.entry-rom-main[data-rom]').forEach(el => { el.innerHTML = romHtml(el.dataset.rom); });
   document.querySelectorAll('.sense-ex li[data-ex]').forEach(li => { li.innerHTML = exampleHtml(li.dataset.ex); });
+  document.querySelectorAll('.sense-def[data-def]').forEach(el => { el.innerHTML = hlHtml(defLineHtml(el.dataset.def, false, false, true)); });   // 新增：分句標色開關改變
   document.querySelectorAll('.tn-toggle b').forEach(b => { b.textContent = window.tnOn ? '開' : '關'; });
   document.querySelectorAll('.vw-toggle b').forEach(b => { b.textContent = window.vwOn ? '開' : '關'; });
   if (filteredData.length && currentSearchType !== COMPARE_TAB) displayResults(filteredData, _lastPage);
@@ -623,13 +624,38 @@ function posChipHtml(text, short) {
   const label = short ? (POS_SHORT[m[1]] || m[1]) : m[1];
   return { chip: `<span class="pos pos-${POS_CLASS[m[1]]}" title="${m[1]}">${label}</span>`, rest: text.slice(m[0].length), has: true };
 }
-function defLineHtml(d, noPos, short) {   // noPos 為 true 時不顯示詞類標籤（標準模式）
+// ======== 分句標色（詳細頁釋義）：依標點切句，相鄰句子換色；一個義項句數達門檻才套用（選項在「設定 → 內容顯示」）========
+const SC_HUES = { 3: [165, 35, 215], 4: [165, 35, 215, 320] };
+const SC_CLOSERS = '」』”’）)】';
+function scRender(text) {   // 回傳 { html, cls }；不需套用時回傳 null
+  const c = window.scCfg;
+  if (!c || !c.on || !text || /</.test(text)) return null;   // 開關關閉、或內容含 HTML 標籤時，不處理
+  const ends = '。；;？?！!' + (c.comma ? '，,、' : '');
+  const chars = Array.from(text), parts = [];
+  let cur = '';
+  for (let i = 0; i < chars.length; i++) {
+    cur += chars[i];
+    if (ends.includes(chars[i])) {
+      while (i + 1 < chars.length && SC_CLOSERS.includes(chars[i + 1])) cur += chars[++i];
+      parts.push(cur); cur = '';
+    }
+  }
+  if (cur.trim()) parts.push(cur);
+  if (parts.length < c.min) return null;   // 句數不足門檻：維持原樣
+  const hues = SC_HUES[c.n] || SC_HUES[3];
+  const html = parts.map((t, i) => `<span class="sc-w"><i class="sc-n" data-n="${i + 1}" aria-hidden="true"></i><span class="sc-s" style="--h:${hues[i % hues.length]}">${t}</span></span>`).join('');
+  const line = c.mode === 'line';
+  const cls = 'sc-' + (line ? 'line' : 'bg') + (line && c.mk ? ' sc-mk' : '') + (line && c.mk && c.nm ? ' sc-nm' : '') + (c.blk ? ' sc-blk' : '');
+  return { html, cls };
+}
+function defLineHtml(d, noPos, short, sc) {   // noPos 為 true 時不顯示詞類標籤（標準模式）；sc 為 true 時套用分句標色（詳細頁用）
   const m = d.match(/^(\d+)\. ([\s\S]*)$/);
   let { chip, rest, has } = posChipHtml(m ? m[2] : d, short);
   if (noPos) { chip = ''; has = false; }
   // 編號、詞類、內容各自一欄（grid），換行時內容永遠對齊在內容欄
+  const scr = sc ? scRender(rest) : null;   // 分句標色（詳細頁）
   const cls = 'def-line' + (m ? ' has-no' : '') + (has ? ' has-pos' : '') + (has && short ? ' pos-short' : '');
-  return `<div class="${cls}">${m ? `<span class="def-no">${m[1]}.</span>` : ''}${chip}<span class="def-text">${rest}</span></div>`;
+  return `<div class="${cls}">${m ? `<span class="def-no">${m[1]}.</span>` : ''}${chip}<span class="def-text${scr ? ' ' + scr.cls : ''}">${scr ? scr.html : rest}</span></div>`;
 }
 // ======== 搜尋「釋義」時，在結果中標示符合的字句（只處理標籤外的文字，不破壞 HTML）========
 let _hlRe = null;   // performSearch 每次搜尋時更新
@@ -677,7 +703,7 @@ function senseDetailHtml(item) {
   });
   return defs.map((d, i) => {
     const exHtml = bySense[i].map(e => `<li class="ex-mode-${window.exMode || 'ruby'}" data-ex="${escHtml(e)}">${exampleHtml(e)}</li>`).join('');
-    return `<div class="sense${/^\d+\. /.test(d) ? ' numbered' : ''}"><div class="sense-def">${hlHtml(defLineHtml(d))}</div>${exHtml ? `<ul class="sense-ex">${exHtml}</ul>` : ''}</div>`;
+    return `<div class="sense${/^\d+\. /.test(d) ? ' numbered' : ''}"><div class="sense-def" data-def="${escHtml(d)}">${hlHtml(defLineHtml(d, false, false, true))}</div>${exHtml ? `<ul class="sense-ex">${exHtml}</ul>` : ''}</div>`;
   }).join('');
 }
 
@@ -2020,6 +2046,11 @@ function displayResults(filteredData, currentPage) {
         const _term = searchTermReplace(searchInput.value.trim());
         const _T = tierInfo();
         let prevTier = startIndex > 0 && _T.grouped ? _T.tiers[startIndex - 1] : null;
+        // 淺深交錯計數：每一組（完全符合／部分符合…）從第一筆重新開始，第一筆一律淺色
+        let stripe = 0;
+        if (startIndex > 0 && _T.grouped) {   // 換頁時，延續上一頁同組的淺深順序
+            for (let k = startIndex - 1; k >= 0 && _T.tiers[k] === prevTier; k--) stripe++;
+        }
         // 沒有更高層級時：第一頁最上方補一行摘要「完全符合 0 筆　部分符合 N 筆」
         if (!_T.grouped && startIndex === 0 && _term && filteredData.length > 0 && !EXACT_FIELDS.has(currentSearchType)) {
             html += `<tr class="group-row group-partial group-none"><td colspan="99">完全符合<span class="group-n">0 筆</span><span class="group-sep"></span>部分符合<span class="group-n">${filteredData.length} 筆</span></td></tr>`;
@@ -2029,11 +2060,12 @@ function displayResults(filteredData, currentPage) {
             const tier = _T.tiers[globalIndex], isExactMatch = tier === 0;
             if (_T.grouped && tier !== prevTier) {
                 html += `<tr class="group-row ${isExactMatch ? 'group-exact' : 'group-partial'}"><td colspan="99">${TIER_LABELS[tier]}<span class="group-n">${_T.counts[tier]} 筆</span></td></tr>`;
+                stripe = 0;   // 新增：新的一組，重新從淺色開始
             }
             prevTier = tier;
             const hanLen = Array.from(String(item['台語'] || '').replace(/【[^】]*】/g, '').replace(/[\s,，、\/／()（）]/g, '')).length;   // 詞目字數（不含【替】標記）
             const inlRom = displayColumns.includes('台語') && displayColumns.includes('台羅') && hanLen > 0 && hanLen <= 2;   // 手機版「音讀接在詞後」：要有詞目、音讀兩欄，且詞目 2 字以內才接（3 字以上維持分開一列）
-            html += `<tr class="${isExactMatch ? 'exact-match' : ''}${inlRom ? ' has-inl' : ''}">`;
+            html += `<tr class="${isExactMatch ? 'exact-match' : ''}${inlRom ? ' has-inl' : ''}${stripe++ % 2 ? ' row-b' : ''}">`;
             html += `
                 <td class="m-row">
                     <span class="mobile-header" title="序號">序</span>
@@ -4173,14 +4205,16 @@ ABAC	如「想空想縫」
 // ======== 外觀設定（字體大小 / 字體 / 行距）========
 (function () {
   const KEY = 'kautian_appearance';
-  const def = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red', rw: 'off', ri: 'off' };
+  const def = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red', rw: 'off', ri: 'off', sc: 'off', scm: 'bg', scn: '3', scb: 'off', scd: 'end', scmk: 'on', scnm: 'on', scmin: '3' };
   let a = { ...def };
   try { Object.assign(a, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   if (!['ruby', 'line', 'seg'].includes(a.ex)) a.ex = 'ruby';
   if (!DEF_MODES.includes(a.df)) a.df = 'brief';
   if (!['han', 'rom'].includes(a.so)) a.so = 'han';   // 新增：列表排序
   if (!ROM_MODES.includes(a.rom)) a.rom = 'full';   // 舊版的「單行」改為 RUBY
-  ['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe', 'mx', 'rw', 'ri'].forEach(k => { if (a[k] !== 'on' && a[k] !== 'off') a[k] = def[k]; });
+  ['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe', 'mx', 'rw', 'ri', 'sc', 'scb', 'scmk', 'scnm'].forEach(k => { if (a[k] !== 'on' && a[k] !== 'off') a[k] = def[k]; });
+  { const SC_OPT = { scm: ['bg', 'line'], scn: ['3', '4'], scd: ['end', 'comma'], scmin: ['2', '3', '4', '5'] };   // 新增：分句標色的選項驗證
+    Object.keys(SC_OPT).forEach(k => { a[k] = String(a[k]); if (!SC_OPT[k].includes(a[k])) a[k] = def[k]; }); }
   if (!['red', 'orange', 'blue', 'green'].includes(a.vc)) a.vc = def.vc;
   a.tns = typeof a.tns === 'string' ? a.tns.replace(/[^1-9]/g, '') : def.tns;   // 要標示的聲調（數字字串，如 "12345789"）
   { const FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;   // 舊版連續字體大小 → 最接近的選項
@@ -4194,6 +4228,10 @@ ABAC	如「想空想縫」
       btn.classList.toggle('active', on);
       btn.setAttribute('aria-checked', on);
     }));
+    document.querySelectorAll('#settingsPage .setting-row[data-sc]').forEach(r => {   // 新增：分句標色的細項，未啟用或不適用時變淡
+      const need = r.dataset.sc;
+      r.classList.toggle('sc-dim', a.sc !== 'on' || (need !== 'sub' && a.scm !== 'line') || (need === 'nm' && a.scmk !== 'on'));
+    });
     tnChips.forEach(c => { const on = a.tns.includes(c.dataset.t); c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); });
   }
   function renderPreview() {   // 各設定列下方的即時預覽（用實際的顯示格式）
@@ -4233,7 +4271,7 @@ ABAC	如「想空想縫」
     if (key === 'so') resortList();   // 排序設定：立即重新排序
     if (key === 'mx') rerunSearch();  // 混拼符合：立即重新查詢
     if (key === 'rw') hideRelPop();   // 近反義顯示：切換時收起浮窗（滑鼠一移到詞上就依新設定動作）
-    if (['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe'].includes(key)) refreshColorUI();   // 聲調色彩、音色：同時更新詳細頁與列表
+    if (['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe'].includes(key) || key.indexOf('sc') === 0) refreshColorUI();   // 聲調色彩、音色：同時更新詳細頁與列表
   }));
   function setTones(str) { a.tns = str; sync(); save(); refreshColorUI(); }
   tnChips.forEach(c => c.addEventListener('click', () => {   // 點選聲調：加入／取消

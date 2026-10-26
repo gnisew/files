@@ -39,6 +39,8 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     window.exMode = (a.ex === 'line' || a.ex === 'seg') ? a.ex : 'ruby';
     window.romMode = (a.rom === 'main' || a.rom === 'sub') ? a.rom : 'full';
     document.documentElement.classList.toggle('rom-inline', a.ri === 'on');   // 手機版卡片：音讀接在詞目後面（預設關）
+    window.scCfg = { on: a.sc === 'on', mode: a.scm === 'line' ? 'line' : 'bg', n: a.scn === '4' ? 4 : 3, blk: a.scb === 'on',
+      comma: a.scd === 'comma', mk: a.scmk !== 'off', nm: a.scnm !== 'off', min: parseInt(a.scmin, 10) || 3 };   // 新增：分句標色（詳細頁釋義；預設關）
     window.rwOn = a.rw === 'on';   // 新增：近反義顯示（例句的詞，滑鼠懸停時顯示近義、反義詞；預設關）
     window.showMixed = a.mx === 'on';   // 是否列出「混拼符合」（預設不顯示）
     window.sortMode = a.so === 'rom' ? 'rom' : 'han';   // 列表排序：han＝詞目＞音讀（預設）、rom＝音讀＞詞目
@@ -55,7 +57,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     window.tnSet = new Set(String(a.tns == null ? '12345789' : a.tns).split('').map(Number).filter(function (n) { return n >= 1 && n <= 9; }));
     if (window._sbRefresh) window._sbRefresh();   // 詳細頁開著時，側邊清單跟著更新（字級、顏色等）
   };
-  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', ri: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
+  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', ri: 'off', sc: 'off', scm: 'bg', scn: '3', scb: 'off', scd: 'end', scmk: 'on', scnm: 'on', scmin: '3', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
   try { Object.assign(a, JSON.parse(localStorage.getItem('kautian_appearance') || '{}')); } catch (e) {}
   // 舊版的連續字體大小，換成最接近的選項
   var FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;
@@ -299,6 +301,64 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                         <button type="button" data-v="full">完整</button>
                         <button type="button" data-v="std">標準</button>
                         <button type="button" data-v="brief">精簡</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblSc">分句標色</label><p class="setting-desc">詳細頁的釋義依標點切句，相鄰的句子換不同底色，方便閱讀。只有一個義項含 3 句以上時才套用。</p></div>
+                    <div class="seg" data-key="sc" role="radiogroup" aria-labelledby="lblSc">
+                        <button type="button" data-v="off">不啟用</button>
+                        <button type="button" data-v="on">啟用</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="sub">
+                    <div class="setting-text"><label id="lblScm">　標色方式</label><p class="setting-desc">底色：每句一種淺底色；底線：每句一種顏色的底線。</p></div>
+                    <div class="seg" data-key="scm" role="radiogroup" aria-labelledby="lblScm">
+                        <button type="button" data-v="bg">底色</button>
+                        <button type="button" data-v="line">底線</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="sub">
+                    <div class="setting-text"><label id="lblScn">　顏色數</label><p class="setting-desc">相鄰的句子輪流使用的顏色數。</p></div>
+                    <div class="seg" data-key="scn" role="radiogroup" aria-labelledby="lblScn">
+                        <button type="button" data-v="3">3 色循環</button>
+                        <button type="button" data-v="4">4 色循環</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="sub">
+                    <div class="setting-text"><label id="lblScmin">　句數門檻</label><p class="setting-desc">一個義項至少有幾句才套用。</p></div>
+                    <div class="seg" data-key="scmin" role="radiogroup" aria-labelledby="lblScmin">
+                        <button type="button" data-v="2">2 句</button>
+                        <button type="button" data-v="3">3 句</button>
+                        <button type="button" data-v="4">4 句</button>
+                        <button type="button" data-v="5">5 句</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="sub">
+                    <div class="setting-text"><label id="lblScd">　切句符號</label><p class="setting-desc">預設在 。；？！ 切句；「含逗號」會連 ，、 也切。</p></div>
+                    <div class="seg" data-key="scd" role="radiogroup" aria-labelledby="lblScd">
+                        <button type="button" data-v="end">。；？！</button>
+                        <button type="button" data-v="comma">含逗號</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="sub">
+                    <div class="setting-text"><label id="lblScb">　每句換行</label><p class="setting-desc">每一句各佔一行。</p></div>
+                    <div class="seg" data-key="scb" role="radiogroup" aria-labelledby="lblScb">
+                        <button type="button" data-v="off">不換行</button>
+                        <button type="button" data-v="on">換行</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="line">
+                    <div class="setting-text"><label id="lblScmk">　起訖標記</label><p class="setting-desc">只在「底線」模式：每句前後加上 ‹ › 標記。</p></div>
+                    <div class="seg" data-key="scmk" role="radiogroup" aria-labelledby="lblScmk">
+                        <button type="button" data-v="off">不顯示</button>
+                        <button type="button" data-v="on">顯示</button>
+                    </div>
+                </div>
+                <div class="setting-row" data-sc="nm">
+                    <div class="setting-text"><label id="lblScnm">　標記編號</label><p class="setting-desc">只在「底線」且顯示起訖標記時：標記前顯示句子編號。</p></div>
+                    <div class="seg" data-key="scnm" role="radiogroup" aria-labelledby="lblScnm">
+                        <button type="button" data-v="off">不顯示</button>
+                        <button type="button" data-v="on">顯示</button>
                     </div>
                 </div>
                 <div class="setting-row">

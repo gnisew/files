@@ -2818,7 +2818,7 @@ html.cat-full-open { overflow: hidden; }
     margin: 0; border: 0; border-bottom: 1px solid #e3e7ee; border-radius: 0;
     padding: 10px 12px; background: #fff;
   }
-  .results-table tbody tr:not(.group-row):nth-child(even) { background: #eef2f8; }
+  /* 已刪除：:nth-child(even) 深色列（會把標題列算進奇偶）；深淺統一由檔案後段的 .row-b 控制 */
   .results-table tbody tr.exact-match:not(.group-row) { border-left: 3px solid #34a853; }
 }
 
@@ -3022,3 +3022,125 @@ html.cat-full-open { overflow: hidden; }
   .mobile-modal-content .entry-no { flex: none; color: #80868b; font-size: calc(15px * var(--fs, 1)); font-variant-numeric: tabular-nums; }
   .mobile-modal-content .entry-no.exact-match { color: #2e7d32; font-weight: 600; }
 }
+
+
+/* ===== 加深底色：避免整頁太白、太亮（要再調深淺，只改這一區的變數） ===== */
+:root {
+  --bg-page:   #fafafa;   /* 整頁底色（原 #f6f8fc）＝淺色列的顏色 */
+  --bg-panel:  var(--bg-page);   /* 結果區、詳細頁面板：與底色相同（原純白 #fff） */
+  --bg-row-a:  var(--bg-page);   /* 列表奇數列（淺）＝底色 */
+  --bg-row-b:  #ededed;   /* 列表偶數列（深）＝比底色再深一階 */
+  --bg-head:   #ededed;   /* 列表表頭：與深色列同色 */
+  --bg-hover:  #e2e2e2;   /* 滑過時 */
+  --line-row:  #dcdcdc;   /* 列與列之間的分隔線 */
+}
+body { background-color: var(--bg-page); }
+.results { background: var(--bg-panel); }
+.sidebar-modal { background: var(--bg-page); }
+.sidebar-inner { background: var(--bg-panel); }
+.detail-topbar { background: var(--bg-page); }
+
+/* 電腦版列表 */
+@media (min-width: 769px) {
+  .results-table thead,
+  .results-table th { background: var(--bg-head); }
+  .results-table tbody tr:not(.group-row) { background: var(--bg-row-a); }
+  .results-table tbody tr:not(.group-row).row-b { background: var(--bg-row-b); }   /* 修改：原 :nth-child(even)，改用 JS 標記的 row-b */
+  .results-table td { border-bottom-color: var(--line-row); }
+}
+
+/* 手機版卡片 */
+@media (max-width: 768px) {
+  .results-table tbody tr:not(.group-row) { background: var(--bg-row-a); border-bottom-color: var(--line-row); }
+  .results-table tbody tr:not(.group-row).row-b { background: var(--bg-row-b); }   /* 修改：原 :nth-child(even)，改用 JS 標記的 row-b */
+}
+
+/* 完全符合／部分符合 分組標題列 */
+.results-table tr.group-exact td { background: #c6dec9; }
+.results-table tr.group-partial td { background: #c8d0de; }
+
+/* 滑過（放在最後，才不會被上面的奇偶列底色蓋掉） */
+@media (hover: hover) {
+  .results-table tbody tr:not(.group-row):hover { background: var(--bg-hover); }
+}
+
+
+/* ===== 輸入框：仿 Claude.ai（白底、極淡暖灰邊框、柔和大範圍陰影，滑過／focus 時陰影與邊線略加深） ===== */
+:root {
+  --input-bg:      #fff;
+  --input-border:  rgba(31, 30, 29, .15);
+  --input-border-hi: rgba(31, 30, 29, .30);
+  --input-shadow:  0 4px 20px rgba(0, 0, 0, .035);
+  --input-shadow-hover: 0 4px 20px rgba(0, 0, 0, .06);
+  --input-shadow-focus: 0 4px 24px rgba(0, 0, 0, .08);
+  --input-text:    #1f1e1d;
+  --input-ph:      #73726c;
+}
+.search-box,
+.detail-search,
+.mobile-modal-header .detail-q {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  box-shadow: var(--input-shadow);
+  color: var(--input-text);
+  transition: box-shadow .2s, border-color .2s;
+}
+.search-box:hover,
+.detail-search:hover {
+  border-color: var(--input-border-hi);
+  box-shadow: var(--input-shadow-hover);
+}
+.search-box:focus {
+  border-color: var(--input-border-hi);
+  box-shadow: var(--input-shadow-focus);
+}
+.search-box::placeholder { color: var(--input-ph); }
+
+
+/* ===== 側邊欄：仿 Claude.ai（比主畫面略深一階的暖米色，邊線暖灰；滑過／選取用暖灰） ===== */
+:root {
+  --bg-side:        #f5f5f5;   /* 側邊欄底色（原 #f8f9fa），比主畫面 #faf9f5 略深 */
+  --bg-side-hover:  #ededed;   /* 滑過（原 #f1f3f4） */
+  --bg-side-active: #e2e2e2;   /* 目前選取的詞條（原淡藍 #e8f0fe）；文字仍維持藍色 */
+  --line-side:      #e3e3e3;   /* 邊線（原 #dfe1e5／#e3e5e8） */
+}
+.sidebar { background-color: var(--bg-side); border-right-color: var(--line-side); }
+.sb-tools { background: var(--bg-side); border-bottom-color: var(--line-side); }
+.sb-head { background: var(--bg-side-hover); border-top-color: var(--line-side); border-bottom-color: var(--line-side); }
+.sidebar-item:hover { background-color: var(--bg-side-hover); }
+.sidebar-item.active { background-color: var(--bg-side-active); }
+.sb-nav button:hover:not(:disabled),
+.sb-filter .sb-fclear:hover { background: var(--bg-side-active); }
+.sb-chip { border-color: #dcdcdc; }
+.sidebar-inner { border-left-color: var(--line-side); border-right-color: var(--line-side); }
+.detail-topbar { border-bottom-color: var(--line-side); }
+.sidebar-header { border-bottom-color: var(--line-side); }
+.sb-filter input { border-color: var(--input-border); }
+.sb-filter input:focus { border-color: var(--input-border-hi); }
+
+
+/* ===== 分句標色（詳細頁釋義；選項在「設定 → 內容顯示」）：相鄰句子輪流換色 ===== */
+.sc-s { padding: .1em .15em; border-radius: 5px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.sc-n { display: none; }
+.sc-blk .sc-w { display: block; margin: .2em 0; }
+.sc-bg .sc-s { background: hsl(var(--h) 60% 91%); }                         /* 底色模式 */
+.sc-line .sc-s {                                                           /* 底線模式 */
+  text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: .28em;
+  text-decoration-color: hsl(var(--h) 60% 65%);
+}
+.sc-line.sc-mk {
+  --sc-l: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 20'%3E%3Cpath d='M8 2 2 10 8 18' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --sc-r: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 20'%3E%3Cpath d='M2 2 8 10 2 18' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.sc-line.sc-mk .sc-s::before, .sc-line.sc-mk .sc-s::after {
+  content: ""; display: inline-block; width: .5em; height: 1.05em; vertical-align: -.18em; background: #1a73e8;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+}
+.sc-line.sc-mk .sc-s::before { margin-right: .14em; -webkit-mask-image: var(--sc-l); mask-image: var(--sc-l); }
+.sc-line.sc-mk .sc-s::after  { margin-left: .14em;  -webkit-mask-image: var(--sc-r); mask-image: var(--sc-r); }
+.sc-line.sc-nm .sc-n {
+  display: inline-block; font-size: .62em; font-weight: 700; line-height: 1; color: #1a73e8; margin-right: .2em;
+  vertical-align: .5em; font-style: normal; font-variant-numeric: tabular-nums;
+}
+.sc-n::before { content: attr(data-n); }
+.setting-row.sc-dim { opacity: .45; }   /* 設定頁：分句標色未啟用或此選項不適用時變淡 */
