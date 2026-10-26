@@ -724,7 +724,7 @@ button:disabled .type-count {
         font-weight: 600;
         color: #666;
         margin-right: 8px;
-        min-width: 60px;
+        min-width: 1.5em;   /* 標籤固定單字（序、詞、音、義、近、反） */
         display: inline-block;
     }
 
@@ -1820,8 +1820,7 @@ mark.hit {
 /* ===== 例句範圍：電腦版用分頁；手機版隱藏「華語例句」分頁，改用「台語例句／華語例句」小切換 ===== */
 .ex-scope { display: none; }
 @media (max-width: 768px) {
-  .search-type-selector #button-華語例句 { display: none; }
-  .ex-scope.show {
+  .ex-scope.show-old {
     display: flex; width: max-content; max-width: 100%;
     margin: 8px auto 0; padding: 3px; gap: 2px;
     background: #f1f3f4; border-radius: 999px;
@@ -2811,3 +2810,122 @@ html.cat-full-open { overflow: hidden; }
 .ar-expmenu { min-width: 230px; }
 .ar-expact { display: block; width: 100%; box-sizing: border-box; text-align: left; border: 0; background: none; font: inherit; color: #1a73e8; padding: 8px 14px; cursor: pointer; }
 .ar-expact:hover, .ar-expact:focus-visible { background: #e8f0fe; outline: none; }
+
+
+/* ===== 手機版卡片列表：卡片之間改用交錯色塊分隔（不再用外框＋間距）===== */
+@media (max-width: 768px) {
+  .results-table tbody tr:not(.group-row) {
+    margin: 0; border: 0; border-bottom: 1px solid #e3e7ee; border-radius: 0;
+    padding: 10px 12px; background: #fff;
+  }
+  .results-table tbody tr:not(.group-row):nth-child(even) { background: #eef2f8; }
+  .results-table tbody tr.exact-match:not(.group-row) { border-left: 3px solid #34a853; }
+}
+
+/* ===== 手機版卡片：標籤在左、內容在右；內容換行時對齊右側（不繞回標籤下方）===== */
+@media (max-width: 768px) {
+  .results-table td.m-row { display: flex; align-items: baseline; }
+  .results-table td.m-row .mobile-header { flex: none; min-width: 1.5em; margin-right: 12px; }
+  .results-table td.m-row .m-val { flex: 1; min-width: 0; }
+}
+
+/* ===== 手機版卡片的編號：簡潔，不要外框與底線 ===== */
+@media (max-width: 768px) {
+  .results-table td.m-row .item-number {
+    border: 0; background: none; padding: 0; border-radius: 0;
+    text-decoration: none; font-weight: 400; color: #5f6368;
+    font-variant-numeric: tabular-nums;
+  }
+  .results-table tr.exact-match td.m-row .item-number { border: 0; background: none; color: #2e7d32; font-weight: 600; }
+}
+
+/* ===== 手機版搜尋框：清除（X）移到右側（鍵盤圖示左邊），避免在左邊不小心點到 ===== */
+@media (max-width: 768px) {
+  .search-box { padding: 12px 135px 12px 20px; }
+  .search-wrapper.has-rx .search-box { padding-right: 175px; }
+  .search-clear { left: auto; right: 100px; }
+  .rx-btn { right: 140px; }
+}
+
+
+/* ===== 手機版右上角：分類／分析／設定 合併成一個三條線選單 ===== */
+.menu-trigger, .menu-pop { display: none; }
+@media (max-width: 768px) {
+  #settingsTriggerContainer > .article-trigger,
+  #settingsTriggerContainer > .cat-trigger,
+  #settingsTriggerContainer > .settings-trigger { display: none; }
+  .menu-trigger {
+    display: flex; align-items: center; position: absolute; top: 20px; right: 12px; z-index: 1000;
+    padding: 8px 12px; background: none; border: none; border-radius: 4px; color: #1a73e8; cursor: pointer;
+  }
+  .menu-trigger .icon { font-size: calc(20px * var(--fs, 1)); }
+  .menu-trigger:active, .menu-trigger[aria-expanded="true"] { background-color: rgba(26, 115, 232, .1); }
+  .menu-pop:not([hidden]) {
+    display: flex; flex-direction: column; position: absolute; z-index: 1002;
+    top: calc(44px + 16px * var(--fs, 1)); right: 12px; min-width: 9em; padding: 6px 0;
+    background: #fff; border: 1px solid #dfe1e5; border-radius: 12px; box-shadow: 0 4px 16px rgba(60, 64, 67, .25);
+  }
+  .menu-pop button {
+    display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: none; border: 0;
+    font: inherit; font-size: calc(16px * var(--fs, 1)); color: #202124; text-align: left; cursor: pointer;
+  }
+  .menu-pop button:active { background: #eef4fe; }
+  .menu-pop .icon { color: #1a73e8; }
+}
+
+/* ===== 手機版設定頁：版面統一（標題列、面板標題、列文字、分段按鈕）===== */
+@media (max-width: 768px) {
+  /* 頂端列：左右兩個圖示同大小、同顏色，關閉鈕貼右邊 */
+  .settings-header-bar { height: 52px; padding: 0 8px; }
+  .settings-header-bar .settings-trigger,
+  .settings-header-bar .settings-close {
+    position: static; display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0; margin: 0; border-radius: 50%; color: #5f6368;
+  }
+  .settings-header-bar .settings-trigger { color: #1a73e8; }
+  .settings-header-bar .icon { width: 24px; height: 24px; font-size: 24px; }
+  .settings-page { padding-top: 62px; }
+  .settings-content { padding: 12px 12px 28px; }
+
+  /* 面板（折疊卡片）：標題大小統一，收合時不留空白 */
+  .settings-panel { margin-bottom: 12px; }
+  .settings-panel .settings-header { margin: 0; padding: 14px 16px; border-bottom: 0; }
+  .settings-panel.expanded .settings-header { border-bottom: 1px solid #e3e3e6; }
+  .settings-header h2 { font-size: calc(17px * var(--fs, 1)); font-weight: 600; margin: 0; }
+  .settings-panel .settings-header:after { width: 22px; height: 22px; color: #5f6368; }
+
+  /* 面板內容：左右對齊（取消預設的右側 40px），各列同樣字級 */
+  .settings-panel .panel-content { margin: 0; padding: 0 16px 6px; }
+  .setting-card { margin: 0; }
+  .setting-row, .setting-card .setting-row { padding: 14px 0; gap: 10px; flex-direction: column; align-items: stretch; }
+  .setting-text label { font-size: calc(15px * var(--fs, 1)); font-weight: 500; color: #202124; }
+  .setting-desc { font-size: calc(12.5px * var(--fs, 1)); margin-top: 2px; }
+  .setting-group { margin: 18px 0 6px; font-size: calc(12.5px * var(--fs, 1)); }
+
+  /* 分段按鈕：整列撐滿、每顆等寬，各列對齊 */
+  .seg { display: flex; width: 100%; box-sizing: border-box; }
+  .seg button { flex: 1 1 0; padding: 8px 2px; font-size: calc(14px * var(--fs, 1)); text-align: center; }
+  .setting-control { width: 100%; }
+}
+
+/* ===== 手機版卡片：沒有資料的項目（音、義、近、反）不顯示；音讀可接在詞後（設定，預設關）===== */
+.m-inl-rom { display: none; }
+@media (min-width: 769px) { .mobile-only-row { display: none; } }   /* 「音讀位置」只在手機版出現 */
+@media (max-width: 768px) {
+  .results-table td.m-row.m-empty { display: none; }
+  html.rom-inline .results-table tr.has-inl td.m-rom-td { display: none; }
+  html.rom-inline .results-table tr.has-inl .m-inl-rom { display: inline; margin-left: .7em; color: #5f6368; }
+}
+
+
+/* ===== 手機版例句卡片：序／詞／音／例；詞目 2 字以內，音讀接在詞後 ===== */
+.ex-inl-rom { display: none; }
+@media (max-width: 768px) {
+  .results-table .m-line { display: flex; align-items: baseline; padding: 5px 0; }
+  .results-table .m-line .mobile-header { flex: none; min-width: 1.5em; margin-right: 12px; }
+  .results-table .m-line .m-val { flex: 1; min-width: 0; }
+  .ex-table td.ex-word { padding: 0; }
+  .ex-table td.ex-word .ex-rom { margin: 0; }
+  .ex-table tr.ex-short .m-rom-line { display: none; }
+  .ex-table tr.ex-short .ex-inl-rom { display: inline; margin-left: .7em; color: #5f6368; font-size: .9em; }
+}

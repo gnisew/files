@@ -38,6 +38,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     document.documentElement.dataset.pw = a.pw || 'normal';   // 讓 CSS 知道是否為 100% 寬度
     window.exMode = (a.ex === 'line' || a.ex === 'seg') ? a.ex : 'ruby';
     window.romMode = (a.rom === 'main' || a.rom === 'sub') ? a.rom : 'full';
+    document.documentElement.classList.toggle('rom-inline', a.ri === 'on');   // 手機版卡片：音讀接在詞目後面（預設關）
     window.rwOn = a.rw === 'on';   // 新增：近反義顯示（例句的詞，滑鼠懸停時顯示近義、反義詞；預設關）
     window.showMixed = a.mx === 'on';   // 是否列出「混拼符合」（預設不顯示）
     window.sortMode = a.so === 'rom' ? 'rom' : 'han';   // 列表排序：han＝詞目＞音讀（預設）、rom＝音讀＞詞目
@@ -54,7 +55,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     window.tnSet = new Set(String(a.tns == null ? '12345789' : a.tns).split('').map(Number).filter(function (n) { return n >= 1 && n <= 9; }));
     if (window._sbRefresh) window._sbRefresh();   // 詳細頁開著時，側邊清單跟著更新（字級、顏色等）
   };
-  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
+  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', ri: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
   try { Object.assign(a, JSON.parse(localStorage.getItem('kautian_appearance') || '{}')); } catch (e) {}
   // 舊版的連續字體大小，換成最接近的選項
   var FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;
@@ -66,6 +67,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
 <body spellcheck="false">
 <!-- 內嵌 SVG 圖示庫（Material Icons，Apache 2.0）：用 <svg class="icon"><use href="#i-名稱"/></svg> 呼叫 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
   <symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></symbol>
   <symbol id="i-arrow-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
   <symbol id="i-arrow-upward" viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></symbol>
@@ -119,6 +121,13 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
 
 
 <div id="settingsTriggerContainer">
+<!-- 手機版：分析／分類／設定 收成一個選單（電腦版隱藏此按鈕） -->
+<button class="menu-trigger" id="menuTrigger" type="button" aria-label="選單" aria-expanded="false" aria-haspopup="true"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+<div class="menu-pop" id="menuPop" role="menu" hidden>
+    <button type="button" role="menuitem" data-target="catTrigger"><svg class="icon" aria-hidden="true"><use href="#i-apps"/></svg>分類</button>
+    <button type="button" role="menuitem" data-target="articleTrigger"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>分析</button>
+    <button type="button" role="menuitem" data-target="settingsTrigger"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>設定</button>
+</div>
 <!-- 新增：換詞按鈕（在分類左邊）-->
 <button class="article-trigger" id="articleTrigger" type="button" aria-label="分析" title="分析">
     <span>分析</span>
@@ -274,6 +283,13 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                         <button type="button" data-v="full">標準</button>
                         <button type="button" data-v="main">主音讀</button>
                         <button type="button" data-v="sub">副音讀</button>
+                    </div>
+                </div>
+                <div class="setting-row mobile-only-row">
+                    <div class="setting-text"><label id="lblRi">音讀位置（手機版）</label><p class="setting-desc">詞目 2 字以內時，音讀接在詞目後面同一行，不另佔一列（3 字以上維持分開）。</p></div>
+                    <div class="seg" data-key="ri" role="radiogroup" aria-labelledby="lblRi">
+                        <button type="button" data-v="off">分開顯示</button>
+                        <button type="button" data-v="on">接在詞後</button>
                     </div>
                 </div>
                 <div class="setting-row">

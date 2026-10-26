@@ -928,6 +928,9 @@ const DEFAULT_COLUMNS = () => headers.filter(h => DEFAULT_VISIBLE.includes(h));
 // 欄位顯示名稱對照（資料內部欄位名不變，只改畫面上的文字）
 const LABELS = { '台語': '詞目', '台羅': '音讀', '近義詞': '近義', '反義詞': '反義' };
 const colLabel = h => LABELS[h] || h;
+// 手機版卡片列表的欄位標籤：固定單字（序、詞、音、義、近、反），不可點擊切換；相關設定在「設定」裡
+const MOBILE_LABELS = { '序號': '序', '台語': '詞', '台羅': '音', '釋義': '義', '近義詞': '近', '反義詞': '反' };
+const mobLabel = h => MOBILE_LABELS[h] || colLabel(h);
 let hasSearchResults = false;
 let filteredData = [];
 
@@ -1767,7 +1770,7 @@ function generateSearchTypeSelector() {
     }
 
     const orderedTypes = [...searchTypes];   // 已移除「華語對照」分頁
-    const TAB_LABELS = { '近義詞': '近義', '反義詞': '反義', [EX_ZH]: '華句' };   // 分頁上的簡稱
+    const TAB_LABELS = { '近義詞': '近義', '反義詞': '反義', [EX_ZH]: '華例' };   // 分頁上的簡稱
 
     orderedTypes.forEach(type => {
         const button = document.createElement('button');
@@ -1865,7 +1868,7 @@ function updateActiveSearchType() {
     buttons.forEach(button => {
         const t = button.querySelector('div').dataset.type;
         // 手機版「華語例句」分頁隱藏，改由小切換選擇；此時讓「例句」分頁保持亮起
-        const on = t === currentSearchType || (_mqMobile.matches && t === '例句' && currentSearchType === EX_ZH);
+        const on = t === currentSearchType;   // 例句、華例並列為分頁（手機版也一樣）
         button.classList.toggle('active', on);
         // 「分類」分頁平常隱藏，只有從詳細頁點分類標籤進來（目前正在看分類）時才出現
         if (t === HIDDEN_TAB) button.classList.toggle('tab-hidden', !on);
@@ -1901,7 +1904,6 @@ function syncExScope() {
     });
     // 手機版：兩個範圍都沒有結果，「例句」分頁才停用（只有華語那邊有結果時，仍要能進入）
     const tab = document.getElementById('button-例句');
-    if (tab && _mqMobile.matches && n['例句'] !== '') tab.disabled = n['例句'] === '0' && n[EX_ZH] === '0';
 }
 _mqMobile.addEventListener('change', () => { updateActiveSearchType(); });
 
@@ -1929,14 +1931,20 @@ function buildExampleRows(list) {
     return rows;
 }
 function exampleRowsHtml(rows) {
-    const lab = t => `<span class="mobile-header">${t}</span>`;
+    const lab = (t, title) => `<span class="mobile-header"${title ? ` title="${title}"` : ''}>${t}</span>`;
     let html = `<table class="results-table ex-table"><thead><tr><th aria-label="序號"></th><th>${colLabel('台語')}${colLabel('台羅')}</th><th>例句</th></tr></thead><tbody>`;   // 修改：「詞目」「音讀」兩欄合併成「詞目音讀」
     rows.forEach(({ item, i, line }) => {
         const m = line.match(/^\[(\d+)\] ([\s\S]*)$/);
-        html += `<tr>
-            <td>${lab('序號')}<a href="#" class="item-number" data-index="${i}" onclick="showFullData(${i}); return false;">${displayNo(i)}</a></td>
-            <td data-lang-type="language" class="ex-word">${lab(colLabel('台語') + colLabel('台羅'))}<div class="ex-han">${toneHanHtml(item['台語'], item['台羅'])}</div><div class="ex-rom">${romHtml(item['台羅'])}</div></td>
-            <td class="ex-cell">${lab('例句')}<div class="ex-item ex-mode-${window.exMode || 'ruby'}">${exampleHtml(m ? m[2] : line, true)}</div></td>
+        const hanLen = Array.from(String(item['台語'] || '').replace(/【[^】]*】/g, '').replace(/[\s,，、\/／()（）]/g, '')).length;
+        const short = hanLen > 0 && hanLen <= 2;   // 手機版：詞目 2 字以內，音讀接在詞後；否則音讀另一列
+        const hasRom = !!String(item['台羅'] || '').trim();
+        html += `<tr class="${short && hasRom ? 'ex-short' : ''}">
+            <td class="m-row">${lab('序', '序號')}<a href="#" class="item-number" data-index="${i}" onclick="showFullData(${i}); return false;">${displayNo(i)}</a></td>
+            <td data-lang-type="language" class="ex-word">
+                <div class="m-line">${lab('詞', colLabel('台語'))}<div class="m-val"><div class="ex-han">${toneHanHtml(item['台語'], item['台羅'])}${short && hasRom ? `<span class="ex-inl-rom">${romHtml(item['台羅'])}</span>` : ''}</div></div></div>
+                ${hasRom ? `<div class="m-line m-rom-line">${lab('音', colLabel('台羅'))}<div class="m-val"><div class="ex-rom">${romHtml(item['台羅'])}</div></div></div>` : ''}
+            </td>
+            <td class="ex-cell m-row">${lab('例', '例句')}<div class="m-val"><div class="ex-item ex-mode-${window.exMode || 'ruby'}">${exampleHtml(m ? m[2] : line, true)}</div></div></td>
         </tr>`;
     });
     return html + '</tbody></table>';
@@ -2022,10 +2030,12 @@ function displayResults(filteredData, currentPage) {
                 html += `<tr class="group-row ${isExactMatch ? 'group-exact' : 'group-partial'}"><td colspan="99">${TIER_LABELS[tier]}<span class="group-n">${_T.counts[tier]} 筆</span></td></tr>`;
             }
             prevTier = tier;
-            html += `<tr class="${isExactMatch ? 'exact-match' : ''}">`;
+            const hanLen = Array.from(String(item['台語'] || '').replace(/【[^】]*】/g, '').replace(/[\s,，、\/／()（）]/g, '')).length;   // 詞目字數（不含【替】標記）
+            const inlRom = displayColumns.includes('台語') && displayColumns.includes('台羅') && hanLen > 0 && hanLen <= 2;   // 手機版「音讀接在詞後」：要有詞目、音讀兩欄，且詞目 2 字以內才接（3 字以上維持分開一列）
+            html += `<tr class="${isExactMatch ? 'exact-match' : ''}${inlRom ? ' has-inl' : ''}">`;
             html += `
-                <td>
-                    <span class="mobile-header">序號</span>
+                <td class="m-row">
+                    <span class="mobile-header" title="序號">序</span>
                     <a href="#" class="item-number ${isExactMatch ? 'exact-match' : ''}" data-index="${globalIndex}" onclick="showFullData(${globalIndex}); return false;">${displayNo(globalIndex)}</a>
                 </td>
             `;
@@ -2046,9 +2056,9 @@ function displayResults(filteredData, currentPage) {
                     `;
                 } else {
                     html += `
-                        <td data-lang-type="${langType}">
-                            ${header === '台羅' ? `<span class="mobile-header rom-toggle" title="切換音讀：全／主／副">${colLabel(header)}(${ROM_LABEL[window.romMode || 'full']})</span>` : header === '釋義' ? `<span class="mobile-header def-toggle" title="切換釋義顯示：完整／標準／精簡">${colLabel(header)}(${DEF_LABEL[window.defMode || 'brief']})</span>` : header === '台語' ? `<span class="mobile-header sort-toggle" title="切換排序：詞目＞音讀／音讀＞詞目">${colLabel(header)}(${SORT_LABEL[window.sortMode || 'han']})</span>` : `<span class="mobile-header">${colLabel(header)}</span>`}
-                            ${header === '台羅' ? romHtml(item[header]) : header === '釋義' ? hlHtml(defListHtml(item[header])) : header === '例句' ? listExamplesHtml(item[header]) : header === '台語' ? toneHanHtml(item[header], item['台羅']) : (item[header] || '')}${header === '台語' && variantIdSet.has(item['詞目id']) ? ` <a href="#" class="tag-sub tag-var" title="有各地腔調（點擊查看）" onclick="window._goVariants = true; showFullData(${globalIndex}); return false;">腔</a>` : ''}
+                        <td data-lang-type="${langType}" class="m-row${String(item[header] == null ? '' : item[header]).trim() ? '' : ' m-empty'}${header === '台羅' && inlRom ? ' m-rom-td' : ''}">
+                            <span class="mobile-header" title="${colLabel(header)}">${mobLabel(header)}</span><div class="m-val">
+                            ${header === '台羅' ? romHtml(item[header]) : header === '釋義' ? hlHtml(defListHtml(item[header])) : header === '例句' ? listExamplesHtml(item[header]) : header === '台語' ? toneHanHtml(item[header], item['台羅']) : (item[header] || '')}${header === '台語' && inlRom && String(item['台羅'] || '').trim() ? `<span class="m-inl-rom">${romHtml(item['台羅'])}</span>` : ''}${header === '台語' && variantIdSet.has(item['詞目id']) ? ` <a href="#" class="tag-sub tag-var" title="有各地腔調（點擊查看）" onclick="window._goVariants = true; showFullData(${globalIndex}); return false;">腔</a>` : ''}</div>
                         </td>
                     `;
                 }
@@ -4160,14 +4170,14 @@ ABAC	如「想空想縫」
 // ======== 外觀設定（字體大小 / 字體 / 行距）========
 (function () {
   const KEY = 'kautian_appearance';
-  const def = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red', rw: 'off' };
+  const def = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red', rw: 'off', ri: 'off' };
   let a = { ...def };
   try { Object.assign(a, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   if (!['ruby', 'line', 'seg'].includes(a.ex)) a.ex = 'ruby';
   if (!DEF_MODES.includes(a.df)) a.df = 'brief';
   if (!['han', 'rom'].includes(a.so)) a.so = 'han';   // 新增：列表排序
   if (!ROM_MODES.includes(a.rom)) a.rom = 'full';   // 舊版的「單行」改為 RUBY
-  ['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe', 'mx', 'rw'].forEach(k => { if (a[k] !== 'on' && a[k] !== 'off') a[k] = def[k]; });
+  ['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe', 'mx', 'rw', 'ri'].forEach(k => { if (a[k] !== 'on' && a[k] !== 'off') a[k] = def[k]; });
   if (!['red', 'orange', 'blue', 'green'].includes(a.vc)) a.vc = def.vc;
   a.tns = typeof a.tns === 'string' ? a.tns.replace(/[^1-9]/g, '') : def.tns;   // 要標示的聲調（數字字串，如 "12345789"）
   { const FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;   // 舊版連續字體大小 → 最接近的選項
@@ -4216,7 +4226,7 @@ ABAC	如「想空想縫」
     const key = seg.dataset.key;
     if (String(a[key]) === btn.dataset.v) return;
     a[key] = btn.dataset.v; sync(); save();
-    if ((key === 'ex' || key === 'rom' || key === 'df') && filteredData.length && currentSearchType !== COMPARE_TAB) displayResults(filteredData, _lastPage);   // 立即更新列表
+    if ((key === 'ex' || key === 'rom' || key === 'df' || key === 'ri') && filteredData.length && currentSearchType !== COMPARE_TAB) displayResults(filteredData, _lastPage);   // 立即更新列表
     if (key === 'so') resortList();   // 排序設定：立即重新排序
     if (key === 'mx') rerunSearch();  // 混拼符合：立即重新查詢
     if (key === 'rw') hideRelPop();   // 近反義顯示：切換時收起浮窗（滑鼠一移到詞上就依新設定動作）
@@ -4286,4 +4296,21 @@ else restoreFromUrl();
   };
   box.addEventListener('focus', () => swap(false));
   timer = setTimeout(() => swap(true), DELAY);
+})();
+
+
+// ======== 手機版右上角選單：分類／分析／設定 收進一個三條線按鈕（點選項目＝代按原本的按鈕）========
+(function () {
+  const btn = document.getElementById('menuTrigger'), pop = document.getElementById('menuPop');
+  if (!btn || !pop) return;
+  const setOpen = on => { pop.hidden = !on; btn.setAttribute('aria-expanded', on); };
+  btn.addEventListener('click', e => { e.stopPropagation(); setOpen(pop.hidden); });
+  pop.addEventListener('click', e => {
+    const it = e.target.closest('button[data-target]'); if (!it) return;
+    e.stopPropagation();   // 避免分類面板的「點外面就關閉」把剛開啟的面板又關掉
+    setOpen(false);
+    const t = document.getElementById(it.dataset.target); if (t) t.click();
+  });
+  document.addEventListener('click', e => { if (!pop.hidden && !e.target.closest('#menuPop, #menuTrigger')) setOpen(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) setOpen(false); });
 })();
