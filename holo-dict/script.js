@@ -896,7 +896,8 @@ function detailHtml(item) {
   if (item['分類']) {
     html += '<div class="entry-chips">' + item['分類'].split('、').map(c => c.trim()).filter(Boolean).map(c => `<button type="button" class="chip" data-cat="${escHtml(c)}" title="查詢「${escHtml(c)}」分類的詞">${escHtml(c)}</button>`).join('') + '</div>';
   }
-  const secTools = withEx => `<span class="sec-tools">${tnToggleHtml()}${vwToggleHtml()}${withEx ? exToggleHtml() : ''}</span>`;   // 調色、音色在左，例句鈕在右
+  const secTools = withEx => { const btns = `${tnToggleHtml()}${vwToggleHtml()}${withEx ? exToggleHtml() : ''}`;   // 手機版：三個鈕收進一個「顯示」按鈕（電腦版維持原樣）
+    return `<span class="sec-tools">${btns}<span class="sec-tools-m"><button type="button" class="tools-m-btn" aria-expanded="false" aria-haspopup="true"><svg class="icon" aria-hidden="true"><use href="#i-tune"/></svg>顯示</button><div class="tools-m-pop" hidden>${btns}</div></span></span>`; };   // 調色、音色在左，例句鈕在右
   if (item['釋義']) html += sec('釋義' + secTools(!!item['例句']), senseDetailHtml(item));
   else if (item['例句']) html += sec('例句' + secTools(false), item['例句']);
   const syn = item['近義詞'] || '', ant = item['反義詞'] || '';
@@ -3467,19 +3468,12 @@ const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.
     pinyinContent = pinyinField === '台羅' ? romHtml(item[pinyinField]) : escHtml(item[pinyinField] || '');
   }
 
-  // 生成頂部固定資訊欄
+  // 頂部固定列：返回鈕 ＋ 查詢框（顯示目前查詢詞，點一下回到搜尋框）；詞目、音讀改放在內容裡，隨內容捲動
+  const qText = escHtml(searchInput.value.trim());
   let headerContent = `
     <div class="mobile-modal-header">
-      <div class="header-info">
-        <span class="item-number ${isExactMatch ? 'exact-match' : ''}">${displayNo(index)}</span>
-        
-        
-        <div class="word-info">
-          <div class="main-word">${mainLanguage === '台語' ? hanHtml(item[mainLanguage]) : (item[mainLanguage] || '')}</div>
-          <div class="word-pinyin">${pinyinContent}</div>
-        </div>
-      </div>
-      <button class="close-button">&times;</button>
+      <button class="close-button" type="button" aria-label="返回結果" title="返回結果"><svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg></button>
+      <button class="detail-q" type="button" aria-label="回到搜尋" title="回到搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>${qText || '搜尋'}</span></button>
     </div>
   `;
 
@@ -3492,6 +3486,8 @@ const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.
   const modalContent = document.getElementById('fullDataContent');
   modalContent.innerHTML = headerContent + tableContent;
   fillVariants(item, modalContent.querySelector('.mobile-modal-content'));
+  { const tr = modalContent.querySelector('.entry-titlerow'), mv = modalContent.querySelector('.entry-titlerow .moe-link');   // 序號：放在詞目列右側（外連圖示左邊）
+    if (tr) { const no = document.createElement('span'); no.className = 'entry-no' + (isExactMatch ? ' exact-match' : ''); no.textContent = displayNo(index); tr.insertBefore(no, mv); } }
 
   // 顯示模態框
   const modal = document.getElementById('fullDataModal');
@@ -3511,6 +3507,12 @@ const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.
     modal.style.display = 'none';
     document.body.style.overflow = '';
     closeDetailState();
+  };
+  if (window.closeDetailView) closeButton.onclick = () => window.closeDetailView(false);   // 返回：回到查詢結果原本的位置
+  const searchBtn = modalContent.querySelector('.detail-q');   // 查詢框：直接回到首頁最頂端的搜尋框（全選，可直接改查）
+  if (searchBtn) searchBtn.onclick = function() {
+    if (window.closeDetailView) window.closeDetailView(true);
+    else { closeButton.onclick(); window.scrollTo(0, 0); searchInput.focus(); searchInput.select(); }
   };
 }
 
@@ -3827,7 +3829,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.appendChild(cover);                                 // 新增
 
       top();
-      sidebarModal.style.display = 'none';
+      sidebarModal.style.display = 'none'; modal.style.display = 'none';   // 手機版（彈出視窗）也一併關閉
       document.body.style.overflow = '';
       closeDetailState();
       top();
@@ -3843,13 +3845,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 150);
       return;
     }
-    sidebarModal.style.display = 'none';
+    sidebarModal.style.display = 'none'; modal.style.display = 'none';
     document.body.style.overflow = '';
     closeDetailState();
     const y = _listScrollY;
     const go = () => window.scrollTo(0, y);
     go(); requestAnimationFrame(go); setTimeout(go, 80); setTimeout(go, 250);   // 列表可能剛重繪，多補幾次
   }
+  window.closeDetailView = closeDetail;   // 手機版詳細頁的返回鈕、查詢框共用
   document.getElementById('detailBack').onclick = () => closeDetail(false);
   document.getElementById('detailLogo').onclick = () => closeDetail(false);
   document.getElementById('detailSearch').onclick = () => closeDetail(true);
@@ -4314,3 +4317,14 @@ else restoreFromUrl();
   document.addEventListener('click', e => { if (!pop.hidden && !e.target.closest('#menuPop, #menuTrigger')) setOpen(false); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) setOpen(false); });
 })();
+
+
+// ======== 詳細頁（手機版）：調色／音色／例句 收在一個「顯示」按鈕裡 ========
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest('.tools-m-btn');
+  document.querySelectorAll('.tools-m-pop').forEach(pop => {
+    const mine = btn && pop.parentNode === btn.parentNode;
+    if (mine) { pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', !pop.hidden); }
+    else if (!pop.contains(e.target)) { pop.hidden = true; const b = pop.parentNode.querySelector('.tools-m-btn'); if (b) b.setAttribute('aria-expanded', 'false'); }
+  });
+});

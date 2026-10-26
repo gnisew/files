@@ -2929,3 +2929,96 @@ html.cat-full-open { overflow: hidden; }
   .ex-table tr.ex-short .m-rom-line { display: none; }
   .ex-table tr.ex-short .ex-inl-rom { display: inline; margin-left: .7em; color: #5f6368; font-size: .9em; }
 }
+
+/* ===== 手機版詳細頁：減少留白與縮排，與首頁風格一致 ===== */
+@media (max-width: 768px) {
+  /* 外層彈窗原本有 24px 內距，加上內容的 16px，左右共浪費約 80px */
+  .modal-content { padding: 0; border: 0; }
+  .mobile-modal-header { padding: 0 8px 0 12px; }
+  .mobile-modal-header .header-btns { display: flex; align-items: center; }
+  .mobile-modal-header .search-button, .mobile-modal-header .close-button {
+    display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0;
+    background: none; border: 0; border-radius: 50%; color: #5f6368; cursor: pointer;
+  }
+  .mobile-modal-header .search-button { color: #1a73e8; }
+  .mobile-modal-header .search-button .icon { width: 24px; height: 24px; }
+  .mobile-modal-header .item-number { border: 0; background: none; padding: 0; color: #5f6368; font-weight: 400; min-width: 1.6em; text-align: center; }
+  .mobile-modal-header .item-number.exact-match { color: #2e7d32; font-weight: 600; }
+  .mobile-modal-content { padding: 8px 14px 28px !important; }
+
+  /* 外連圖示：不獨佔一列，放在分類標籤那一列的右上角 */
+  .mobile-modal-content .entry-detail { position: relative; }
+  .mobile-modal-content .entry-titlerow { position: absolute; top: 0; right: -6px; z-index: 1; }
+  .mobile-modal-content .entry-head { min-height: 34px; padding-right: 40px; }
+  .mobile-modal-content .entry-chips { justify-content: flex-start; margin: 0 0 4px; }
+
+  /* 「釋義」標題列：標題不直排，調色／音色／例句鈕不擠成多行 */
+  .mobile-modal-content .sec-title { white-space: nowrap; }
+  .mobile-modal-content .sec-tools { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .mobile-modal-content .sec-tools button { white-space: nowrap; padding: 2px 8px; }
+
+  /* 義項：編號、詞類、釋義同一段（懸掛縮排），不再用多欄把內容擠窄 */
+  .mobile-modal-content .def-line,
+  .mobile-modal-content .def-line.has-no,
+  .mobile-modal-content .def-line.has-pos,
+  .mobile-modal-content .def-line.has-no.has-pos { display: block; padding-left: 1.5em; text-indent: -1.5em; }
+  .mobile-modal-content .def-line:not(.has-no) { padding-left: 0; text-indent: 0; }
+  .mobile-modal-content .def-line .def-no { display: inline-block; min-width: 1.5em; text-indent: 0; }
+  .mobile-modal-content .def-line .pos { display: inline-block; width: auto; padding: 0 .6em; margin-right: .4em; text-indent: 0; }
+  .mobile-modal-content .def-line .def-text { text-indent: 0; }
+
+  /* 例句：取消額外縮排，只留左側細線 */
+  .mobile-modal-content .sense.numbered .sense-ex,
+  .mobile-modal-content .sense-ex { margin-left: 0; }
+  .mobile-modal-content .sense-ex li { padding: 2px 0 2px 10px; }
+}
+
+/* ===== 詳細頁：「顯示」按鈕（手機版把調色／音色／例句收在一起）===== */
+.sec-tools-m { display: none; }
+@media (max-width: 768px) {
+  .mobile-modal-content .sec-tools > button { display: none; }   /* 原本的三顆小鈕（只留在彈出選單裡） */
+  .mobile-modal-content .sec-tools-m { display: block; position: relative; }
+  .mobile-modal-content .tools-m-btn {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid #e3e3e6; border-radius: 14px;
+    background: #fff; color: #5f6368; font: inherit; font-size: calc(13px * var(--fs, 1)); letter-spacing: 0; cursor: pointer;
+  }
+  .mobile-modal-content .tools-m-btn .icon { width: 1.15em; height: 1.15em; color: #1a73e8; }
+  .mobile-modal-content .tools-m-btn[aria-expanded="true"] { background: #e8f0fe; border-color: #d2e3fc; color: #1a56b8; }
+  .mobile-modal-content .tools-m-pop:not([hidden]) {
+    display: flex; flex-direction: column; position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; min-width: 9.5em;
+    padding: 4px 0; background: #fff; border: 1px solid #dfe1e5; border-radius: 12px; box-shadow: 0 4px 16px rgba(60, 64, 67, .25);
+  }
+  .mobile-modal-content .tools-m-pop button {
+    display: flex !important; justify-content: space-between; gap: 1.2em; width: 100%; padding: 11px 16px;
+    border: 0; border-radius: 0; background: none; color: #202124; font-size: calc(15px * var(--fs, 1)); letter-spacing: 0;
+  }
+  .mobile-modal-content .tools-m-pop button:active { background: #eef4fe; }
+}
+
+/* ===== 手機版詳細頁：頂端＝返回鈕＋查詢框（固定）；詞目、音讀回到內容裡，隨內容捲動 ===== */
+@media (max-width: 768px) {
+  .mobile-modal-header { height: 56px; padding: 0 12px 0 6px; gap: 6px; justify-content: flex-start; }
+  .mobile-modal-header .close-button {
+    flex: none; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0;
+    background: none; border: 0; border-radius: 50%; color: #5f6368; cursor: pointer;
+  }
+  .mobile-modal-header .close-button .icon { width: 24px; height: 24px; }
+  .mobile-modal-header .detail-q {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px;
+    background: #fff; border: 1px solid #dfe1e5; border-radius: 24px; box-shadow: 0 1px 3px rgba(60, 64, 67, .12);
+    font: inherit; font-size: calc(16px * var(--fs, 1)); color: #202124; text-align: left; cursor: text;
+  }
+  .mobile-modal-header .detail-q .icon { flex: none; color: #1a73e8; }
+  .mobile-modal-header .detail-q span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-modal-content { margin-top: 56px; height: calc(100% - 56px); }
+
+  /* 內容最上方：詞目（大）＋序號＋外連圖示，下一行音讀 */
+  .mobile-modal-content .entry-han { display: block; flex: 1 1 auto; min-width: 0; font-size: calc(28px * var(--fs, 1)); }
+  .mobile-modal-content .entry-rom-main { display: inline; }
+  .mobile-modal-content .entry-romline { font-size: calc(17px * var(--fs, 1)); margin-top: 2px; }
+  .mobile-modal-content .entry-titlerow { position: static; flex-wrap: nowrap; gap: 8px; }
+  .mobile-modal-content .entry-head { min-height: 0; padding-right: 0; }
+  .mobile-modal-content .entry-chips { margin-top: 10px; }
+  .mobile-modal-content .entry-no { flex: none; color: #80868b; font-size: calc(15px * var(--fs, 1)); font-variant-numeric: tabular-nums; }
+  .mobile-modal-content .entry-no.exact-match { color: #2e7d32; font-weight: 600; }
+}
