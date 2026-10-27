@@ -474,24 +474,42 @@ function romRich(text, ranges, vowel) {
   return out;
 }
 function vwToggleHtml() {
-  return `<button type="button" class="vw-toggle" title="開關音讀母音的顏色（細項在「設定」）">音色：<b>${window.vwOn ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="vw-toggle" title="開關音讀母音的顏色（細項在「設定」）">母音標色：<b class="sw" data-on="${(window.vwOn) ? 1 : 0}">${window.vwOn ? '開' : '關'}</b></button>`;
 }
 // 詳細頁「聲調色彩」開關（總開關；細項在設定裡）
 function tnToggleHtml() {
-  return `<button type="button" class="tn-toggle" title="開關字調色彩（細項在「設定」）">調色：<b>${window.tnOn ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="tn-toggle" title="開關字調色彩（細項在「設定」）">字調標色：<b class="sw" data-on="${(window.tnOn) ? 1 : 0}">${window.tnOn ? '開' : '關'}</b></button>`;
+}
+// 詳細頁「句色」開關（分句標色總開關；細項在設定裡）
+function scToggleHtml() {
+  return `<button type="button" class="sc-toggle" title="開關釋義的分句標色（細項在「設定」）">釋義句色：<b class="sw" data-on="${(window.scCfg && window.scCfg.on) ? 1 : 0}">${window.scCfg && window.scCfg.on ? '開' : '關'}</b></button>`;
+}
+// 詳細頁「例句語詞查詢」「近反義顯示」開關（細項在設定裡）
+function rqToggleHtml() {
+  return `<button type="button" class="rq-toggle" title="開關例句分詞的點擊查詢（設定裡也可調整）">例句分詞查詢：<b class="sw" data-on="${window.rqOn ? 1 : 0}">${window.rqOn ? '開' : '關'}</b></button>`;
+}
+function rwToggleHtml() {
+  return `<button type="button" class="rw-toggle" title="開關例句分詞的近反義懸停顯示（設定裡也可調整）">近反義懸停顯示：<b class="sw" data-on="${window.rwOn ? 1 : 0}">${window.rwOn ? '開' : '關'}</b></button>`;
 }
 function refreshColorUI() {   // 設定或開關改變後：更新詳細頁與列表
   document.querySelectorAll('.entry-han[data-han]').forEach(el => { el.innerHTML = toneHanHtml(el.dataset.han, el.dataset.rom); });
   document.querySelectorAll('.entry-rom-main[data-rom]').forEach(el => { el.innerHTML = romHtml(el.dataset.rom); });
   document.querySelectorAll('.sense-ex li[data-ex]').forEach(li => { li.innerHTML = exampleHtml(li.dataset.ex); });
   document.querySelectorAll('.sense-def[data-def]').forEach(el => { el.innerHTML = hlHtml(defLineHtml(el.dataset.def, false, false, true)); });   // 新增：分句標色開關改變
-  document.querySelectorAll('.tn-toggle b').forEach(b => { b.textContent = window.tnOn ? '開' : '關'; });
-  document.querySelectorAll('.vw-toggle b').forEach(b => { b.textContent = window.vwOn ? '開' : '關'; });
+  document.querySelectorAll('.rel-words[data-w]').forEach(el => { el.innerHTML = relWordsHtml(el.dataset.w); });   // 相關詞音讀開關改變
+  document.querySelectorAll('.tn-toggle b').forEach(b => { b.textContent = window.tnOn ? '開' : '關'; b.dataset.on = (window.tnOn) ? 1 : 0; });
+  document.querySelectorAll('.vw-toggle b').forEach(b => { b.textContent = window.vwOn ? '開' : '關'; b.dataset.on = (window.vwOn) ? 1 : 0; });
+  document.querySelectorAll('.rq-toggle b').forEach(b => { b.textContent = window.rqOn ? '開' : '關'; b.dataset.on = window.rqOn ? 1 : 0; });
+  document.querySelectorAll('.rw-toggle b').forEach(b => { b.textContent = window.rwOn ? '開' : '關'; b.dataset.on = window.rwOn ? 1 : 0; });
+  document.querySelectorAll('.sc-toggle b').forEach(b => { b.textContent = window.scCfg && window.scCfg.on ? '開' : '關'; b.dataset.on = (window.scCfg && window.scCfg.on) ? 1 : 0; });
   if (filteredData.length && currentSearchType !== COMPARE_TAB) displayResults(filteredData, _lastPage);
 }
 document.addEventListener('click', function (e) {
   if (e.target.closest('.tn-toggle') && window.setToneOn) window.setToneOn(!window.tnOn);
   if (e.target.closest('.vw-toggle') && window.setVowelOn) window.setVowelOn(!window.vwOn);
+  if (e.target.closest('.rq-toggle') && window.setRqOn) window.setRqOn(!window.rqOn);
+  if (e.target.closest('.rw-toggle') && window.setRwOn) window.setRwOn(!window.rwOn);
+  if (e.target.closest('.sc-toggle') && window.setScOn) window.setScOn(!(window.scCfg && window.scCfg.on));
 });
 function rubyHtml(han, rom, hl, tones, vw) {   // hl（可省略）：{ han: 範圍, rom: 範圍 }；tones（可省略）：每個字的聲調
   const chars = Array.from(han);
@@ -624,8 +642,8 @@ function posChipHtml(text, short) {
   const label = short ? (POS_SHORT[m[1]] || m[1]) : m[1];
   return { chip: `<span class="pos pos-${POS_CLASS[m[1]]}" title="${m[1]}">${label}</span>`, rest: text.slice(m[0].length), has: true };
 }
-// ======== 分句標色（詳細頁釋義）：依標點切句，相鄰句子換色；一個義項句數達門檻才套用（選項在「設定 → 內容顯示」）========
-const SC_HUES = { 3: [165, 35, 215], 4: [165, 35, 215, 320] };
+// ======== 分句標色（詳細頁釋義）：依標點切句，相鄰句子 3 色循環底色；1 句也標示（選項在「設定 → 內容顯示」）========
+const SC_HUES = [215, 35, 140];   // 藍、橘黃、綠
 const SC_CLOSERS = '」』”’）)】';
 function scRender(text) {   // 回傳 { html, cls }；不需套用時回傳 null
   const c = window.scCfg;
@@ -641,11 +659,9 @@ function scRender(text) {   // 回傳 { html, cls }；不需套用時回傳 null
     }
   }
   if (cur.trim()) parts.push(cur);
-  if (parts.length < c.min) return null;   // 句數不足門檻：維持原樣
-  const hues = SC_HUES[c.n] || SC_HUES[3];
-  const html = parts.map((t, i) => `<span class="sc-w"><i class="sc-n" data-n="${i + 1}" aria-hidden="true"></i><span class="sc-s" style="--h:${hues[i % hues.length]}">${t}</span></span>`).join('');
-  const line = c.mode === 'line';
-  const cls = 'sc-' + (line ? 'line' : 'bg') + (line && c.mk ? ' sc-mk' : '') + (line && c.mk && c.nm ? ' sc-nm' : '') + (c.blk ? ' sc-blk' : '');
+  if (!parts.length) return null;
+  const html = parts.map((t, i) => `<span class="sc-w"><span class="sc-s" style="--h:${SC_HUES[i % 3]}">${t}</span></span>`).join('');
+  const cls = 'sc-bg' + (c.blk ? ' sc-blk' : '');
   return { html, cls };
 }
 function defLineHtml(d, noPos, short, sc) {   // noPos 為 true 時不顯示詞類標籤（標準模式）；sc 為 true 時套用分句標色（詳細頁用）
@@ -710,7 +726,7 @@ function senseDetailHtml(item) {
 // 詳細頁「例句」切換鈕：RUBY → 標準 → 分詞 → RUBY
 function exToggleHtml() {
   const m = EX_LABEL[window.exMode] || 'RUBY';
-  return `<button type="button" class="ex-toggle" title="切換例句顯示方式">例句：<b>${m}</b></button>`;
+  return `<button type="button" class="ex-toggle" title="切換例句顯示方式">例句顯示：<b>${m}</b></button>`;
 }
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('.ex-toggle'); if (!btn) return;
@@ -777,17 +793,54 @@ document.addEventListener('click', function (e) {        // 新增：表格頂�
 // 點整列（不只是左邊的編號）就開啟詳細頁；點到連結／按鈕、或正在選取文字時不觸發
 document.addEventListener('click', function (e) {
   const tr = e.target.closest('.results-table tbody tr'); if (!tr) return;
-  if (e.target.closest('a, button, .rom-toggle, .def-toggle, .sort-toggle')) return;
+  const cp = e.target.closest('.copy-han');
+  if (cp && window.matchMedia('(max-width: 768px)').matches) { copyPlain(cp.dataset.copy); return; }   // 手機版：點詞目＝複製詞目（電腦版維持點整列開詳細頁）
+  const hit = e.target.closest('a, button, .rom-toggle, .def-toggle, .sort-toggle');
+  if (hit && !hit.classList.contains('rel-word')) return;   // 列表裡的例句詞不是連結：點下去等同點整列，開詳細頁
   if (String(window.getSelection && window.getSelection()).trim()) return;
   const num = tr.querySelector('.item-number[data-index]'); if (!num) return;
   showFullData(parseInt(num.dataset.index, 10));
 });
 
+// 教育部辭典原頁網址（有詞目id直連該詞條頁，沒有才以詞目搜尋）；手機版列表的外連圖示用
+function moeUrlOf(item) {
+  const id = String(item['詞目id'] || '').trim(), han = String(item['台語'] || '').replace(/【[^】]*】/g, '').trim();
+  return /^\d+$/.test(id) ? 'https://sutian.moe.edu.tw/zh-hant/su/' + id
+    : 'https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=tai_su&tsha=' + encodeURIComponent('^' + han + '$');
+}
+const copyHanHtml = (item, inner) => `<span class="copy-han" data-copy="${escHtml(String(item['台語'] || '').replace(/【[^】]*】/g, '').trim())}" title="點一下複製詞目">${inner}</span>`;
+// 小提示（約 1.4 秒後消失）
+function holoToast(msg) {
+  let t = document.getElementById('holoToast');
+  if (!t) { t = document.createElement('div'); t.id = 'holoToast'; t.className = 'holo-toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1400);
+}
+function copyPlain(text) {
+  const ok = () => holoToast('已複製：' + text);
+  const fb = () => { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { if (document.execCommand('copy')) ok(); } catch (e) {} ta.remove(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fb); else fb();
+}
+
 // 近義詞／反義詞：每個詞可點擊，直接以該詞查詢「詞目」
+let _romIdx = null;
+function romOfWord(w) {   // 詞 → 音讀（辭典裡同字詞的各個音讀，去重後用「 ／ 」相接）；找不到回傳空字串
+  if (!_romIdx) {
+    _romIdx = new Map();
+    dictionary.forEach(it => {
+      const key = relNorm((it['台語'] || '').replace(/【替】/g, '').trim()), rom = (it['台羅'] || '').trim();
+      if (!key || !rom) return;
+      let v = _romIdx.get(key); if (!v) _romIdx.set(key, v = []);
+      if (!v.includes(rom)) v.push(rom);
+    });
+  }
+  return (_romIdx.get(relNorm(w)) || []).join(' ／ ');
+}
 function relWordsHtml(text) {
-  return (text || '').split('、').map(w => w.trim()).filter(Boolean)
-    .map(w => `<button type="button" class="rel-word" data-word="${escHtml(w)}" title="查詢「${escHtml(w)}」">${escHtml(w)}</button>`)
-    .join('<span class="rel-sep">、</span>');
+  const ws = (text || '').split('、').map(w => w.trim()).filter(Boolean);
+  const btn = w => `<button type="button" class="rel-word" data-word="${escHtml(w)}" title="查詢「${escHtml(w)}」">${escHtml(w)}</button>`;
+  if (!window.rrOn) return ws.map(btn).join('<span class="rel-sep">、</span>');   // 預設：一行，用頓號分開
+  return ws.map(w => { const r = romOfWord(w); return `<div class="rel-item">${btn(w)}${r ? `<span class="rel-rom">${romHtml(r)}</span>` : ''}</div>`; }).join('');   // 顯示音讀：每個詞一行，音讀在詞後
 }
 function searchRelWord(word) {   // 修改：抽成函式，近反義浮窗的詞也共用
   hideDetailUI();
@@ -801,10 +854,15 @@ function searchRelWord(word) {   // 修改：抽成函式，近反義浮窗的�
 }
 document.addEventListener('click', function (e) {
   const b = e.target.closest('.rel-word[data-word]'); if (!b) return;
-  // 手機／觸控：開啟近反義顯示時，點例句的詞先浮出「原詞＋近反義詞」，再點其中一個才查詢（沒有近反義資料的詞則直接查詢）
-  if (window.rwOn && e.pointerType && e.pointerType !== 'mouse' && b.matches(REL_WORD_SEL) && relOf(b.dataset.word || '')) {
-    if (_relFor === b && _relPop && !_relPop.hidden) hideRelPop(); else showRelPop(b, true);
-    return;
+  if (b.closest(LIST_WORD_SEL)) return;   // 列表（結果表格、側邊清單）裡的詞不可點擊查詢，避免與「點整列看詳細」混淆
+  if (b.matches(REL_WORD_SEL)) {   // 例句裡的詞
+    const touch = e.pointerType && e.pointerType !== 'mouse';
+    // 手機／觸控：開啟近反義顯示時，點詞浮出視窗：有開「例句語詞查詢」→ 最上面一列「查 詞」；有近反義資料 → 近、反各一列。兩者都沒有就不浮出
+    if (window.rwOn && touch && (window.rqOn || relOf(b.dataset.word || ''))) {
+      if (_relFor === b && _relPop && !_relPop.hidden) hideRelPop(); else showRelPop(b, true);
+      return;
+    }
+    if (!window.rqOn) return;   // 未啟用「例句語詞查詢」：點例句的詞不查詢
   }
   hideRelPop();
   searchRelWord(b.dataset.word);
@@ -835,6 +893,7 @@ function relOf(word) {
   if (!v) v = idx.get(relNorm(word.replace(/[\p{P}\p{S}\s]/gu, '')));   // 詞內有標點時，去掉標點再找
   return v && (v.syn.length || v.ant.length) ? v : null;
 }
+const LIST_WORD_SEL = '#results, #sidebarList';   // 列表區：裡面的例句詞不提供點擊查詢、近反義浮窗
 const REL_WORD_SEL = '.x-han .rel-word, .x-ruby .rel-word';   // 只限例句裡的詞
 let _relPop = null, _relFor = null, _relShowT = 0, _relHideT = 0;
 function relPopEl() {
@@ -859,10 +918,12 @@ function hideRelPop() {
 }
 function scheduleRelHide() { clearTimeout(_relHideT); _relHideT = setTimeout(hideRelPop, 250); }
 function showRelPop(btn, withOrig) {
-  const v = relOf(btn.dataset.word || ''); if (!v) { hideRelPop(); return; }
+  const v = relOf(btn.dataset.word || '') || { syn: [], ant: [] };
+  const showOrig = withOrig && window.rqOn;
+  if (!showOrig && !v.syn.length && !v.ant.length) { hideRelPop(); return; }
   const pop = relPopEl();
   const row = (cls, label, list) => list.length ? `<div class="rw-row"><span class="rw-lab ${cls}">${label}</span><div class="rw-chips">${list.map(w => `<button type="button" class="rw-chip" data-word="${escHtml(w)}">${escHtml(w)}</button>`).join('')}</div></div>` : '';
-  const head = withOrig ? `<div class="rw-row"><span class="rw-lab rw-org">原</span><div class="rw-chips"><button type="button" class="rw-chip rw-chip-orig" data-word="${escHtml(btn.dataset.word)}">${escHtml(btn.dataset.word)}</button></div></div>` : '';
+  const head = showOrig ? `<div class="rw-row"><span class="rw-lab rw-org">查</span><div class="rw-chips"><button type="button" class="rw-chip rw-chip-orig" data-word="${escHtml(btn.dataset.word)}">${escHtml(btn.dataset.word)}</button></div></div>` : '';
   pop.innerHTML = head + row('rw-syn', '近', v.syn) + row('rw-ant', '反', v.ant);
   pop.hidden = false; _relFor = btn;
   const r = btn.getClientRects()[0] || btn.getBoundingClientRect();
@@ -874,7 +935,7 @@ function showRelPop(btn, withOrig) {
 }
 document.addEventListener('pointerover', function (e) {
   if (e.pointerType !== 'mouse' || !window.rwOn) return;
-  const b = e.target.closest && e.target.closest(REL_WORD_SEL); if (!b) return;
+  const b = e.target.closest && e.target.closest(REL_WORD_SEL); if (!b || b.closest(LIST_WORD_SEL)) return;
   clearTimeout(_relHideT);
   if (_relFor === b) return;
   clearTimeout(_relShowT);
@@ -922,15 +983,15 @@ function detailHtml(item) {
   if (item['分類']) {
     html += '<div class="entry-chips">' + item['分類'].split('、').map(c => c.trim()).filter(Boolean).map(c => `<button type="button" class="chip" data-cat="${escHtml(c)}" title="查詢「${escHtml(c)}」分類的詞">${escHtml(c)}</button>`).join('') + '</div>';
   }
-  const secTools = withEx => { const btns = `${tnToggleHtml()}${vwToggleHtml()}${withEx ? exToggleHtml() : ''}`;   // 手機版：三個鈕收進一個「顯示」按鈕（電腦版維持原樣）
-    return `<span class="sec-tools">${btns}<span class="sec-tools-m"><button type="button" class="tools-m-btn" aria-expanded="false" aria-haspopup="true"><svg class="icon" aria-hidden="true"><use href="#i-tune"/></svg>顯示</button><div class="tools-m-pop" hidden>${btns}</div></span></span>`; };   // 調色、音色在左，例句鈕在右
-  if (item['釋義']) html += sec('釋義' + secTools(!!item['例句']), senseDetailHtml(item));
+  const secTools = (withEx, withSc) => { const btns = `${tnToggleHtml()}${vwToggleHtml()}${withSc ? scToggleHtml() : ''}${withEx ? exToggleHtml() + rqToggleHtml() + rwToggleHtml() : ''}`;   // 字調標色、母音標色、釋義句色、例句顯示、例句語詞查詢、近反義顯示 收進一個「顯示」按鈕（電腦版、手機版相同）
+    return `<span class="sec-tools"><span class="sec-tools-m"><button type="button" class="tools-m-btn" aria-expanded="false" aria-haspopup="true"><svg class="icon" aria-hidden="true"><use href="#i-tune"/></svg>顯示</button><div class="tools-m-pop" hidden>${btns}</div></span></span>`; };
+  if (item['釋義']) html += sec('釋義' + secTools(!!item['例句'], true), senseDetailHtml(item));
   else if (item['例句']) html += sec('例句' + secTools(false), item['例句']);
   const syn = item['近義詞'] || '', ant = item['反義詞'] || '';
   if (syn || ant) {
     html += sec('相關',
-      (syn ? `<div class="rel-line"><span class="rel-tag">近</span>${relWordsHtml(syn)}</div>` : '') +
-      (ant ? `<div class="rel-line"><span class="rel-tag rel-ant">反</span>${relWordsHtml(ant)}</div>` : ''));
+      (syn ? `<div class="rel-line"><span class="rel-tag">近</span><span class="rel-words" data-w="${escHtml(syn)}">${relWordsHtml(syn)}</span></div>` : '') +
+      (ant ? `<div class="rel-line"><span class="rel-tag rel-ant">反</span><span class="rel-words" data-w="${escHtml(ant)}">${relWordsHtml(ant)}</span></div>` : ''));
   }
   const known = ['台語', '台羅', '又唸作', '俗唸作', '分類', '釋義', '例句', '近義詞', '反義詞', ...HIDDEN_BY_DEFAULT];
   const extra = headers.filter(h => !known.includes(h) && item[h]).map(h => {
@@ -977,6 +1038,8 @@ let _rawSrc = '', _rawHl = null;   // 剛轉出時的正則文字與 A#B 的標�
 let _rawCode = 'p';          // 新增：隱藏包裝的代碼（b 音節邊界、g 群組、s／e／se 開頭／結尾／精確、p 無），見 SIMPLE.rawWrap
 let _urlR = '', _shownR = '';   // 修改：網址中／畫面上的模式代碼（'' ＝ 一般模式；對應網址參數 r=代碼）
 const rawKey = () => _rawRx ? _rawCode : '';   // 新增
+let _autoEx = false;   // 新增：「自動精確」——點拼音範例、疊字範例時，查詢當作 ^…$ 精確比對，但框內不顯示 ^ $（隱藏狀態）；使用者自己打了 ^ 或 $ 就改以框內文字為準
+const modeKey = () => rawKey() + (_autoEx ? 'x' : '');   // 新增：網址／畫面上的模式代碼（正則代碼 ＋ 自動精確 x），用來判斷模式有沒有改變
 let _syncAnchorBoxes = null;   // 虛擬鍵盤裡 ^開頭／結尾$／^精確$ 勾選的刷新函式（renderKeyboard 內設定）
 let currentDetailId = null;  // 目前開啟的詳細檢視（詞目id）
 let _listScrollY = 0;        // 開啟詳細檢視前，查詢結果列表的捲動位置（返回時還原）
@@ -988,6 +1051,7 @@ function buildUrl() {
   if (q) {
     p.set('q', q);
     if (_rawRx) p.set('r', _rawCode);   // 修改：r=代碼（舊的 r=1 視為 p）
+    else if (_autoEx) p.set('x', '1');   // 新增：x=1 ＝ 自動精確（框內不顯示 ^ $）
     if (currentSearchType !== defaultType()) p.set('t', typeToCode(currentSearchType));
     if (!isSpecialTab(currentSearchType) && typeof _lastPage === 'number' && _lastPage > 1) p.set('p', _lastPage);
     if (currentDetailId) p.set('d', currentDetailId);
@@ -1006,8 +1070,8 @@ function syncUrl(mode) {
 }
 function syncSearchUrl() {
   const q = normQ();
-  syncUrl(q !== _urlQ || rawKey() !== _urlR ? 'push' : 'replace');   // 修改：模式改變也算新查詢
-  _urlQ = q; _urlR = rawKey(); _shownQ = q; _shownT = currentSearchType; _shownR = rawKey();   // 修改：多記 _urlR、_shownR
+  syncUrl(q !== _urlQ || modeKey() !== _urlR ? 'push' : 'replace');   // 修改：模式改變也算新查詢（rawKey → modeKey）
+  _urlQ = q; _urlR = modeKey(); _shownQ = q; _shownT = currentSearchType; _shownR = modeKey();   // 修改：多記 _urlR、_shownR
 }
 // 開啟／切換詳細檢視
 function setDetail(item) {
@@ -1065,12 +1129,14 @@ function applyUrlState(initial) {
   try {
     searchInput.value = q; searchClear.style.display = 'block';
     setRawRx(!!raw, raw);   // 修改：先還原模式與包裝代碼，再查詢
-    if (q !== _shownQ || type !== _shownT || raw !== _shownR) {   // 修改：模式不同也要重查
+    _autoEx = !raw && sp.get('x') === '1';   // 新增：還原自動精確（setRawRx 會先把它清掉，所以放在後面）
+    const mode = raw + (_autoEx ? 'x' : '');   // 新增
+    if (q !== _shownQ || type !== _shownT || mode !== _shownR) {   // 修改：raw → mode   // 修改：模式不同也要重查
       currentSearchType = type;
       performSearch();
       updateActiveSearchType();
     }
-    _urlQ = q; _urlR = raw;   // 修改：多記 _urlR
+    _urlQ = q; _urlR = mode;   // 修改：raw → mode
     if (!isSpecialTab(currentSearchType) && filteredData.length) {
       const last = Math.max(1, Math.ceil(filteredData.length / ITEMS_PER_PAGE));
       const want = Math.min(pg, last);
@@ -1535,42 +1601,18 @@ let _simpleHl = null;   // 修改：刪除 _anchor、anchorState()、setAnchor()
 function setRawRx(on, code) {   // 修改：多一個 code（隱藏包裝代碼）
   _rawRx = !!on;
   _rawCode = _rawRx && SIMPLE.RAW_CODES.test(code) ? code : 'p';
+  _autoEx = false;   // 新增：進出正則模式、清空、程式代入新查詢詞時，一律結束自動精確
   if (!_rawRx) { _rawSrc = ''; _rawHl = null; }
   updateRxUI();
   if (_syncAnchorBoxes) _syncAnchorBoxes();
 }
-// 搜尋框右側的按鈕：用了簡易語法且尚未轉換 →「轉為正則」；已轉換 → 小標籤「正則模式」（不可點）
+// 已移除「轉為正則」按鈕（一般使用者看不懂）。這裡只保留：刷新 ^開頭／結尾$ 勾選。
+// 舊的查詢紀錄若帶有正則模式（_rawRx），仍照原樣還原查詢，只是不再提供從簡易語法轉換的入口。
 function updateRxUI() {
-  const btn = document.getElementById('rxBtn'), wrap = searchInput.parentElement;
-  if (!btn || !wrap) return;
-  let show = false;
-  btn.classList.remove('rx-on');   // 修改：已轉為正則（正則模式）就不再顯示圖示，刪除原本的「正則模式」小標籤（rx-on）
-  if (!_rawRx) {
-    try {
-      const term = searchInput.value.trim().replace(/\s+/g, ' ');
-      show = !!term && !!SIMPLE.toRegex(SIMPLE.splitAnchors(term).body, false, false);   // 修改：先去掉框內開頭的 ^、結尾的 $ 再判斷：只有真的用到簡易語法才出現
-    } catch (e) { show = false; }
-    if (show) {   // 修改：提示文字簡化為「轉為正則模式」
-      btn.textContent = '.*'; btn.setAttribute('aria-label', '轉為正則模式');
-      btn.title = '轉為正則模式';
-    }
-  }
-  wrap.classList.toggle('has-rx', show);
-  if (_syncAnchorBoxes) _syncAnchorBoxes();   // 修改：不分模式，三個勾選一律依框內的 ^、$ 顯示（原本只有正則模式）
+  const wrap = searchInput.parentElement;
+  if (wrap) wrap.classList.remove('has-rx');
+  if (_syncAnchorBoxes) _syncAnchorBoxes();   // 三個勾選一律依框內的 ^、$ 顯示
 }
-// 按下「轉為正則」：搜尋框改放 SIMPLE.toRegex 的結果（已含 ^ $ 勾選效果），並進入原始正則模式
-function convertToRegex() {
-  if (_rawRx) return;
-  const term = searchInput.value.trim().replace(/\s+/g, ' ');
-  const a = SIMPLE.splitAnchors(term);   // 修改：開頭／結尾由框內的 ^、$ 決定（原本讀 anchorState()）
-  const r = term && SIMPLE.toRegex(a.body, a.s, a.e);
-  if (!r) return;
-  searchInput.value = r.disp;   // 修改：只放照字面轉出的本體（a0 → a[1-9]），邊界與 ^$ 由 rawWrap 在背後附加
-  _rawSrc = r.disp; _rawHl = r.hl;
-  setRawRx(true, r.code);
-  searchInput.focus();   // 修改：不立即查詢（刪除 performSearch()），讓使用者先檢視、修改，按 Enter 才查
-}
-document.getElementById('rxBtn').addEventListener('click', convertToRegex);
 
 // 查詢字串 → 正則字串。簡易語法由 SIMPLE 處理，其餘維持原本流程（searchTermReplaceCore）
 function searchTermReplace(searchTerm) {
@@ -1582,7 +1624,8 @@ function searchTermReplace(searchTerm) {
   }
   // 修改：開頭／結尾改由框內的 ^、$ 決定（不再讀勾選的永久設定，避免重複套用）
   const a = SIMPLE.splitAnchors(String(searchTerm).replace(/\s+/g, ' ').trim());
-  const start = a.s, end = a.e, term = (start || end) ? a.body : searchTerm;
+  const auto = _autoEx && !a.s && !a.e;   // 新增：自動精確＝框內沒有自己打 ^ $ 時，當作 ^…$（有打就以框內為準）
+  const start = a.s || auto, end = a.e || auto, term = (a.s || a.e) ? a.body : searchTerm;   // 修改：加入 auto
   const r = SIMPLE.toRegex(term, start, end);
   if (r) { _simpleHl = r.hl; return r.src; }
   const src = searchTermReplaceCore(term);
@@ -1791,10 +1834,8 @@ function generateSearchTypeSelector() {
     selectorContainer.className = 'search-type-selector';
 
     // 從 localStorage 讀取已儲存的搜索類型
-    const savedSearchType = localStorage.getItem(myLocal + 'currentSearchType');
-    if (savedSearchType && savedSearchType !== '分類' && searchTypes.includes(savedSearchType)) {
-        currentSearchType = savedSearchType;
-    }
+    // 首頁一律以「詞目」查詢：不再還原上次選的搜尋類型
+    currentSearchType = defaultType();
 
     const orderedTypes = [...searchTypes];   // 已移除「華語對照」分頁
     const TAB_LABELS = { '近義詞': '近義', '反義詞': '反義', [EX_ZH]: '華例' };   // 分頁上的簡稱
@@ -1960,15 +2001,15 @@ function buildExampleRows(list) {
 function exampleRowsHtml(rows) {
     const lab = (t, title) => `<span class="mobile-header"${title ? ` title="${title}"` : ''}>${t}</span>`;
     let html = `<table class="results-table ex-table"><thead><tr><th aria-label="序號"></th><th>${colLabel('台語')}${colLabel('台羅')}</th><th>例句</th></tr></thead><tbody>`;   // 修改：「詞目」「音讀」兩欄合併成「詞目音讀」
-    rows.forEach(({ item, i, line }) => {
+    rows.forEach(({ item, i, line }, n) => {
         const m = line.match(/^\[(\d+)\] ([\s\S]*)$/);
         const hanLen = Array.from(String(item['台語'] || '').replace(/【[^】]*】/g, '').replace(/[\s,，、\/／()（）]/g, '')).length;
         const short = hanLen > 0 && hanLen <= 2;   // 手機版：詞目 2 字以內，音讀接在詞後；否則音讀另一列
         const hasRom = !!String(item['台羅'] || '').trim();
-        html += `<tr class="${short && hasRom ? 'ex-short' : ''}">
-            <td class="m-row">${lab('序', '序號')}<a href="#" class="item-number" data-index="${i}" onclick="showFullData(${i}); return false;">${displayNo(i)}</a></td>
+        html += `<tr class="${short && hasRom ? 'ex-short' : ''}${n % 2 ? ' row-b' : ''}">
+            <td class="m-row m-no-td">${lab('序', '序號')}<a href="#" class="item-number" data-index="${i}" onclick="showFullData(${i}); return false;">${displayNo(i)}</a></td>
             <td data-lang-type="language" class="ex-word">
-                <div class="m-line">${lab('詞', colLabel('台語'))}<div class="m-val"><div class="ex-han">${toneHanHtml(item['台語'], item['台羅'])}${short && hasRom ? `<span class="ex-inl-rom">${romHtml(item['台羅'])}</span>` : ''}</div></div></div>
+                <div class="m-line"><span class="mobile-header copy-han" data-copy="${escHtml(String(item['台語'] || '').replace(/【[^】]*】/g, '').trim())}" title="點「詞」複製詞目">詞</span><div class="m-val"><div class="ex-han">${toneHanHtml(item['台語'], item['台羅'])}${short && hasRom ? `<span class="ex-inl-rom">${romHtml(item['台羅'])}</span>` : ''}</div></div><a href="#" class="item-number m-no" data-index="${i}" onclick="showFullData(${i}); return false;" aria-label="序號">${displayNo(i)}</a></div>
                 ${hasRom ? `<div class="m-line m-rom-line">${lab('音', colLabel('台羅'))}<div class="m-val"><div class="ex-rom">${romHtml(item['台羅'])}</div></div></div>` : ''}
             </td>
             <td class="ex-cell m-row">${lab('例', '例句')}<div class="m-val"><div class="ex-item ex-mode-${window.exMode || 'ruby'}">${exampleHtml(m ? m[2] : line, true)}</div></div></td>
@@ -2011,19 +2052,20 @@ function displayResults(filteredData, currentPage) {
     } else {
         function formatHeader(header) {
             const langType = getLangType(header);
+            const on = header === currentSearchType && !isSpecialTab(currentSearchType) ? ' class="th-on"' : '';   // 新增：目前查詢的欄位，表頭強調（像分頁籤）
             if (header === '詔安拼音本變') {
                 return `<th data-lang-type="${langType}">本音</th><th data-lang-type="${langType}">變音</th>`;
             }
             if (header === '台羅') {
-                return `<th data-lang-type="${langType}"><button type="button" class="rom-toggle" title="切換音讀：全／主／副">${colLabel(header)}<span class="rom-mode">${ROM_LABEL[window.romMode || 'full']}</span></button></th>`;
+                return `<th data-lang-type="${langType}"${on}><button type="button" class="rom-toggle" title="切換音讀：全／主／副">${colLabel(header)}<span class="rom-mode">${ROM_LABEL[window.romMode || 'full']}</span></button></th>`;
             }
             if (header === '釋義') {
-                return `<th data-lang-type="${langType}"><button type="button" class="def-toggle" title="切換釋義顯示：完整／標準／精簡">${colLabel(header)}<span class="rom-mode">${DEF_LABEL[window.defMode || 'brief']}</span></button></th>`;
+                return `<th data-lang-type="${langType}"${on}><button type="button" class="def-toggle" title="切換釋義顯示：完整／標準／精簡">${colLabel(header)}<span class="rom-mode">${DEF_LABEL[window.defMode || 'brief']}</span></button></th>`;
             }
             if (header === '台語') {   // 新增：「詞目」表頭可切換排序
-                return `<th data-lang-type="${langType}"><button type="button" class="sort-toggle" title="切換排序：詞目＞音讀／音讀＞詞目">${colLabel(header)}<span class="rom-mode">${SORT_LABEL[window.sortMode || 'han']}</span></button></th>`;
+                return `<th data-lang-type="${langType}"${on}><button type="button" class="sort-toggle" title="切換排序：詞目＞音讀／音讀＞詞目">${colLabel(header)}<span class="rom-mode">${SORT_LABEL[window.sortMode || 'han']}</span></button></th>`;
             }
-            return `<th data-lang-type="${langType}">${colLabel(header)}</th>`;
+            return `<th data-lang-type="${langType}"${on}>${colLabel(header)}</th>`;
         }
 
         // 生成表頭內容
@@ -2035,7 +2077,7 @@ function displayResults(filteredData, currentPage) {
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th aria-label="序號"></th>
+                        <th aria-label="序號"${currentSearchType === '台語' && displayColumns.includes('台語') ? ' class="th-on"' : ''}></th>
                         ${tableHeaders}
                     </tr>
                 </thead>
@@ -2067,7 +2109,7 @@ function displayResults(filteredData, currentPage) {
             const inlRom = displayColumns.includes('台語') && displayColumns.includes('台羅') && hanLen > 0 && hanLen <= 2;   // 手機版「音讀接在詞後」：要有詞目、音讀兩欄，且詞目 2 字以內才接（3 字以上維持分開一列）
             html += `<tr class="${isExactMatch ? 'exact-match' : ''}${inlRom ? ' has-inl' : ''}${stripe++ % 2 ? ' row-b' : ''}">`;
             html += `
-                <td class="m-row">
+                <td class="m-row${displayColumns.includes('台語') ? ' m-no-td' : ''}">
                     <span class="mobile-header" title="序號">序</span>
                     <a href="#" class="item-number ${isExactMatch ? 'exact-match' : ''}" data-index="${globalIndex}" onclick="showFullData(${globalIndex}); return false;">${displayNo(globalIndex)}</a>
                 </td>
@@ -2090,8 +2132,8 @@ function displayResults(filteredData, currentPage) {
                 } else {
                     html += `
                         <td data-lang-type="${langType}" class="m-row${String(item[header] == null ? '' : item[header]).trim() ? '' : ' m-empty'}${header === '台羅' && inlRom ? ' m-rom-td' : ''}">
-                            <span class="mobile-header" title="${colLabel(header)}">${mobLabel(header)}</span><div class="m-val">
-                            ${header === '台羅' ? romHtml(item[header]) : header === '釋義' ? hlHtml(defListHtml(item[header])) : header === '例句' ? listExamplesHtml(item[header]) : header === '台語' ? toneHanHtml(item[header], item['台羅']) : (item[header] || '')}${header === '台語' && inlRom && String(item['台羅'] || '').trim() ? `<span class="m-inl-rom">${romHtml(item['台羅'])}</span>` : ''}${header === '台語' && variantIdSet.has(item['詞目id']) ? ` <a href="#" class="tag-sub tag-var" title="有各地腔調（點擊查看）" onclick="window._goVariants = true; showFullData(${globalIndex}); return false;">腔</a>` : ''}</div>
+                            <span class="mobile-header${header === '台語' ? ' copy-han' : ''}"${header === '台語' ? ` data-copy="${escHtml(String(item['台語'] || '').replace(/【[^】]*】/g, '').trim())}" title="點「詞」複製詞目"` : ` title="${colLabel(header)}"`}>${mobLabel(header)}</span><div class="m-val">
+                            ${header === '台羅' ? romHtml(item[header]) : header === '釋義' ? hlHtml(defListHtml(item[header])) : header === '例句' ? listExamplesHtml(item[header]) : header === '台語' ? toneHanHtml(item[header], item['台羅']) : (item[header] || '')}${header === '台語' && inlRom && String(item['台羅'] || '').trim() ? `<span class="m-inl-rom">${romHtml(item['台羅'])}</span>` : ''}${header === '台語' && variantIdSet.has(item['詞目id']) ? ` <a href="#" class="tag-sub tag-var" title="有各地腔調（點擊查看）" onclick="window._goVariants = true; showFullData(${globalIndex}); return false;">腔</a>` : ''}</div>${header === '台語' ? `<a href="#" class="item-number m-no ${isExactMatch ? 'exact-match' : ''}" data-index="${globalIndex}" onclick="showFullData(${globalIndex}); return false;" aria-label="序號">${displayNo(globalIndex)}</a>` : ''}
                         </td>
                     `;
                 }
@@ -2215,6 +2257,9 @@ function getRelevantValues(item, searchType) {
 
 // 生成>分頁導覽
 function generatePagination(totalItems, currentPage, totalPages) {
+    // 手機版改用精簡分頁（頭 ‹ 1 2 3 › 尾 ⋯）
+    if (window.innerWidth <= 768) return generateMobilePagination(totalItems, currentPage, totalPages);
+
     const paginationContainer = document.createElement('div');
     paginationContainer.className = 'pagination';
 
@@ -2322,6 +2367,108 @@ function generatePagination(totalItems, currentPage, totalPages) {
   paginationContainer.insertBefore(itemsPerPageContainer, lastPageButton.nextSibling);
 
   return paginationContainer;
+}
+
+// 生成>手機版精簡分頁：頭 ‹ 1 2 3 › 尾 ⋯（跳頁、每頁筆數收進「⋯」）
+function generateMobilePagination(totalItems, currentPage, totalPages) {
+    const box = document.createElement('div');
+    box.className = 'pagination pagination-m';
+
+    const mk = (text, title, disabled, onClick, cls) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = text;
+        b.title = title;
+        b.setAttribute('aria-label', title);
+        if (cls) b.className = cls;
+        b.disabled = disabled;
+        b.addEventListener('click', onClick);
+        return b;
+    };
+
+    box.appendChild(mk('«', '首頁', currentPage === 1, () => changePage(1), 'pm-nav'));
+    box.appendChild(mk('‹', '上一頁', currentPage === 1, () => changePage(currentPage - 1), 'pm-nav'));
+
+    // 頁碼：目前頁盡量置中，共 3 個
+    const maxVisible = 3;
+    const start = Math.max(1, Math.min(currentPage - 1, totalPages - maxVisible + 1));
+    const end = Math.min(totalPages, start + maxVisible - 1);
+    for (let i = start; i <= end; i++) {
+        const b = mk(String(i), `第${i}頁`, false, () => changePage(i), i === currentPage ? 'active' : '');
+        if (i === currentPage) b.setAttribute('aria-current', 'page');
+        box.appendChild(b);
+    }
+
+    box.appendChild(mk('›', '下一頁', currentPage === totalPages, () => changePage(currentPage + 1), 'pm-nav'));
+    box.appendChild(mk('»', '尾頁', currentPage === totalPages, () => changePage(totalPages), 'pm-nav'));
+
+    // 「⋯」更多設定：共幾頁、跳頁、每頁筆數
+    const more = document.createElement('div');
+    more.className = 'page-more';
+    const pop = document.createElement('div');
+    pop.className = 'page-more-pop';
+
+    const info = document.createElement('div');
+    info.className = 'pm-row pm-info';
+    info.textContent = `第 ${currentPage} / ${totalPages} 頁（共 ${totalItems} 筆）`;
+    pop.appendChild(info);
+
+    const jumpRow = document.createElement('div');
+    jumpRow.className = 'pm-row';
+    const jumpInput = document.createElement('input');
+    jumpInput.type = 'number';
+    jumpInput.inputMode = 'numeric';
+    jumpInput.min = 1;
+    jumpInput.max = totalPages;
+    jumpInput.placeholder = '跳到第幾頁';
+    const go = () => {
+        let page = parseInt(jumpInput.value);
+        if (!page || page < 1) return;
+        changePage(Math.min(page, totalPages));
+    };
+    jumpInput.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    const goBtn = mk('前往', '前往指定頁', false, go, 'pm-go');
+    jumpRow.append(jumpInput, goBtn);
+    pop.appendChild(jumpRow);
+
+    const perRow = document.createElement('div');
+    perRow.className = 'pm-row';
+    const perLabel = document.createElement('span');
+    perLabel.textContent = '每頁顯示';
+    const sel = document.createElement('select');
+    sel.id = 'itemsPerPageSelect';
+    [5, 10, 20, 50, 100].forEach(num => {
+        const o = document.createElement('option');
+        o.value = num;
+        o.textContent = `${num} 筆`;
+        if (num === ITEMS_PER_PAGE) o.selected = true;
+        sel.appendChild(o);
+    });
+    sel.addEventListener('change', e => changeItemsPerPage(parseInt(e.target.value)));
+    perRow.append(perLabel, sel);
+    pop.appendChild(perRow);
+
+    const moreBtn = mk('⋯', '更多設定', false, e => {
+        e.stopPropagation();
+        pop.classList.toggle('open');
+    }, 'pm-more');
+    more.append(moreBtn, pop);
+    box.appendChild(more);
+
+    // 點選別處或按 Esc 關閉浮窗（全域只綁一次）
+    if (!window._pageMoreBound) {
+        window._pageMoreBound = true;
+        document.addEventListener('click', e => {
+            document.querySelectorAll('.page-more-pop.open').forEach(p => {
+                if (!p.parentElement.contains(e.target)) p.classList.remove('open');
+            });
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') document.querySelectorAll('.page-more-pop.open').forEach(p => p.classList.remove('open'));
+        });
+    }
+
+    return box;
 }
 
 function changeItemsPerPage(newItemsPerPage) {
@@ -2491,7 +2638,7 @@ function sortFilteredData(searchTerm) {
 }
 
 
-searchButton.addEventListener('click', submitSearch);   // 修改：改走 submitSearch（搜尋框沒字時隨機查一個詞）
+searchButton.addEventListener('click', () => { clearTimeout(_sgT); hideSearchHistory(); submitSearch(); });   // 查詢後提示框關閉   // 修改：改走 submitSearch（搜尋框沒字時隨機查一個詞）
 
 // 新增：搜尋框沒填任何字就按搜尋（按鈕或 Enter）→ 隨機挑一個 2～4 字的詞目來查
 // 只在「送出」時觸發；清空搜尋框（input 事件）不會觸發，仍然是回到空白首頁
@@ -2557,47 +2704,145 @@ function saveSearchHistory(a) { try { localStorage.setItem(myLocal + 'history', 
 function addSearchHistory() {
   if (_restoring) return;   // 還原網址、上一頁／下一頁不算新查詢
   const q = searchInput.value.replace(/\s+/g, ' ').trim(); if (!q) return;
-  const r = _rawRx ? _rawCode : '';
-  saveSearchHistory([{ q, r }].concat(loadSearchHistory().filter(x => !(x.q === q && (x.r || '') === r))));
+  const r = _rawRx ? _rawCode : '', ax = _autoEx ? 1 : 0;   // 修改：多記 ax（自動精確）
+  saveSearchHistory([{ q, r, ax }].concat(loadSearchHistory().filter(x => !(x.q === q && (x.r || '') === r && (x.ax || 0) === ax))));
 }
-function hideSearchHistory() { if (_histEl) _histEl.style.display = 'none'; }
+function setHistOpen(on) { const w = document.querySelector('.search-wrapper'); if (w) w.classList.toggle('sg-open', !!on); }   // 面板開著時，搜尋框與面板合成一個整體（見 styles.css 的 .sg-open）
+function hideSearchHistory() { if (_histEl) _histEl.style.display = 'none'; setHistOpen(false); }
+function ensureHistEl() {   // 查詢紀錄與輸入提示共用同一個浮動面板
+  if (_histEl) return _histEl;
+  _histEl = document.createElement('div'); _histEl.className = 'search-history';
+  _histEl.addEventListener('mousedown', e => e.preventDefault());   // 點面板時，不讓搜尋框失去焦點
+  _histEl.addEventListener('click', e => {
+    const fill = e.target.closest('.sg-fill');
+    if (fill) { searchInput.value = fill.dataset.q; searchClear.style.display = 'block'; searchInput.focus(); renderSuggest(); return; }   // 只填入搜尋框，不查詢
+    const sg = e.target.closest('.sg-item');
+    if (sg && sg.classList.contains('sg-q')) { hideSearchHistory(); submitSearch(); return; }   // 照輸入的字查詢
+    if (sg) {   // 輸入提示：以該詞目查詢（一律用「詞目」類型）
+      hideSearchHistory();
+      searchInput.value = sg.dataset.q; searchClear.style.display = 'block';
+      setRawRx(false);
+      currentSearchType = defaultType(); updateActiveSearchType();
+      performSearch();
+      return;
+    }
+    const del = e.target.closest('.hist-del'), all = e.target.closest('.hist-clear'), it = e.target.closest('.hist-item');
+    if (all) { saveSearchHistory([]); hideSearchHistory(); return; }
+    if (del) { const a = loadSearchHistory(); a.splice(+del.dataset.i, 1); saveSearchHistory(a); renderSearchHistory(); return; }
+    if (it) {
+      const h = loadSearchHistory()[+it.dataset.i]; if (!h) return;
+      hideSearchHistory();
+      searchInput.value = h.q; searchClear.style.display = 'block';
+      setRawRx(!!h.r, h.r);   // 正則模式的查詢，連同模式一起還原
+      _autoEx = !h.r && !!h.ax;   // 新增：連同自動精確一起還原
+      performSearch();
+    }
+  });
+  document.querySelector('.search-wrapper').appendChild(_histEl);
+  return _histEl;
+}
 function renderSearchHistory() {
   const list = loadSearchHistory();
   if (searchInput.value.trim() || !list.length) { hideSearchHistory(); return; }
   const kb = document.getElementById('virtualKeyboard');
   if (kb && kb.style.display === 'block') { hideSearchHistory(); return; }   // 鍵盤面板開著就不顯示
-  if (!_histEl) {
-    _histEl = document.createElement('div'); _histEl.className = 'search-history';
-    _histEl.addEventListener('mousedown', e => e.preventDefault());   // 點面板時，不讓搜尋框失去焦點
-    _histEl.addEventListener('click', e => {
-      const del = e.target.closest('.hist-del'), all = e.target.closest('.hist-clear'), it = e.target.closest('.hist-item');
-      if (all) { saveSearchHistory([]); hideSearchHistory(); return; }
-      if (del) { const a = loadSearchHistory(); a.splice(+del.dataset.i, 1); saveSearchHistory(a); renderSearchHistory(); return; }
-      if (it) {
-        const h = loadSearchHistory()[+it.dataset.i]; if (!h) return;
-        hideSearchHistory();
-        searchInput.value = h.q; searchClear.style.display = 'block';
-        setRawRx(!!h.r, h.r);   // 正則模式的查詢，連同模式一起還原
-        performSearch();
-      }
-    });
-    document.querySelector('.search-wrapper').appendChild(_histEl);
-  }
+  ensureHistEl(); _histMode = 'hist';
   _histEl.innerHTML = '<div class="hist-head"><span>最近查詢</span><button type="button" class="hist-clear">清除全部</button></div>' +
     list.map((h, i) => '<div class="hist-item" data-i="' + i + '" role="button" tabindex="-1"><span class="hist-q">' + escHtml(h.q) + '</span>' +
-      (h.r ? '<span class="hist-tag">正則</span>' : '') + '<button type="button" class="hist-del" data-i="' + i + '" title="刪除這筆" aria-label="刪除這筆">×</button></div>').join('');
-  _histEl.style.display = 'block';
+      (h.r ? '<span class="hist-tag">正則</span>' : h.ax ? '<span class="hist-tag">精確</span>' : '') +   // 修改：自動精確的紀錄標「精確」
+       '<button type="button" class="hist-del" data-i="' + i + '" title="刪除這筆" aria-label="刪除這筆">×</button></div>').join('');
+  _histEl.style.display = 'block'; setHistOpen(true);
   fitFloatingPanel(_histEl, 320);
 }
-searchInput.addEventListener('focus', renderSearchHistory);
-searchInput.addEventListener('click', renderSearchHistory);
-searchInput.addEventListener('input', () => { if (searchInput.value.trim()) hideSearchHistory(); else renderSearchHistory(); });
+
+// ======== 輸入提示：打字時，依輸入的字列出詞目（漢字或台羅前綴），詞頻高的排前面 ========
+// 候選詞直接用已載入的詞目比對（約 1.7 萬筆，一次比對只要幾毫秒）；排序用的詞頻在 suggest.js（很小，第一次打字才載入，沒載入完就先用字數排）
+var _histMode = 'hist', _sgSel = 0, _sgBase = '', _sgIdx = null, _sgFreq = null, _sgLoading = false, _sgT = 0;
+function sgCompact(s) { return String(s || '').toLowerCase().replace(/[\s\-'’·‧.]/g, ''); }
+function sgBuildIndex() {
+  if (_sgIdx) return _sgIdx;
+  _sgIdx = [];
+  const seen = new Set();
+  dictionary.forEach((it, n) => {
+    const han = String(it['台語'] || '').replace(/【[^】]*】/g, '').trim();
+    if (!han || han.length > 8 || /[，。？！、；：（）()「」『』]/.test(han)) return;   // 諺語、長條目不列入提示
+    const romRaw = String(it['台羅無調'] || '');
+    const romKeys = romRaw.replace(/[0-9]/g, '').split('/').map(sgCompact).filter(Boolean);
+    const numKeys = romRaw.split('/').map(sgCompact).filter(Boolean);   // 新增：保留數字調（ban2、tsit8），輸入含數字時用
+    _sgIdx.push({ han, rom: String(it['台羅'] || '').split('/')[0].trim(), keys: romKeys, numKeys, id: String(it['詞目id'] || ''), n });
+  });
+  return _sgIdx;
+}
+function sgLoadFreq() {
+  if (_sgFreq || _sgLoading) return;
+  _sgLoading = true;
+  const s = document.createElement('script'); s.src = 'suggest.js';
+  s.onload = () => { _sgFreq = (typeof mySuggestFreq !== 'undefined') ? mySuggestFreq : {}; if (searchInput.value.trim()) renderSuggest(); };
+  s.onerror = () => { _sgFreq = {}; };   // 沒有 suggest.js：不排詞頻
+  document.head.appendChild(s);
+}
+function sgFind(q) {
+  const idx = sgBuildIndex(), freq = _sgFreq || {};
+  const isHan = /[㐀-鿿\u{20000}-\u{3ffff}]/u.test(q), qc = sgCompact(q);
+  const hasNum = /[0-9]/.test(q);
+  if (!qc) return [];
+  const hits = [];
+  for (const e of idx) {
+    let tier = -1;
+    if (isHan) { const p = e.han.indexOf(q); if (p === 0) tier = 0; else if (p > 0) tier = 1; }
+    else if ((hasNum ? e.numKeys : e.keys).some(k => k.startsWith(qc))) tier = 0;   // 輸入含數字調（ban2）→ 比對帶數字調的音讀
+    if (tier >= 0) hits.push({ e, tier, f: freq[e.id] || 0 });
+  }
+  hits.sort((a, b) => a.tier - b.tier || b.f - a.f || a.e.han.length - b.e.han.length || a.e.n - b.e.n);
+  const out = [], seenHan = new Set();
+  for (const h of hits) { if (seenHan.has(h.e.han)) continue; seenHan.add(h.e.han); out.push(h); if (out.length >= 8) break; }
+  return out;
+}
+function renderSuggest() {
+  const q = searchInput.value.trim();
+  if (!q) { renderSearchHistory(); return; }
+  const kb = document.getElementById('virtualKeyboard');
+  if ((kb && kb.style.display === 'block') || _rawRx) { hideSearchHistory(); return; }   // 虛擬鍵盤開著、或正則模式：不提示
+  sgLoadFreq();
+  const hits = sgFind(q);
+  if (!hits.length) { hideSearchHistory(); return; }
+  ensureHistEl(); _histMode = 'sg'; _sgSel = 0; _sgBase = q;
+  const qRow = '<div class="hist-item sg-item sg-q sg-sel" data-q="' + escHtml(q) + '" role="button" tabindex="-1"><span class="hist-q">' + escHtml(q) + '<span class="sg-rom sg-qlab"> - 查詢</span></span></div>';   // 第一列＝照輸入的字查詢（Enter 預設就是它）
+  _histEl.innerHTML = qRow + hits.map(({ e }) => {
+    const typed = e.han.startsWith(q) ? q : '', rest = typed ? e.han.slice(q.length) : e.han;
+    return '<div class="hist-item sg-item" data-q="' + escHtml(e.han) + '" role="button" tabindex="-1"><span class="hist-q">' +
+      (typed ? escHtml(typed) : '') + '<b>' + escHtml(rest) + '</b>' + (e.rom ? '<span class="sg-rom">' + escHtml(e.rom) + '</span>' : '') + '</span>' +
+      '<button type="button" class="sg-fill" data-q="' + escHtml(e.han) + '" title="填入搜尋框" aria-label="填入搜尋框">↖</button></div>';
+  }).join('');
+  _histEl.style.display = 'block'; setHistOpen(true);
+  fitFloatingPanel(_histEl, 320);
+}
+function sgMove(dir) {   // 方向鍵：在提示列中移動，並把選到的詞填進搜尋框（回到第一列就還原成原本輸入的字）
+  if (!_histEl || _histEl.style.display === 'none' || _histMode !== 'sg') return false;
+  const rows = _histEl.querySelectorAll('.sg-item'); if (!rows.length) return false;
+  _sgSel = (_sgSel + dir + rows.length) % rows.length;
+  rows.forEach((r, i) => r.classList.toggle('sg-sel', i === _sgSel));
+  rows[_sgSel].scrollIntoView({ block: 'nearest' });
+  searchInput.value = _sgSel === 0 ? _sgBase : rows[_sgSel].dataset.q;
+  searchClear.style.display = 'block';
+  return true;
+}
+searchInput.addEventListener('focus', () => { if (searchInput.value.trim()) renderSuggest(); else renderSearchHistory(); });
+searchInput.addEventListener('click', () => { if (searchInput.value.trim()) renderSuggest(); else renderSearchHistory(); });
+searchInput.addEventListener('input', () => {
+  if (!searchInput.value.trim()) { clearTimeout(_sgT); renderSearchHistory(); return; }
+  clearTimeout(_sgT); _sgT = setTimeout(renderSuggest, 60);   // 停 60 毫秒再比對，連續打字不會每個字都算
+});
 searchInput.addEventListener('blur', () => setTimeout(hideSearchHistory, 120));
-searchInput.addEventListener('keydown', e => { if (e.key === 'Escape') hideSearchHistory(); });
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideSearchHistory();
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { if (sgMove(e.key === 'ArrowDown' ? 1 : -1)) e.preventDefault(); }
+});
 
 // 監聽回車鍵
 searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
+        clearTimeout(_sgT); hideSearchHistory();   // 查詢後提示框關閉
         submitSearch();   // 修改：performSearch → submitSearch
     }
 });
@@ -2608,11 +2853,12 @@ searchInput.addEventListener('keypress', (e) => {
 
 // 新增：正則模式中，若整個框內文字被選取後直接打字、貼上或刪除（＝整個重打），視同清空，離開正則模式，新打的文字重新用簡易語法解讀
 searchInput.addEventListener('beforeinput', () => {
-    if (_rawRx && searchInput.value && searchInput.selectionStart === 0 && searchInput.selectionEnd === searchInput.value.length) setRawRx(false);
+    if ((_rawRx || _autoEx) && searchInput.value && searchInput.selectionStart === 0 && searchInput.selectionEnd === searchInput.value.length) setRawRx(false);   // 修改：自動精確時整個重打，也一併結束
 });
 searchInput.addEventListener('input', (e) => {
     const searchTerm = e.target.value;
     searchClear.style.display = searchTerm ? 'block' : 'none';
+    if (_autoEx) { const x = SIMPLE.splitAnchors(searchTerm.replace(/\s+/g, ' ').trim()); if (x.s || x.e) _autoEx = false; }   // 新增：使用者自己打了 ^ 或 $ → 結束自動精確，改以框內文字為準
     if (!searchTerm.trim()) setRawRx(false); else updateRxUI();   // 新增：框內變空白才離開正則模式；其餘只刷新按鈕
 });
 
@@ -2669,6 +2915,7 @@ function updateSearchTypeSelector() {
 }
 
 function clearSearchResults() {
+        currentSearchType = defaultType(); updateSearchTypeSelector();   // 回到首頁：搜尋類型重設為「詞目」
         filteredData = [];
         displayResults([], 1);
         hasSearchResults = false;
@@ -2798,7 +3045,9 @@ function generateColumnSelector() {
     new Sortable(columnList, {
         animation: 150,
         ghostClass: 'sortable-ghost',
-        handle: '.drag-handle',
+        filter: '.move-buttons, input',   // 整條都能拖曳；勾選框與上下移動鈕除外
+        preventOnFilter: false,
+        delay: 150, delayOnTouchOnly: true,   // 觸控：長按一下才開始拖曳，不影響捲動
         onEnd: () => {
             updateSelectedColumns();
         }
@@ -3967,7 +4216,7 @@ m_	m n ng 開頭（m_a1＝只取聲母）
 ^天..$	天開頭的三字詞
 ^...天$	天結尾的四字詞
 ^..無.$	第三字為無的四字詞
-【拼音範例（建議勾精確）】
+【拼音範例】
 y0	任意聲調的音節
 y3	第 3 調的音節
 y2 y5	第 2、5 調兩音節
@@ -3988,7 +4237,7 @@ s~ b~ h~	s、b、h 開頭的三音節
 ~<a1	聲母＋a1
 ph~>	ph 開頭的所有韻
 ai@	押 ai 韻
-【疊字範例（建議勾精確）】
+【疊字範例】
 AA	如「譀譀」
 花AA	如「花貓貓」
 ABB	如「紅記記、閒仙仙」
@@ -4038,6 +4287,7 @@ ABAC	如「想空想縫」
 
 
 
+  const EXACT_GROUPS = ['拼音範例', '疊字範例'];   // 點這兩組的符號時，自動勾選精確
   function renderKeyboard() {
     virtualKeyboard.innerHTML = ''; // 清空現有內容
 
@@ -4057,7 +4307,7 @@ ABAC	如「想空想縫」
     
     // 添加預設選項
     const defaultOption = document.createElement('option');
-    defaultOption.textContent = '選擇組別';
+    defaultOption.textContent = '組別';
     defaultOption.value = '';
     select.appendChild(defaultOption);
 
@@ -4069,7 +4319,7 @@ ABAC	如「想空想縫」
     });
     navigation.appendChild(select);
 
-    // 新增：^開頭、結尾$、^精確$ 勾選（精確 ＝ 開頭 ＋ 結尾，三者連動）
+    // 新增：^開頭、結尾$ 勾選；兩個都勾時，旁邊顯示「＝精確」標記（不再有獨立的 ^精確$ 按鈕）
     const mkBox = (text, title) => {
       const label = document.createElement('label');
       label.className = 'keyboard-exact';
@@ -4083,17 +4333,20 @@ ABAC	如「想空想縫」
     };
     const bStart = mkBox('^開頭', '作為開頭（加上 ^）');
     const bEnd = mkBox('結尾$', '作為結尾（加上 $）');
-    const bExact = mkBox('^精確$', '精確＝開頭＋結尾（加上 ^ 與 $）');
+    const exactMark = document.createElement('span');
+    exactMark.className = 'kb-exact-mark'; exactMark.textContent = '＝精確'; exactMark.title = '開頭＋結尾＝精確比對';
     const syncBoxes = () => {
       // 修改：不分模式，勾選狀態一律依框內有沒有開頭的 ^、結尾的 $ 決定（原本一般模式讀 localStorage 的永久設定）
       const x = SIMPLE.splitAnchors(searchInput.value.replace(/\s+/g, ' ').trim());
-      const a = { start: x.s, end: x.e };
-      bStart.box.checked = a.start; bEnd.box.checked = a.end; bExact.box.checked = a.start && a.end;
-      [bStart, bEnd, bExact].forEach(b => { b.box.disabled = false; b.label.classList.remove('kb-disabled'); b.label.title = b.label._title; });
+      const auto = _autoEx && !x.s && !x.e;   // 新增：自動精確時，兩個勾選與「＝精確」照樣亮起（雖然框內沒有 ^ $）
+      const a = { start: x.s || auto, end: x.e || auto };   // 修改：加入 auto
+      bStart.box.checked = a.start; bEnd.box.checked = a.end; exactMark.classList.toggle('on', a.start && a.end);
+      [bStart, bEnd].forEach(b => { b.box.disabled = false; b.label.classList.remove('kb-disabled'); b.label.title = b.label._title; });
       virtualKeyboardToggle.classList.toggle('exact-on', a.start || a.end);
     };
     _syncAnchorBoxes = syncBoxes;   // 新增：讓 setRawRx 能刷新勾選狀態
     const applyAnchor = (start, end) => {
+      _autoEx = false;   // 新增：手動勾選／取消 ^開頭、結尾$ 時，隱藏的自動精確轉成框內真正的 ^ $
       // 修改：不分模式，直接在框內加上或移除 ^、$（已有的不重複加）；不再記到 localStorage
       const body = SIMPLE.splitAnchors(searchInput.value.replace(/\s+/g, ' ').trim()).body;
       searchInput.value = SIMPLE.withAnchors(searchInput.value.replace(/\s+/g, ' ').trim(), start, end);
@@ -4105,8 +4358,8 @@ ABAC	如「想空想縫」
     };
     bStart.box.addEventListener('change', () => applyAnchor(bStart.box.checked, bEnd.box.checked));
     bEnd.box.addEventListener('change', () => applyAnchor(bStart.box.checked, bEnd.box.checked));
-    bExact.box.addEventListener('change', () => applyAnchor(bExact.box.checked, bExact.box.checked));
-    [bStart, bEnd, bExact].forEach(b => navigation.insertBefore(b.label, select));
+    [bStart, bEnd].forEach(b => navigation.insertBefore(b.label, select));
+    navigation.insertBefore(exactMark, select);
     syncBoxes();
 
     virtualKeyboard.appendChild(navigation);   // 修改：導航列固定在面板頂端（CSS sticky）
@@ -4136,6 +4389,10 @@ ABAC	如「想空想縫」
 			executeFunction(char.execute);
 		  } else {
 			insertAtCursor(searchInput, char.symbol);
+			if (EXACT_GROUPS.includes(groupName)) {   // 修改：用了拼音範例、疊字範例的符號，自動精確，但框內不再加 ^ $（改記在隱藏的 _autoEx；游標位置不用再調整）
+			  const x = SIMPLE.splitAnchors(searchInput.value.replace(/\s+/g, ' ').trim());
+			  if (!x.s && !x.e) { _autoEx = true; updateRxUI(); }   // 使用者自己打了 ^ 或 $ 就尊重框內，不另外加；updateRxUI 會刷新勾選
+			}
 		  }
 		  const searchTerm = searchInput.value.trim();
 		  searchClear.style.display = searchTerm ? 'block' : 'none';
@@ -4157,6 +4414,16 @@ ABAC	如「想空想縫」
 
   }
 
+  // 新增：特殊代號面板開著時，搜尋框與面板合成一個整體（同輸入提示的樣式，見 styles.css 的 kb-open）
+  new MutationObserver(() => {
+    const w = document.querySelector('.search-wrapper');
+    const on = virtualKeyboard.style.display === 'block';   // 新增：on
+    if (w) w.classList.toggle('kb-open', on);
+    // 新增：特殊代號面板開著時，提示文字改成「烏衣行代號揣看覓...」（只有框內沒字時才看得到）；關閉後換回原本的提示
+    if (on && !searchInput._phKb) { searchInput._phKb = true; searchInput._phNormal = searchInput.placeholder; searchInput.placeholder = '烏衣行代號揣看覓...'; }
+    else if (!on && searchInput._phKb) { searchInput._phKb = false; searchInput.placeholder = searchInput._phNormal; }
+  }).observe(virtualKeyboard, { attributes: true, attributeFilter: ['style'] });
+
   // 初始渲染鍵盤
   renderKeyboard();
 
@@ -4166,10 +4433,25 @@ ABAC	如「想空想縫」
   }
 
   // 切換虛擬鍵盤的顯示/隱藏
+  function toggleVirtualKeyboard() {
+    const open = virtualKeyboard.style.display === 'none' || virtualKeyboard.style.display === '';
+    virtualKeyboard.style.display = open ? 'block' : 'none';
+    if (open) hideSearchHistory();   // 新增：開鍵盤面板時，收起輸入提示／查詢紀錄
+    fitFloatingPanel(virtualKeyboard, 360);   // 新增：高度不超出視窗底部
+  }
+  virtualKeyboardToggle.title = '特殊代號輸入（Alt+K）';
+  virtualKeyboardToggle.setAttribute('aria-label', '特殊代號輸入');
   virtualKeyboardToggle.addEventListener('click', (event) => {
     event.stopPropagation();
-    virtualKeyboard.style.display = virtualKeyboard.style.display === 'none' || virtualKeyboard.style.display === '' ? 'block' : 'none';
-    fitFloatingPanel(virtualKeyboard, 360);   // 新增：高度不超出視窗底部
+    toggleVirtualKeyboard();
+  });
+  // 新增：Alt+K 開關特殊代號面板（用 e.code，Mac 上 Option+K 會產生特殊字元，e.key 不準）
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === 'KeyK') {
+      e.preventDefault();
+      toggleVirtualKeyboard();
+      if (virtualKeyboard.style.display === 'block') searchInput.focus();
+    }
   });
 
   // 點擊搜索框以外的地方時隱藏虛擬鍵盤
@@ -4205,16 +4487,18 @@ ABAC	如「想空想縫」
 // ======== 外觀設定（字體大小 / 字體 / 行距）========
 (function () {
   const KEY = 'kautian_appearance';
-  const def = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red', rw: 'off', ri: 'off', sc: 'off', scm: 'bg', scn: '3', scb: 'off', scd: 'end', scmk: 'on', scnm: 'on', scmin: '3' };
+  const def = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red', rw: 'off', rq: 'off', rr: 'on', ri: 'off', nm: 'normal', cs: 'stripe', sc: 'off', scb: 'off', scd: 'end' };
   let a = { ...def };
   try { Object.assign(a, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   if (!['ruby', 'line', 'seg'].includes(a.ex)) a.ex = 'ruby';
   if (!DEF_MODES.includes(a.df)) a.df = 'brief';
   if (!['han', 'rom'].includes(a.so)) a.so = 'han';   // 新增：列表排序
   if (!ROM_MODES.includes(a.rom)) a.rom = 'full';   // 舊版的「單行」改為 RUBY
-  ['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe', 'mx', 'rw', 'ri', 'sc', 'scb', 'scmk', 'scnm'].forEach(k => { if (a[k] !== 'on' && a[k] !== 'off') a[k] = def[k]; });
-  { const SC_OPT = { scm: ['bg', 'line'], scn: ['3', '4'], scd: ['end', 'comma'], scmin: ['2', '3', '4', '5'] };   // 新增：分句標色的選項驗證
+  ['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe', 'mx', 'rw', 'rq', 'rr', 'ri', 'sc', 'scb'].forEach(k => { if (a[k] !== 'on' && a[k] !== 'off') a[k] = def[k]; });
+  { const SC_OPT = { scd: ['end', 'comma'] };   // 新增：分句標色的選項驗證
     Object.keys(SC_OPT).forEach(k => { a[k] = String(a[k]); if (!SC_OPT[k].includes(a[k])) a[k] = def[k]; }); }
+  if (!['normal', 'tight'].includes(a.nm)) a.nm = 'normal';   // 手機版列表編號位置
+  if (!['stripe', 'solid'].includes(a.cs)) a.cs = 'stripe';   // 新增：手機版卡片樣式（隔色卡片／單色卡片）
   if (!['red', 'orange', 'blue', 'green'].includes(a.vc)) a.vc = def.vc;
   a.tns = typeof a.tns === 'string' ? a.tns.replace(/[^1-9]/g, '') : def.tns;   // 要標示的聲調（數字字串，如 "12345789"）
   { const FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;   // 舊版連續字體大小 → 最接近的選項
@@ -4229,8 +4513,7 @@ ABAC	如「想空想縫」
       btn.setAttribute('aria-checked', on);
     }));
     document.querySelectorAll('#settingsPage .setting-row[data-sc]').forEach(r => {   // 新增：分句標色的細項，未啟用或不適用時變淡
-      const need = r.dataset.sc;
-      r.classList.toggle('sc-dim', a.sc !== 'on' || (need !== 'sub' && a.scm !== 'line') || (need === 'nm' && a.scmk !== 'on'));
+      r.classList.toggle('sc-dim', a.sc !== 'on');
     });
     tnChips.forEach(c => { const on = a.tns.includes(c.dataset.t); c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); });
   }
@@ -4271,7 +4554,7 @@ ABAC	如「想空想縫」
     if (key === 'so') resortList();   // 排序設定：立即重新排序
     if (key === 'mx') rerunSearch();  // 混拼符合：立即重新查詢
     if (key === 'rw') hideRelPop();   // 近反義顯示：切換時收起浮窗（滑鼠一移到詞上就依新設定動作）
-    if (['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe'].includes(key) || key.indexOf('sc') === 0) refreshColorUI();   // 聲調色彩、音色：同時更新詳細頁與列表
+    if (['tn', 'tnh', 'tne', 'vw', 'vwh', 'vwe'].includes(key) || key === 'rr' || key.indexOf('sc') === 0) refreshColorUI();   // 聲調色彩、音色：同時更新詳細頁與列表
   }));
   function setTones(str) { a.tns = str; sync(); save(); refreshColorUI(); }
   tnChips.forEach(c => c.addEventListener('click', () => {   // 點選聲調：加入／取消
@@ -4281,10 +4564,16 @@ ABAC	如「想空想縫」
   $('tnAll').addEventListener('click', () => setTones('12345789'));
   $('tnNone').addEventListener('click', () => setTones(''));
   window.setVowelOn = v => { a.vw = v ? 'on' : 'off'; sync(); save(); refreshColorUI(); };   // 詳細頁的「音色」開關：與設定同步
+  window.setRqOn = v => { a.rq = v ? 'on' : 'off'; sync(); save(); hideRelPop(); refreshColorUI(); };   // 詳細頁的「例句語詞查詢」開關：與設定同步
+  window.setRwOn = v => { a.rw = v ? 'on' : 'off'; sync(); save(); hideRelPop(); refreshColorUI(); };   // 詳細頁的「近反義顯示」開關：與設定同步
+  window.setScOn = v => { a.sc = v ? 'on' : 'off'; sync(); save(); refreshColorUI(); };   // 詳細頁的「句色」開關：與設定同步
   window.setToneOn = v => { a.tn = v ? 'on' : 'off'; sync(); save(); refreshColorUI(); };   // 詳細頁的「聲調色彩」開關：與設定同步
   document.querySelectorAll('.js-reset-appearance').forEach(btn => btn.addEventListener('click', () => {   // 桌面（側邊欄）與手機（內容底部）各一顆
-    a = { ...def }; sync(); save();
-    refreshColorUI();   // 含列表與詳細頁
+    holoConfirm('重設外觀設定', '所有外觀設定（字體、顏色、顯示方式等）都會恢復成預設值。', '重設').then(ok => {
+      if (!ok) return;
+      a = { ...def }; sync(); save();
+      refreshColorUI();   // 含列表與詳細頁
+    });
   }));
   function rerunSearch() {   // 新增：「混拼符合」顯示與否改變後，重新查詢（含詳細頁的側邊清單）
     if (!searchInput.value.trim() || currentSearchType === COMPARE_TAB) return;
@@ -4329,11 +4618,12 @@ else restoreFromUrl();
   if (!box) return;
   const HINT = '揣漢字、台羅、華語釋義⋯⋯', DELAY = 4000;
   let done = false, timer = 0;
+  const setPh = v => { if (box._phKb) box._phNormal = v; else box.placeholder = v; };   // 新增：特殊代號面板開著時，只記下來，等面板關閉再換上
   const swap = animate => {
     if (done) return; done = true; clearTimeout(timer);
-    if (!animate) { box.placeholder = HINT; return; }
+    if (!animate) { setPh(HINT); return; }   // 修改：box.placeholder = HINT → setPh(HINT)
     box.classList.add('ph-fade');                                   // 淡出
-    setTimeout(() => { box.placeholder = HINT; box.classList.remove('ph-fade'); }, 350);   // 換字後淡入
+    setTimeout(() => { setPh(HINT); box.classList.remove('ph-fade'); }, 350);   // 修改：同上
   };
   box.addEventListener('focus', () => swap(false));
   timer = setTimeout(() => swap(true), DELAY);
@@ -4357,7 +4647,7 @@ else restoreFromUrl();
 })();
 
 
-// ======== 詳細頁（手機版）：調色／音色／例句 收在一個「顯示」按鈕裡 ========
+// ======== 詳細頁：調色／音色／句色／例句 收在一個「顯示」按鈕裡 ========
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('.tools-m-btn');
   document.querySelectorAll('.tools-m-pop').forEach(pop => {
@@ -4366,3 +4656,76 @@ document.addEventListener('click', function (e) {
     else if (!pop.contains(e.target)) { pop.hidden = true; const b = pop.parentNode.querySelector('.tools-m-btn'); if (b) b.setAttribute('aria-expanded', 'false'); }
   });
 });
+
+
+// ======== 自訂確認視窗：holoConfirm(標題, 說明, 確定鈕文字) → Promise<boolean>；點背景、按 Esc、按「取消」都算取消 ========
+function holoConfirm(title, text, okText) {
+  return new Promise(resolve => {
+    const prevFocus = document.activeElement;
+    const ov = document.createElement('div');
+    ov.className = 'hc-overlay';
+    ov.innerHTML = `<div class="hc-box" role="alertdialog" aria-modal="true" aria-labelledby="hcTitle" aria-describedby="hcText">
+      <div class="hc-title" id="hcTitle"></div><div class="hc-text" id="hcText"></div>
+      <div class="hc-btns"><button type="button" class="hc-cancel">取消</button><button type="button" class="hc-ok"></button></div></div>`;
+    ov.querySelector('.hc-title').textContent = title;
+    ov.querySelector('.hc-text').textContent = text;
+    ov.querySelector('.hc-ok').textContent = okText || '確定';
+    const done = v => {
+      document.removeEventListener('keydown', onKey, true);
+      ov.remove();
+      if (prevFocus && prevFocus.focus) try { prevFocus.focus(); } catch (e) {}
+      resolve(v);
+    };
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+      else if (e.key === 'Tab') {   // 焦點只在兩顆按鈕之間循環
+        const bs = ov.querySelectorAll('button'), f = bs[0], l = bs[bs.length - 1];
+        if (e.shiftKey && document.activeElement === f) { e.preventDefault(); l.focus(); }
+        else if (!e.shiftKey && document.activeElement === l) { e.preventDefault(); f.focus(); }
+      }
+    };
+    ov.addEventListener('click', e => { if (e.target === ov) done(false); });
+    ov.querySelector('.hc-cancel').addEventListener('click', () => done(false));
+    ov.querySelector('.hc-ok').addEventListener('click', () => done(true));
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+    ov.querySelector('.hc-cancel').focus();   // 預設停在「取消」，避免誤按 Enter 就重設
+  });
+}
+
+
+// ======== 首頁狀態（輸入框是空的、也沒有結果）：手機版版面下移、隱藏搜尋類型分頁（見 styles.css 的 html.is-home）========
+(function () {
+  const update = () => {
+    const hasRes = searchHeader.classList.contains('has-results');
+    document.documentElement.classList.toggle('is-home', !searchInput.value.trim() && !hasRes);
+    document.documentElement.classList.toggle('no-tabs', !hasRes);   // 新增：還沒有查詢結果前（含打字中），不顯示搜尋類型分頁
+  };
+  searchInput.addEventListener('input', update);
+  new MutationObserver(update).observe(searchHeader, { attributes: true, attributeFilter: ['class'] });
+  update();
+})();
+
+
+// ======== 手機版：點進搜尋框＝進入「搜尋模式」（搜尋框與介面放到最大，下面是查詢紀錄，左側有返回鍵，像 Gmail）========
+(function () {
+  const mq = window.matchMedia('(max-width: 768px)');
+  const root = document.documentElement, kb = document.getElementById('virtualKeyboard'), back = document.getElementById('searchBack');
+  const kbOpen = () => !!kb && kb.style.display === 'block';
+  const sc = document.getElementById('searchContainer');
+  const setTop = () => { if (root.classList.contains('search-active') && sc) root.style.setProperty('--sa-top', Math.ceil(sc.getBoundingClientRect().bottom) + 'px'); };   // 下方面板從搜尋列的實際底部開始，不壓到搜尋框
+  const update = () => { root.classList.toggle('search-active', mq.matches && (document.activeElement === searchInput || kbOpen())); setTop(); requestAnimationFrame(setTop); setTimeout(setTop, 350); };   // 新增：搜尋列有 0.3 秒的版面動畫，動畫結束後再量一次，面板才不會蓋到搜尋框
+  window.addEventListener('resize', setTop);
+  const exit = () => { if (document.activeElement === searchInput) searchInput.blur(); if (kb) kb.style.display = 'none'; hideSearchHistory(); setTimeout(update, 0); };
+  searchInput.addEventListener('focus', update);
+  searchInput.addEventListener('blur', () => setTimeout(update, 200));   // 稍等一下：點查詢紀錄、虛擬鍵盤時不要誤退出
+  if (kb) new MutationObserver(update).observe(kb, { attributes: true, attributeFilter: ['style'] });
+  if (back) back.addEventListener('click', exit);
+  searchButton.addEventListener('click', () => { if (mq.matches) exit(); });
+  searchInput.addEventListener('keypress', e => { if (e.key === 'Enter' && mq.matches) exit(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && root.classList.contains('search-active')) exit(); });
+  document.addEventListener('click', e => { if (mq.matches && e.target.closest && e.target.closest('.hist-item') && !e.target.closest('.hist-del, .sg-fill')) exit(); });   // 點某筆查詢紀錄 → 查詢並回到結果畫面
+  const wrap = document.querySelector('.search-wrapper');   // 點清除、虛擬鍵盤、正則等按鈕時，不讓搜尋框失去焦點（否則會誤退出搜尋模式）
+  if (wrap) wrap.addEventListener('mousedown', e => { if (mq.matches && e.target.closest('button, .search-clear, .search-icon') && !e.target.closest('.search-history')) e.preventDefault(); });
+  mq.addEventListener && mq.addEventListener('change', update);
+})();

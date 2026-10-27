@@ -39,9 +39,14 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     window.exMode = (a.ex === 'line' || a.ex === 'seg') ? a.ex : 'ruby';
     window.romMode = (a.rom === 'main' || a.rom === 'sub') ? a.rom : 'full';
     document.documentElement.classList.toggle('rom-inline', a.ri === 'on');   // 手機版卡片：音讀接在詞目後面（預設關）
-    window.scCfg = { on: a.sc === 'on', mode: a.scm === 'line' ? 'line' : 'bg', n: a.scn === '4' ? 4 : 3, blk: a.scb === 'on',
-      comma: a.scd === 'comma', mk: a.scmk !== 'off', nm: a.scnm !== 'off', min: parseInt(a.scmin, 10) || 3 };   // 新增：分句標色（詳細頁釋義；預設關）
-    window.rwOn = a.rw === 'on';   // 新增：近反義顯示（例句的詞，滑鼠懸停時顯示近義、反義詞；預設關）
+    window.scCfg = { on: a.sc === 'on', blk: a.scb === 'on', comma: a.scd === 'comma' };   // 新增：分句標色（詳細頁釋義；預設關）
+    document.documentElement.classList.toggle('nm-tight', a.nm === 'tight');   // 手機版列表編號：緊密模式＝編號在詞目右邊界
+    document.documentElement.classList.toggle('cs-solid', a.cs === 'solid');   // 新增：手機版卡片樣式：solid＝單色卡片（預設 stripe＝隔色卡片）
+    window.rrOn = a.rr === 'on';   // 相關（近義、反義）詞顯示音讀（預設開）
+    window.rqOn = a.rq === 'on';   // 例句語詞可點擊查詢（預設關）
+    document.documentElement.classList.toggle('rq-on', window.rqOn);
+    window.rwOn = a.rw === 'on';
+    document.documentElement.classList.toggle('ex-arrow', window.rwOn || window.rqOn);   // 近反義或查詢啟用時，詳細頁例句上游標一律是箭頭   // 新增：近反義顯示（例句的詞，滑鼠懸停時顯示近義、反義詞；預設關）
     window.showMixed = a.mx === 'on';   // 是否列出「混拼符合」（預設不顯示）
     window.sortMode = a.so === 'rom' ? 'rom' : 'han';   // 列表排序：han＝詞目＞音讀（預設）、rom＝音讀＞詞目
     window.defMode = (a.df === 'full' || a.df === 'std' || a.df === 'brief') ? a.df : 'brief';
@@ -57,7 +62,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     window.tnSet = new Set(String(a.tns == null ? '12345789' : a.tns).split('').map(Number).filter(function (n) { return n >= 1 && n <= 9; }));
     if (window._sbRefresh) window._sbRefresh();   // 詳細頁開著時，側邊清單跟著更新（字級、顏色等）
   };
-  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', ri: 'off', sc: 'off', scm: 'bg', scn: '3', scb: 'off', scd: 'end', scmk: 'on', scnm: 'on', scmin: '3', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
+  var a = { fs: 130, font: 'tauhu', lh: 'normal', ex: 'ruby', pw: 'normal', rom: 'full', so: 'han', mx: 'off', rw: 'off', rq: 'off', rr: 'on', ri: 'off', nm: 'normal', cs: 'stripe', sc: 'off', scb: 'off', scd: 'end', df: 'brief', tn: 'off', tnh: 'on', tne: 'on', tns: '12345789', vw: 'off', vwh: 'on', vwe: 'on', vc: 'red' };
   try { Object.assign(a, JSON.parse(localStorage.getItem('kautian_appearance') || '{}')); } catch (e) {}
   // 舊版的連續字體大小，換成最接近的選項
   var FS = [150, 140, 130, 110], n = parseInt(a.fs, 10) || 130;
@@ -100,6 +105,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     <div class="search-header" id="searchHeader">
         <div class="logo" id="logo">HOLO</div>
         <div class="search-container" id="searchContainer">
+            <button type="button" class="search-back" id="searchBack" aria-label="返回" title="返回"><svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg></button>
             <div class="search-wrapper">
                 <input type="text" class="search-box" placeholder="臺灣台語和樂典" id="searchInput" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">
                 <svg class="icon search-clear" id="searchClear" aria-hidden="true"><use href="#i-close"/></svg>
@@ -222,7 +228,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
         </div>
 
         <div class="settings-sidebar-footer">
-            <button type="button" class="reset-button js-reset-appearance">重設全部外觀</button>
+            <button type="button" class="reset-button js-reset-appearance">重設外觀設定</button>
         </div>
     </div>
 
@@ -237,7 +243,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
             <div class="panel-content">
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblFs">字體大小</label><p class="setting-desc">整個網頁文字的大小。</p></div>
+                    <div class="setting-text"><label id="lblFs">字體大小</label></div>
                     <div class="seg" data-key="fs" role="radiogroup" aria-labelledby="lblFs">
                         <button type="button" data-v="150">甚大</button>
                         <button type="button" data-v="140">較大</button>
@@ -246,14 +252,14 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblFont">字體</label><p class="setting-desc">介面與內容使用的字型。</p></div>
+                    <div class="setting-text"><label id="lblFont">字體</label></div>
                     <div class="seg" data-key="font" role="radiogroup" aria-labelledby="lblFont">
                         <button type="button" data-v="default">預設</button>
                         <button type="button" data-v="tauhu">豆腐</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblLh">行距</label><p class="setting-desc">內容的行與行之間的距離。</p></div>
+                    <div class="setting-text"><label id="lblLh">行距</label></div>
                     <div class="seg" data-key="lh" role="radiogroup" aria-labelledby="lblLh">
                         <button type="button" data-v="tight">緊湊</button>
                         <button type="button" data-v="normal">標準</button>
@@ -261,7 +267,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblPw">網頁寬度</label><p class="setting-desc">整個頁面內容的最大寬度。</p></div>
+                    <div class="setting-text"><label id="lblPw">寬度</label></div>
                     <div class="seg" data-key="pw" role="radiogroup" aria-labelledby="lblPw">
                         <button type="button" data-v="full">100%</button>
                         <button type="button" data-v="wide">較寬</button>
@@ -295,6 +301,20 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                         <button type="button" data-v="on">接在詞後</button>
                     </div>
                 </div>
+                <div class="setting-row mobile-only-row">
+                    <div class="setting-text"><label id="lblNm">編號位置（手機版）</label><p class="setting-desc">標準：編號獨立一列（序 詞 音 義）。緊密：編號放在詞目那一列的最右邊，少一列。</p></div>
+                    <div class="seg" data-key="nm" role="radiogroup" aria-labelledby="lblNm">
+                        <button type="button" data-v="normal">標準</button>
+                        <button type="button" data-v="tight">緊密</button>
+                    </div>
+                </div>
+                <div class="setting-row mobile-only-row">
+                    <div class="setting-text"><label id="lblCs">卡片樣式（手機版）</label><p class="setting-desc">隔色卡片：卡片連在一起，淺深交錯。單色卡片：仿 Google 結果頁，白底卡片之間留空隙，不顯示「序、詞、音、義」，第一行詞目（藍色大字）、第二行音讀、第三行釋義，編號在右上角（淡色小字）。啟用單色卡片時，「音讀位置」「編號位置」不再作用。</p></div>
+                    <div class="seg" data-key="cs" role="radiogroup" aria-labelledby="lblCs">
+                        <button type="button" data-v="stripe">隔色卡片</button>
+                        <button type="button" data-v="solid">單色卡片</button>
+                    </div>
+                </div>
                 <div class="setting-row">
                     <div class="setting-text"><label id="lblDf">釋義顯示</label><div class="setting-preview mini" id="previewDf"></div></div>
                     <div class="seg" data-key="df" role="radiogroup" aria-labelledby="lblDf">
@@ -304,61 +324,24 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblSc">分句標色</label><p class="setting-desc">詳細頁的釋義依標點切句，相鄰的句子換不同底色，方便閱讀。只有一個義項含 3 句以上時才套用。</p></div>
+                    <div class="setting-text"><label id="lblSc">分句標色</label><p class="setting-desc">釋義依標點切句，輪流標底色。</p></div>
                     <div class="seg" data-key="sc" role="radiogroup" aria-labelledby="lblSc">
                         <button type="button" data-v="off">不啟用</button>
                         <button type="button" data-v="on">啟用</button>
                     </div>
                 </div>
                 <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScm">　標色方式</label><p class="setting-desc">底色：每句一種淺底色；底線：每句一種顏色的底線。</p></div>
-                    <div class="seg" data-key="scm" role="radiogroup" aria-labelledby="lblScm">
-                        <button type="button" data-v="bg">底色</button>
-                        <button type="button" data-v="line">底線</button>
-                    </div>
-                </div>
-                <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScn">　顏色數</label><p class="setting-desc">相鄰的句子輪流使用的顏色數。</p></div>
-                    <div class="seg" data-key="scn" role="radiogroup" aria-labelledby="lblScn">
-                        <button type="button" data-v="3">3 色循環</button>
-                        <button type="button" data-v="4">4 色循環</button>
-                    </div>
-                </div>
-                <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScmin">　句數門檻</label><p class="setting-desc">一個義項至少有幾句才套用。</p></div>
-                    <div class="seg" data-key="scmin" role="radiogroup" aria-labelledby="lblScmin">
-                        <button type="button" data-v="2">2 句</button>
-                        <button type="button" data-v="3">3 句</button>
-                        <button type="button" data-v="4">4 句</button>
-                        <button type="button" data-v="5">5 句</button>
-                    </div>
-                </div>
-                <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScd">　切句符號</label><p class="setting-desc">預設在 。；？！ 切句；「含逗號」會連 ，、 也切。</p></div>
+                    <div class="setting-text"><label id="lblScd">　切句符號</label></div>
                     <div class="seg" data-key="scd" role="radiogroup" aria-labelledby="lblScd">
                         <button type="button" data-v="end">。；？！</button>
                         <button type="button" data-v="comma">含逗號</button>
                     </div>
                 </div>
                 <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScb">　每句換行</label><p class="setting-desc">每一句各佔一行。</p></div>
+                    <div class="setting-text"><label id="lblScb">　每句換行</label></div>
                     <div class="seg" data-key="scb" role="radiogroup" aria-labelledby="lblScb">
                         <button type="button" data-v="off">不換行</button>
                         <button type="button" data-v="on">換行</button>
-                    </div>
-                </div>
-                <div class="setting-row" data-sc="line">
-                    <div class="setting-text"><label id="lblScmk">　起訖標記</label><p class="setting-desc">只在「底線」模式：每句前後加上 ‹ › 標記。</p></div>
-                    <div class="seg" data-key="scmk" role="radiogroup" aria-labelledby="lblScmk">
-                        <button type="button" data-v="off">不顯示</button>
-                        <button type="button" data-v="on">顯示</button>
-                    </div>
-                </div>
-                <div class="setting-row" data-sc="nm">
-                    <div class="setting-text"><label id="lblScnm">　標記編號</label><p class="setting-desc">只在「底線」且顯示起訖標記時：標記前顯示句子編號。</p></div>
-                    <div class="seg" data-key="scnm" role="radiogroup" aria-labelledby="lblScnm">
-                        <button type="button" data-v="off">不顯示</button>
-                        <button type="button" data-v="on">顯示</button>
                     </div>
                 </div>
                 <div class="setting-row">
@@ -370,21 +353,35 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblRw">近反義顯示</label><p class="setting-desc">電腦版：滑鼠停在例句的詞上，會顯示近義詞、反義詞。手機版：點例句的詞，會顯示原詞與近反義詞。點其中一個詞就能直接查詢。</p></div>
+                    <div class="setting-text"><label id="lblRr">相關詞音讀</label></div>
+                    <div class="seg" data-key="rr" role="radiogroup" aria-labelledby="lblRr">
+                        <button type="button" data-v="off">不顯示</button>
+                        <button type="button" data-v="on">顯示</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblRq">例句分詞查詢</label></div>
+                    <div class="seg" data-key="rq" role="radiogroup" aria-labelledby="lblRq">
+                        <button type="button" data-v="off">不啟用</button>
+                        <button type="button" data-v="on">啟用</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblRw">近反義懸停顯示</label></div>
                     <div class="seg" data-key="rw" role="radiogroup" aria-labelledby="lblRw">
                         <button type="button" data-v="off">不顯示</button>
                         <button type="button" data-v="on">顯示</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblSo">排序設定</label><p class="setting-desc">查詢結果列表的排序（同一符合層級內）。也可以點列表的「詞目」表頭切換。</p></div>
+                    <div class="setting-text"><label id="lblSo">排序設定</label></div>
                     <div class="seg" data-key="so" role="radiogroup" aria-labelledby="lblSo">
                         <button type="button" data-v="han">詞目 &gt; 音讀</button>
                         <button type="button" data-v="rom">音讀 &gt; 詞目</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblMx">混拼符合</label><p class="setting-desc">輸入法式查詢（有的音節打整個、有的只打開頭）命中的結果，差異較大，預設不顯示。</p></div>
+                    <div class="setting-text"><label id="lblMx">混拼符合</label></div>
                     <div class="seg" data-key="mx" role="radiogroup" aria-labelledby="lblMx">
                         <button type="button" data-v="off">不顯示</button>
                         <button type="button" data-v="on">顯示</button>
@@ -403,7 +400,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">開關</div>
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblTn">字調色彩</label><p class="setting-desc">用顏色標示台語漢字的聲調（依台羅調符判斷）。詳細頁也可以隨時開關。</p></div>
+                    <div class="setting-text"><label id="lblTn">字調色彩</label></div>
                     <div class="seg" data-key="tn" role="radiogroup" aria-labelledby="lblTn">
                         <button type="button" data-v="on">開</button>
                         <button type="button" data-v="off">關</button>
@@ -413,14 +410,14 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">套用範圍</div>
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblTnh">套用於詞目</label><p class="setting-desc">列表、例句搜尋與詳細頁標題的詞目漢字。</p></div>
+                    <div class="setting-text"><label id="lblTnh">套用於詞目</label></div>
                     <div class="seg" data-key="tnh" role="radiogroup" aria-labelledby="lblTnh">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblTne">套用於例句</label><p class="setting-desc">各處例句的台語漢字。</p></div>
+                    <div class="setting-text"><label id="lblTne">套用於例句</label></div>
                     <div class="seg" data-key="tne" role="radiogroup" aria-labelledby="lblTne">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
@@ -430,7 +427,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">標示的聲調</div>
                 <div class="setting-card">
                 <div class="setting-row stack">
-                    <div class="setting-text"><label>標示的聲調</label><p class="setting-desc">點選要上色的聲調；沒選的聲調維持原色。音讀沒有單獨的第 6 調（與第 2 調同調符）。</p></div>
+                    <div class="setting-text"><label>標示的聲調</label></div>
                     <div class="tn-chips" id="tnChips">
                         <button type="button" class="tn-chip" data-t="1" style="--tn:var(--tn1)"><i class="dot"></i>1<small>陰平</small></button>
                         <button type="button" class="tn-chip" data-t="2" style="--tn:var(--tn2)"><i class="dot"></i>2<small>陰上</small></button>
@@ -458,7 +455,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">開關</div>
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblVw">母音顏色</label><p class="setting-desc">音讀的母音（a e i o u；m、ng 當主音時也算）用同一個顏色標示。詳細頁也可以隨時開關。</p></div>
+                    <div class="setting-text"><label id="lblVw">母音顏色</label></div>
                     <div class="seg" data-key="vw" role="radiogroup" aria-labelledby="lblVw">
                         <button type="button" data-v="on">開</button>
                         <button type="button" data-v="off">關</button>
@@ -468,14 +465,14 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">套用範圍</div>
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblVwh">套用於詞目音讀</label><p class="setting-desc">列表、例句搜尋與詳細頁標題的詞目音讀。</p></div>
+                    <div class="setting-text"><label id="lblVwh">套用於詞目音讀</label></div>
                     <div class="seg" data-key="vwh" role="radiogroup" aria-labelledby="lblVwh">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblVwe">套用於例句音讀</label><p class="setting-desc">各處例句的音讀（含 RUBY 標在漢字上方的音讀）。</p></div>
+                    <div class="setting-text"><label id="lblVwe">套用於例句音讀</label></div>
                     <div class="seg" data-key="vwe" role="radiogroup" aria-labelledby="lblVwe">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
@@ -500,11 +497,6 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
             </div>
         </div>
 
-        <!-- 手機版：重設外觀（桌面版隱藏，改用側邊欄底部按鈕） -->
-        <div class="settings-footer-mobile">
-            <button type="button" class="reset-button js-reset-appearance">重設全部外觀</button>
-        </div>
-
         <!-- 欄位設定面板 -->
         <div class="settings-panel" id="columnPanel">
             <div class="settings-header">
@@ -518,6 +510,11 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </ul>
                 </div>
             </div>
+        </div>
+
+        <!-- 手機版：重設外觀（桌面版隱藏，改用側邊欄底部按鈕） -->
+        <div class="settings-footer-mobile">
+            <button type="button" class="reset-button js-reset-appearance">重設外觀設定</button>
         </div>
     </div>
 </div>

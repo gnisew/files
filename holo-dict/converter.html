@@ -71,8 +71,9 @@
     <strong>使用方式</strong>
     <ol>
       <li>選擇 kautian.ods 或 kautian.xlsx，等待轉換完成。</li>
-      <li>下載 <code>data.js</code>、<code>variants.js</code>、<code>compare.js</code>、<code>name.js</code>、<code>alt.js</code>、<code>freq.js</code>（或打包的 zip）。</li>
+      <li>下載 <code>data.js</code>、<code>variants.js</code>、<code>compare.js</code>、<code>name.js</code>、<code>alt.js</code>、<code>freq.js</code>、<code>suggest.js</code>（或打包的 zip）。</li>
       <li>放進網站資料夾，覆蓋舊檔，和 <code>index.html</code> 放在同一層即可。</li>
+      <li><code>suggest.js</code> 是搜尋框「輸入提示」的排序依據（每個詞目 id 的詞頻分數，檔案很小）。</li>
       <li><code>freq.js</code> 是詞頻資料（欄位：漢字、羅馬字、總次數；只出現 1 次的省略次數，視為 1），「分析」頁的斷詞分析會用到；<code>freq.tsv</code> 是同一份資料的表格版，只供用試算表檢視，不必放進網站資料夾。</li>
     </ol>
   </div>
@@ -569,6 +570,14 @@ function buildFreq(S) {
   for (const r of S['例句'].recs) if (clean(r['漢字']) && clean(r['羅馬字'])) doSent(r['漢字'], r['羅馬字'], '例句');
   for (const [, han, rom] of longOnes) doSent(han, rom, '詞目');
 
+  // 新增：每個詞目id 的「詞頻分數」（詞目＋又唸作等各形式的總次數相加），給搜尋框的輸入提示排序用（suggest.js）。
+  // 只有 1 次（只是詞目自己）的沒有參考價值，省略以縮小檔案
+  const byId = {};
+  for (const [id, set] of vocab) {
+    let n = 0;
+    for (const key of set) { const o = map.get(key); if (o) n += o.n; }
+    if (n >= 2) byId[id] = n;
+  }
   const all = [...map.values()];
   const once = all.filter(o => o.n < 2).length;   // 只出現 1 次的仍列出「漢字、羅馬字」，但省略次數（讀取時缺省就是 1，省檔案大小）
   const list = all.slice()   // 先用真正的次數排序，排好後再把次數 1 省略
@@ -577,7 +586,7 @@ function buildFreq(S) {
   const cols = ['漢字', '羅馬字', '總次數'];
   const tsv = '\ufeff' + cols.join('\t') + '\n' + list.map(r => r.join('\t')).join('\n') + '\n';
   const js = 'var myWordFreqCols = ' + dumps(cols) + ';\nvar myWordFreq = [\n' + list.map(r => dumps(r)).join(',\n') + '\n];\n';
-  return { js, tsv, words: list.length, once, vTokens, sents, sTokens, dup, skipped, top: list.slice(0, 8) };
+  return { js, tsv, byId, words: list.length, once, vTokens, sents, sTokens, dup, skipped, top: list.slice(0, 8) };
 }
 
 function convert(S) {
@@ -676,6 +685,7 @@ function convert(S) {
     ...(names ? { 'name.js': names.text } : {}),   // 新增
     ...(alts ? { 'alt.js': alts.text } : {}),   // 新增
     'freq.js': freq.js, 'freq.tsv': freq.tsv,   // 新增：詞頻
+    'suggest.js': 'var mySuggestFreq = ' + dumps(freq.byId) + ';\n',   // 新增：輸入提示用的詞頻（{詞目id: 分數}）
     stats: { entries: rows.length, variants: vids.length, compare: compare.length, sample: rows.slice(0, 3),
              names: names ? { surnames: names.surnames, given: names.given } : null,
              alt: alts ? { words: alts.words, pairs: alts.pairs } : null,   // 新增
@@ -736,10 +746,11 @@ function showResult() {
     <tr><th>異用字</th><td>${st.alt ? `${st.alt.words.toLocaleString()} 個異用字（${st.alt.pairs.toLocaleString()} 組對應）` : '（檔案內沒有「異用字」工作表，略過）'}</td></tr>
     <tr><th>詞頻</th><td>${st.freq.words.toLocaleString()} 個不同的詞（同字不同音分開計；其中 ${st.freq.once.toLocaleString()} 個只出現 1 次，不列次數）<br>
       詞彙 ${st.freq.vTokens.toLocaleString()} 筆、句子 ${st.freq.sents.toLocaleString()} 句（斷出 ${st.freq.sTokens.toLocaleString()} 個詞）<br>
+      輸入提示詞頻：${Object.keys(st.freq.byId).length.toLocaleString()} 個詞目有分數（suggest.js）<br>
       最常見：${st.freq.top.map(r => esc(r[0]) + '（' + esc(r[1]) + '）' + (r[2] || 1).toLocaleString()).join('、')}<br>
       ${st.freq.skipped.length ? `<details><summary>${st.freq.skipped.length} 筆字數與音節數對不上，未統計</summary>${st.freq.skipped.map(x => esc(x[0] + '：' + x[1] + '　' + x[2])).join('<br>')}</details>` : '沒有略過的句子'}</td></tr>
     <tr><th>範例</th><td>${st.sample.map(r => r[0] + '　' + r[1] + '　→　' + r[8]).join('<br>')}</td></tr>`;
-  const info = { 'data.js': '主資料，網站啟動時載入', 'variants.js': '語音差異，開啟詳細頁時載入', 'compare.js': '華語對照，點該分頁時載入', 'name.js': '姓名資料，姓名查詢使用，網站啟動時載入', 'alt.js': '異用字資料，文章頁「異用字檢查」第一次使用時載入', 'freq.js': '詞頻資料（漢字＋羅馬字），文章頁「斷詞分析」第一次使用時載入', 'freq.tsv': '同一份詞頻的表格版，可用 Excel／試算表開啟（只供檢視，網站不需要）' };
+  const info = { 'data.js': '主資料，網站啟動時載入', 'variants.js': '語音差異，開啟詳細頁時載入', 'compare.js': '華語對照，點該分頁時載入', 'name.js': '姓名資料，姓名查詢使用，網站啟動時載入', 'alt.js': '異用字資料，文章頁「異用字檢查」第一次使用時載入', 'freq.js': '詞頻資料（漢字＋羅馬字），文章頁「斷詞分析」第一次使用時載入', 'suggest.js': '輸入提示的詞頻分數（{詞目id: 分數}，很小），搜尋框打字時第一次用到才載入', 'freq.tsv': '同一份詞頻的表格版，可用 Excel／試算表開啟（只供檢視，網站不需要）' };
   $('files').innerHTML = '';
   for (const name of Object.keys(info).filter(n => outputs[n] != null)) {
     const div = document.createElement('div'); div.className = 'file';
@@ -755,7 +766,7 @@ $('zipBtn').onclick = async () => {
   if (!outputs) return;
   if (typeof JSZip === 'undefined') { setStatus('無法載入 JSZip，請改為逐一下載。', 'err'); return; }
   const zip = new JSZip();
-  for (const n of ['data.js', 'variants.js', 'compare.js', 'name.js', 'alt.js', 'freq.js', 'freq.tsv']) if (outputs[n] != null) zip.file(n, outputs[n]);
+  for (const n of ['data.js', 'variants.js', 'compare.js', 'name.js', 'alt.js', 'freq.js', 'suggest.js', 'freq.tsv']) if (outputs[n] != null) zip.file(n, outputs[n]);
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kautian-data.zip';
   document.body.appendChild(a); a.click(); a.remove();
