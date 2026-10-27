@@ -2369,7 +2369,7 @@ function generatePagination(totalItems, currentPage, totalPages) {
   return paginationContainer;
 }
 
-// 生成>手機版精簡分頁：頭 ‹ 1 2 3 › 尾 ⋯（跳頁、每頁筆數收進「⋯」）
+// 生成>手機版精簡分頁：‹ 1 2 3 尾 [下一頁 ›] ⋯（首頁、跳頁、每頁筆數收進「⋯」）
 function generateMobilePagination(totalItems, currentPage, totalPages) {
     const box = document.createElement('div');
     box.className = 'pagination pagination-m';
@@ -2386,7 +2386,6 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
         return b;
     };
 
-    box.appendChild(mk('«', '首頁', currentPage === 1, () => changePage(1), 'pm-nav'));
     box.appendChild(mk('‹', '上一頁', currentPage === 1, () => changePage(currentPage - 1), 'pm-nav'));
 
     // 頁碼：目前頁盡量置中，共 3 個
@@ -2399,8 +2398,8 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
         box.appendChild(b);
     }
 
-    box.appendChild(mk('›', '下一頁', currentPage === totalPages, () => changePage(currentPage + 1), 'pm-nav'));
-    box.appendChild(mk('»', '尾頁', currentPage === totalPages, () => changePage(totalPages), 'pm-nav'));
+    box.appendChild(mk('尾', '尾頁', currentPage === totalPages, () => changePage(totalPages), 'pm-text'));
+    box.appendChild(mk('下一頁 ›', '下一頁', currentPage === totalPages, () => changePage(currentPage + 1), 'pm-next'));   // 最常點：做成大按鈕
 
     // 「⋯」更多設定：共幾頁、跳頁、每頁筆數
     const more = document.createElement('div');
@@ -2410,7 +2409,10 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
 
     const info = document.createElement('div');
     info.className = 'pm-row pm-info';
-    info.textContent = `第 ${currentPage} / ${totalPages} 頁（共 ${totalItems} 筆）`;
+    const infoText = document.createElement('span');
+    infoText.textContent = `第 ${currentPage} / ${totalPages} 頁（共 ${totalItems} 筆）`;
+    const firstBtn = mk('首頁', '回到第一頁', currentPage === 1, () => changePage(1), 'pm-first');
+    info.append(infoText, firstBtn);
     pop.appendChild(info);
 
     const jumpRow = document.createElement('div');

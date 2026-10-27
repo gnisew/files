@@ -3506,6 +3506,15 @@ html.search-active .search-header, html.search-active .search-container, html.se
   .pagination.pagination-m button.pm-nav { color: #3c4043; font-size: 1.35em; }
   .pagination.pagination-m button:hover:not(:disabled) { background: none; border: 0; color: #5f6368; }
   .pagination.pagination-m button.pm-nav:hover:not(:disabled) { color: #3c4043; }
+  .pagination.pagination-m button.pm-text { color: #3c4043; }
+  /* 下一頁：最常點，做大、淡藍底，與其他按鈕之間留空隙避免誤觸 */
+  .pagination.pagination-m button.pm-next,
+  .pagination.pagination-m button.pm-next:hover:not(:disabled) {
+    min-width: 88px; height: 42px; margin: 0 6px 0 8px; padding: 0 16px;
+    border-radius: 21px; background: #e8f0fe; color: #1a73e8;
+    font-size: 1.05em; font-weight: 600; white-space: nowrap;
+  }
+  .pagination.pagination-m button.pm-next:active:not(:disabled) { background: #d2e3fc; color: #1558b0; }
   .pagination.pagination-m button:active:not(:disabled) { background: none; color: #1a73e8; }
   .pagination.pagination-m button:disabled { opacity: .25; }
   /* 目前頁：藍字加粗 + 小底線 */
@@ -3534,7 +3543,12 @@ html.search-active .search-header, html.search-active .search-container, html.se
     font-size: .95em; color: #3c4043;
   }
   .page-more-pop .pm-row + .pm-row { border-top: 1px solid #f1f3f4; }
-  .page-more-pop .pm-info { color: #5f6368; font-size: .85em; }
+  .page-more-pop .pm-info { color: #5f6368; font-size: .85em; justify-content: space-between; }
+  .pagination.pagination-m .page-more-pop button.pm-first {
+    min-width: 0; height: 32px; padding: 0 12px; border: 1px solid #dadce0;
+    border-radius: 8px; background: #fff; color: #3c4043; font-size: .95em;
+  }
+  .pagination.pagination-m .page-more-pop button.pm-first:hover:not(:disabled) { background: #f1f3f4; border: 1px solid #dadce0; color: #3c4043; }
   .page-more-pop .pm-row span { white-space: nowrap; }
   .page-more-pop input,
   .page-more-pop select {
@@ -3548,4 +3562,11 @@ html.search-active .search-header, html.search-active .search-container, html.se
   }
   .pagination.pagination-m .page-more-pop button.pm-go:hover:not(:disabled),
   .pagination.pagination-m .page-more-pop button.pm-go:active:not(:disabled) { background: #1558b0; color: #fff; }
+}
+
+/* 窄螢幕（≤ 360px）：按鈕略縮，確保整排仍在同一行 */
+@media (max-width: 360px) {
+  .pagination.pagination-m button { min-width: 32px; }
+  .pagination.pagination-m button.pm-next,
+  .pagination.pagination-m button.pm-next:hover:not(:disabled) { min-width: 80px; margin: 0 2px 0 4px; padding: 0 12px; }
 }
