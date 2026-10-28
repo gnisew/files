@@ -2297,7 +2297,7 @@ function generatePagination(totalItems, currentPage, totalPages) {
     const nextButton = document.createElement('button');
     nextButton.textContent = isMobile ? '›' : '下一頁 ›';
     nextButton.title = '下一頁';
-    nextButton.className = 'page-nav';
+    nextButton.className = 'page-nav page-next';   // 修改：多加 page-next，電腦版把「下一頁」做成淡藍底膠囊
     nextButton.disabled = currentPage === totalPages;
     nextButton.addEventListener('click', () => changePage(currentPage + 1));
     paginationContainer.appendChild(nextButton);
@@ -2398,7 +2398,9 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
         box.appendChild(b);
     }
 
-    box.appendChild(mk('尾', '尾頁', currentPage === totalPages, () => changePage(totalPages), 'pm-text'));
+    // 修改：「尾」改成直接顯示最末頁的頁碼；最末頁已在上面的頁碼裡（頁數 ≤ 3、或已翻到後段）就不重複顯示
+    // 修改：與前面的頁碼之間隔著頁數時，最末頁前面加「…」（…11）表示中間省略；剛好銜接（如 1 2 3 4）就不加
+    if (end < totalPages) box.appendChild(mk((end < totalPages - 1 ? '…' : '') + totalPages, `最末頁（第${totalPages}頁）`, false, () => changePage(totalPages), 'pm-text'));
     box.appendChild(mk('下一頁 ›', '下一頁', currentPage === totalPages, () => changePage(currentPage + 1), 'pm-next'));   // 最常點：做成大按鈕
 
     // 「⋯」更多設定：共幾頁、跳頁、每頁筆數
@@ -2412,7 +2414,7 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
     const infoText = document.createElement('span');
     infoText.textContent = `第 ${currentPage} / ${totalPages} 頁（共 ${totalItems} 筆）`;
     const firstBtn = mk('首頁', '回到第一頁', currentPage === 1, () => changePage(1), 'pm-first');
-    info.append(infoText, firstBtn);
+    info.append(infoText);   // 修改：「首頁」按鈕移到下面的跳頁列（跳到第幾頁的左邊）
     pop.appendChild(info);
 
     const jumpRow = document.createElement('div');
@@ -2430,7 +2432,7 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
     };
     jumpInput.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     const goBtn = mk('前往', '前往指定頁', false, go, 'pm-go');
-    jumpRow.append(jumpInput, goBtn);
+    jumpRow.append(firstBtn, jumpInput, goBtn);   // 修改：加入「首頁」按鈕，放在輸入框左邊
     pop.appendChild(jumpRow);
 
     const perRow = document.createElement('div');
@@ -3287,8 +3289,11 @@ function initializePanelBehavior() {
     const sidebarItems = document.querySelectorAll('.settings-sidebar-item');
 
     // 修改：初始化面板狀態
+    let lastIsDesktop = null;   // 新增：記住上次是桌面版還是手機版
     function initializePanels() {
         const isDesktop = window.innerWidth > 768;
+        if (isDesktop === lastIsDesktop) return;   // 新增：只有跨越 768px 才重設；手機的鍵盤、網址列伸縮也會觸發 resize，不該把使用者展開的面板收起來
+        lastIsDesktop = isDesktop;
 
         if (isDesktop) {
             // 在大螢幕時，一次只顯示一個面板（預設：外觀）
@@ -3306,8 +3311,10 @@ function initializePanelBehavior() {
             return;
         } else {
             // 在小螢幕時，只展開第一個面板
+            sidebarItems.forEach(i => i.classList.toggle('active', i.dataset.panel === 'allSettings'));   // 新增：手機版回到「所有設定」
             panels.forEach((panel, index) => {
                 const content = panel.querySelector('.panel-content');
+                panel.style.display = '';   // 新增：清掉桌面版設的 display:none，否則畫面轉橫再轉直（或視窗縮小）後，只剩「版面與字體」
                 if (index === 0) {
                     panel.classList.add('expanded');
                     if (content) content.style.display = 'block';
@@ -3317,8 +3324,6 @@ function initializePanelBehavior() {
                 }
             });
         }
-        // 預設選中「所有設定」
-        document.querySelector('[data-panel="allSettings"]').classList.add('active');
     }
 
     // 新增：切換面板的展開狀態

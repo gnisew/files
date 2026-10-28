@@ -1356,7 +1356,7 @@ button:disabled .type-count {
 }
 .rel-tag.rel-ant { color: #d93025; border-color: #d93025; }
 /* 相關詞顯示音讀時：標籤在左，詞一個一行、音讀接在詞後 */
-.rel-line:has(.rel-item) { display: flex; align-items: baseline; }
+.rel-line:has(.rel-item) { display: flex; align-items: flex-start; }   /* 修改：baseline → flex-start（靠上對齊）。詞是 inline-block 按鈕，長句折行時基線在最後一行，用 baseline 或 first baseline 都會讓「近」「反」落到最後一行旁 */
 .rel-line .rel-tag { flex: none; }
 .rel-words:has(.rel-item) { display: block; }
 .rel-item { margin-bottom: 2px; }
@@ -1714,6 +1714,35 @@ button:disabled .type-count { color: #c4c7cc; }
   .jump-container input { width: 72px; min-width: 0; font-size: .95em; }
 }
 
+/* ===== 新增：電腦版分頁參考手機版美化 =====
+   沒點到的頁碼與按鈕：無框、無底色，只靠文字顏色；目前頁：藍字加粗 + 小底線；
+   「下一頁」是最常點的，做成淡藍底的膠囊（與手機版一致）；「跳到」輸入框與每頁筆數選單是表單，保留外框。 */
+@media (min-width: 769px) {
+  .pagination:not(.pagination-m) button {
+    position: relative; min-width: 40px; height: 40px; margin: 0 2px; padding: 0 10px;
+    border: 0; border-radius: 0; background: none; color: #5f6368;
+  }
+  .pagination:not(.pagination-m) button.page-nav { padding: 0 12px; color: #3c4043; }
+  .pagination:not(.pagination-m) button:hover:not(:disabled) { background: none; border: 0; color: #1a73e8; }
+  /* 下一頁：淡藍底膠囊 */
+  .pagination:not(.pagination-m) button.page-next {
+    min-width: 96px; margin: 0 6px 0 8px; padding: 0 18px;
+    border-radius: 20px; background: #e8f0fe; color: #1a73e8; font-weight: 600; white-space: nowrap;
+  }
+  .pagination:not(.pagination-m) button.page-next:hover:not(:disabled) { background: #d2e3fc; color: #1558b0; }
+  /* 目前頁：藍字加粗 + 小底線 */
+  .pagination:not(.pagination-m) button.active,
+  .pagination:not(.pagination-m) button.active:hover {
+    background: none; border: 0; color: #1a73e8; font-weight: 700;
+  }
+  .pagination:not(.pagination-m) button.active::after {
+    content: ""; position: absolute; left: 50%; bottom: 4px;
+    width: 16px; height: 3px; margin-left: -8px;
+    border-radius: 2px; background: #1a73e8;
+  }
+  .pagination:not(.pagination-m) button:disabled { opacity: .3; }
+}
+
 
 /* ===== 台羅音讀切換（表格頂端「台羅(全)」；手機版為各列的標籤）===== */
 button.rom-toggle, button.def-toggle, button.sort-toggle {
@@ -1799,6 +1828,7 @@ button.rom-toggle:hover .rom-mode, button.def-toggle:hover .rom-mode, button.sor
 button.rel-word {
   background: none; border: 0; padding: 0; margin: 0;
   font: inherit; color: inherit; cursor: pointer;
+  text-align: left;   /* 新增：按鈕預設文字置中；近義／反義的詞若是長句（諺語）會折行，折行後的每一行就被置中 */
   border-bottom: 1px solid transparent;
   transition: color .15s, border-color .15s;
 }
@@ -2847,6 +2877,7 @@ html.cat-full-open { overflow: hidden; }
   .results-table td.m-row { display: flex; align-items: baseline; }
   .results-table td.m-row .mobile-header { flex: none; min-width: 1.5em; margin-right: 12px; }
   .results-table td.m-row .m-val { flex: 1; min-width: 0; }
+  .results-table td.m-no-td .mobile-header { visibility: hidden; }   /* 新增：隔色卡片不顯示「序」字（只隱藏字、保留位置，數字仍與下方詞、音的內容對齊）；單色卡片、編號靠右時整格本來就隱藏 */
 }
 
 /* ===== 手機版卡片的編號：簡潔，不要外框與底線 ===== */
@@ -2970,7 +3001,7 @@ html.cat-full-open { overflow: hidden; }
   .mobile-modal-content .entry-detail { position: relative; }
   .mobile-modal-content .entry-titlerow { position: absolute; top: 0; right: -6px; z-index: 1; }
   .mobile-modal-content .entry-head { min-height: 34px; padding-right: 40px; }
-  .mobile-modal-content .entry-chips { justify-content: flex-start; margin: 0 0 4px; }
+  .mobile-modal-content .entry-chips { justify-content: flex-end; margin: 0 0 4px; }   /* 手機版詞目分類靠右 */
 
   /* 「釋義」標題列：標題不直排，調色／音色／例句鈕不擠成多行 */
   .mobile-modal-content .sec-title { white-space: nowrap; }
@@ -3200,6 +3231,9 @@ html.ex-arrow .sense-ex, html.ex-arrow .sense-ex * { cursor: default !important;
   /* 緊密模式（設定 → 編號位置）：隱藏獨立一列的「序」，編號改放在詞目列最右邊 */
   html.nm-tight .results-table td.m-no-td { display: none; }
   html.nm-tight .results-table .item-number.m-no { display: inline-block; flex: none; margin-left: auto; padding-left: 12px; }
+  /* 新增：隔色卡片「編號位置：詞目右側」時，編號縮小、變淡，與單色卡片一致（單色卡片有自己的規則，這裡排除） */
+  html.nm-tight:not(.cs-solid) .results-table .item-number.m-no { font-size: .72em; font-weight: 400; color: #b0b4b9; border: 0; background: none; text-decoration: none; }
+  html.nm-tight:not(.cs-solid) .results-table tr.exact-match .item-number.m-no { color: #8bc79a; font-weight: 400; }   /* 完全符合：仍用淡綠色標示 */
   .mobile-header.copy-han { cursor: copy; text-decoration: underline dashed #9aa0a6; text-underline-offset: 4px; }   /* 點「詞」這個字＝複製詞目 */
 }
 .holo-toast {
@@ -3465,13 +3499,25 @@ html.search-active .search-header, html.search-active .search-container, html.se
     font-size: 1.3em; line-height: 1.35; color: #1a56b8; padding-right: 2.8em;
   }
 
-  /* 第二行：音讀（一律獨立一列，不受「音讀位置：接在詞後」影響） */
+  /* 第二行：音讀（預設獨立一列；若設定「音讀位置：接在詞後」，詞目 2 字以內時改接在詞目後同一行，同全站規則） */
   html.cs-solid .results-table td[data-lang-type="pinyin"] { color: #5f6368; }
-  html.cs-solid.rom-inline .results-table tr.has-inl td.m-rom-td:not(.m-empty) { display: flex; }
-  html.cs-solid.rom-inline .results-table tr.has-inl .m-inl-rom { display: none; }
+  /* 修改：刪除兩條強制獨立一列的規則（display:flex／display:none），改回沿用上方「接在詞後」的通用規則 */
+  /* 新增：接在詞後的音讀在詞目（1.3em）裡面，縮回約 1em 並保持灰色，不跟著變藍變大 */
+  html.cs-solid.rom-inline .results-table tr.has-inl .m-inl-rom { font-size: .77em; color: #5f6368; margin-left: .6em; }
 
   /* 第三行：釋義（Google 摘要的灰色） */
   html.cs-solid .results-table td[data-lang-type="other"] { color: #4d5156; padding-top: 4px; }
+
+  /* 新增：近義／反義那一行，開頭顯示單字「近」「反」灰色外框小方塊（不用色彩），避免被誤認成釋義、或把反義當成近義。
+     標籤字級是內文的 .8 倍；標籤寬度＋右側空隙＝正好 2 個內文字寬（.8em × 2.5 ＝ 2 個字），
+     所以後面的詞會和上一行釋義的第 3 個字左側對齊（以字為單位對齊）。想調整標籤大小，寬度與右側空隙加起來維持 2.5em 即可 */
+  html.cs-solid .results-table td.m-row .mobile-header[title="近義"],
+  html.cs-solid .results-table td.m-row .mobile-header[title="反義"] {
+    display: inline-block; flex: none; box-sizing: border-box;
+    width: 1.625em; min-width: 0; margin-right: .875em; padding: 0; text-align: center;
+    border: 1px solid #c4c7cc; border-radius: 4px;
+    font-size: .8em; font-weight: 400; line-height: 1.5; color: #70757a;
+  }
 
   /* 編號：右上角、淡色、小字（不受「編號位置」影響） */
   html.cs-solid .results-table td .item-number.m-no {
@@ -3479,6 +3525,27 @@ html.search-active .search-header, html.search-active .search-container, html.se
     font-size: .72em; line-height: 1.2; font-weight: 400; color: #b0b4b9;
   }
   html.cs-solid .results-table tr.exact-match td .item-number.m-no { color: #8bc79a; font-weight: 400; }
+}
+
+/* ===== 新增：手機版「單色卡片」套用到例句／華例（.ex-table）=====
+   卡片底色、圓角、間距、右上角編號、隱藏「序」與「例」標籤，已由上方共用規則套用；
+   這裡補上例句／華例才有的部分：隱藏「詞」「音」標籤、音讀改灰色一般字、例句當第三行。 */
+@media (max-width: 768px) {
+  /* 不顯示「詞」「音」標籤（「序」「例」標籤上方共用規則已隱藏） */
+  html.cs-solid .ex-table .m-line .mobile-header { display: none; }
+  html.cs-solid .ex-table .m-line { padding: 0; }
+
+  /* 新增：右上角編號不加框、不加底線（例句／華例的編號放在詞目那格，不是 td.m-row，沒吃到一般表格的「取消外框」規則，所以補上） */
+  html.cs-solid .ex-table td .item-number.m-no { border: 0; background: none; border-radius: 0; text-decoration: none; min-width: 0; font-variant-numeric: tabular-nums; }
+
+  /* 第二行：音讀（灰色、一般字級；上方詞目規則會把同一格內的 .m-val 變成藍色大字，這裡蓋回來） */
+  html.cs-solid .ex-table td.ex-word .m-rom-line .m-val { font-size: 1em; color: #5f6368; padding-right: 0; line-height: 1.5; }
+  html.cs-solid .ex-table td.ex-word .ex-rom { margin: 0; }
+  /* 詞目 2 字以內：音讀接在詞目後同一行，縮回約一般字級（詞目是 1.3em，所以用 .77em） */
+  html.cs-solid .ex-table tr.ex-short .ex-inl-rom { font-size: .77em; margin-left: .6em; }
+
+  /* 第三行：例句（灰色摘要字，與一般單色卡片的釋義一致） */
+  html.cs-solid .ex-table td.ex-cell { color: #4d5156; padding: 4px 0 2px; }
 }
 
 
@@ -3494,7 +3561,7 @@ html.search-active .search-header, html.search-active .search-container, html.se
   .pagination.pagination-m {
     flex-wrap: nowrap; overflow: visible; gap: 0;
     justify-content: center; align-items: center;
-    margin: 8px 0 60px; padding: 0;
+    margin: 20px 0 60px; padding: 0;   /* 修改：上方留白 8px → 20px，與最後一張卡片拉開距離 */
   }
   .pagination.pagination-m button {
     position: relative; min-width: 38px; height: 40px;
@@ -3533,7 +3600,7 @@ html.search-active .search-header, html.search-active .search-container, html.se
   .pagination.pagination-m button.pm-more { font-size: 1.35em; letter-spacing: -1px; }
   .page-more-pop {
     display: none; position: absolute; right: 0; bottom: calc(100% + 6px);
-    z-index: 120; width: 230px; box-sizing: border-box; padding: 6px 12px;
+    z-index: 120; width: 300px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 6px 12px;   /* 修改：寬度 230px → 300px（上限為螢幕寬 -24px），「第 N / N 頁（共 N 筆）」與「首頁」才放得下 */
     background: #fff; border: 1px solid #dadce0; border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0,0,0,.18);
   }
@@ -3543,9 +3610,10 @@ html.search-active .search-header, html.search-active .search-container, html.se
     font-size: .95em; color: #3c4043;
   }
   .page-more-pop .pm-row + .pm-row { border-top: 1px solid #f1f3f4; }
-  .page-more-pop .pm-info { color: #5f6368; font-size: .85em; justify-content: space-between; }
+  .page-more-pop .pm-info { color: #5f6368; font-size: .85em; justify-content: space-between; flex-wrap: wrap; row-gap: 6px; }   /* 修改：加 flex-wrap，萬一放不下，「首頁」自動換到下一行 */
   .pagination.pagination-m .page-more-pop button.pm-first {
     min-width: 0; height: 32px; padding: 0 12px; border: 1px solid #dadce0;
+    flex: none; white-space: nowrap;   /* 新增：按鈕不被壓縮、文字不折行 */
     border-radius: 8px; background: #fff; color: #3c4043; font-size: .95em;
   }
   .pagination.pagination-m .page-more-pop button.pm-first:hover:not(:disabled) { background: #f1f3f4; border: 1px solid #dadce0; color: #3c4043; }

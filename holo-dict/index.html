@@ -295,21 +295,21 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row mobile-only-row">
-                    <div class="setting-text"><label id="lblRi">音讀位置（手機版）</label><p class="setting-desc">詞目 2 字以內時，音讀接在詞目後面同一行，不另佔一列（3 字以上維持分開）。</p></div>
+                    <div class="setting-text"><label id="lblRi">音讀位置</label><p class="setting-desc">2字以下音讀與詞目同行，3 字以上分行。</p></div>
                     <div class="seg" data-key="ri" role="radiogroup" aria-labelledby="lblRi">
                         <button type="button" data-v="off">分開顯示</button>
                         <button type="button" data-v="on">接在詞後</button>
                     </div>
                 </div>
                 <div class="setting-row mobile-only-row">
-                    <div class="setting-text"><label id="lblNm">編號位置（手機版）</label><p class="setting-desc">標準：編號獨立一列（序 詞 音 義）。緊密：編號放在詞目那一列的最右邊，少一列。</p></div>
+                    <div class="setting-text"><label id="lblNm">編號位置</label></div>
                     <div class="seg" data-key="nm" role="radiogroup" aria-labelledby="lblNm">
-                        <button type="button" data-v="normal">標準</button>
-                        <button type="button" data-v="tight">緊密</button>
+                        <button type="button" data-v="normal">左側單行</button>
+                        <button type="button" data-v="tight">詞目右側</button>
                     </div>
                 </div>
                 <div class="setting-row mobile-only-row">
-                    <div class="setting-text"><label id="lblCs">卡片樣式（手機版）</label><p class="setting-desc">隔色卡片：卡片連在一起，淺深交錯。單色卡片：仿 Google 結果頁，白底卡片之間留空隙，不顯示「序、詞、音、義」，第一行詞目（藍色大字）、第二行音讀、第三行釋義，編號在右上角（淡色小字）。啟用單色卡片時，「音讀位置」「編號位置」不再作用。</p></div>
+                    <div class="setting-text"><label id="lblCs">卡片樣式</label></div>
                     <div class="seg" data-key="cs" role="radiogroup" aria-labelledby="lblCs">
                         <button type="button" data-v="stripe">隔色卡片</button>
                         <button type="button" data-v="solid">單色卡片</button>
