@@ -6,7 +6,7 @@
 //   再通知頁面顯示「有新版本，點此重新整理」。
 const CACHE = 'holo-app';   // 固定名稱；舊的 holo-v5 這類帶版本號的快取，啟用時會自動清掉
 // 啟動時先存起來的檔案（variants.js、compare.js 是用到才載入，第一次用到時由 fetch 規則自動存，之後也會一起檢查更新）
-const PRECACHE = ['index.html', 'styles.css', 'script.js', 'data.js', 'category.js', 'name.js', 'favicon.svg', 'apple-touch-icon.png', 'manifest.webmanifest'];
+const PRECACHE = ['index.html', 'styles.css', 'script.js', 'data.js', 'category.js', 'name.js', 'radical.js', 'favicon.svg', 'apple-touch-icon.png', 'manifest.webmanifest'];
 const CHECK_GAP = 2 * 60 * 1000;   // 兩次檢查至少間隔 2 分鐘
 
 const abs = u => new URL(u, self.registration.scope).href;

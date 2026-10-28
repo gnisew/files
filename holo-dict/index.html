@@ -285,6 +285,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <h2>內容顯示</h2>
             </div>
             <div class="panel-content">
+                <div class="setting-group">列表與查詢</div>
                 <div class="setting-card">
                 <div class="setting-row">
                     <div class="setting-text"><label id="lblRom">音讀顯示</label><div class="setting-preview mini" id="previewRom"></div></div>
@@ -316,6 +317,23 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row">
+                    <div class="setting-text"><label id="lblSo">排序設定</label></div>
+                    <div class="seg" data-key="so" role="radiogroup" aria-labelledby="lblSo">
+                        <button type="button" data-v="han">詞目 &gt; 音讀</button>
+                        <button type="button" data-v="rom">音讀 &gt; 詞目</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-text"><label id="lblMx">混拼符合</label></div>
+                    <div class="seg" data-key="mx" role="radiogroup" aria-labelledby="lblMx">
+                        <button type="button" data-v="off">不顯示</button>
+                        <button type="button" data-v="on">顯示</button>
+                    </div>
+                </div>
+                </div>
+                <div class="setting-group">釋義</div>
+                <div class="setting-card">
+                <div class="setting-row">
                     <div class="setting-text"><label id="lblDf">釋義顯示</label><div class="setting-preview mini" id="previewDf"></div></div>
                     <div class="seg" data-key="df" role="radiogroup" aria-labelledby="lblDf">
                         <button type="button" data-v="full">完整</button>
@@ -331,19 +349,22 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScd">　切句符號</label></div>
+                    <div class="setting-text"><label id="lblScd">切句符號</label></div>
                     <div class="seg" data-key="scd" role="radiogroup" aria-labelledby="lblScd">
                         <button type="button" data-v="end">。；？！</button>
                         <button type="button" data-v="comma">含逗號</button>
                     </div>
                 </div>
                 <div class="setting-row" data-sc="sub">
-                    <div class="setting-text"><label id="lblScb">　每句換行</label></div>
+                    <div class="setting-text"><label id="lblScb">每句換行</label></div>
                     <div class="seg" data-key="scb" role="radiogroup" aria-labelledby="lblScb">
                         <button type="button" data-v="off">不換行</button>
                         <button type="button" data-v="on">換行</button>
                     </div>
                 </div>
+                </div>
+                <div class="setting-group">例句與相關詞</div>
+                <div class="setting-card">
                 <div class="setting-row">
                     <div class="setting-text"><label id="lblEx">例句顯示</label><div class="setting-preview mini" id="previewEx"></div></div>
                     <div class="seg" data-key="ex" role="radiogroup" aria-labelledby="lblEx">
@@ -360,29 +381,15 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblRq">例句分詞查詢</label></div>
+                    <div class="setting-text"><label id="lblRq">分詞查詢</label></div>
                     <div class="seg" data-key="rq" role="radiogroup" aria-labelledby="lblRq">
                         <button type="button" data-v="off">不啟用</button>
                         <button type="button" data-v="on">啟用</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblRw">近反義懸停顯示</label></div>
+                    <div class="setting-text"><label id="lblRw">分詞近反義</label></div>
                     <div class="seg" data-key="rw" role="radiogroup" aria-labelledby="lblRw">
-                        <button type="button" data-v="off">不顯示</button>
-                        <button type="button" data-v="on">顯示</button>
-                    </div>
-                </div>
-                <div class="setting-row">
-                    <div class="setting-text"><label id="lblSo">排序設定</label></div>
-                    <div class="seg" data-key="so" role="radiogroup" aria-labelledby="lblSo">
-                        <button type="button" data-v="han">詞目 &gt; 音讀</button>
-                        <button type="button" data-v="rom">音讀 &gt; 詞目</button>
-                    </div>
-                </div>
-                <div class="setting-row">
-                    <div class="setting-text"><label id="lblMx">混拼符合</label></div>
-                    <div class="seg" data-key="mx" role="radiogroup" aria-labelledby="lblMx">
                         <button type="button" data-v="off">不顯示</button>
                         <button type="button" data-v="on">顯示</button>
                     </div>
@@ -519,7 +526,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     </div>
 </div>
 
-<button id="scrollToTopBtn" type="button" title="起去面上（回到搜尋框）" aria-label="回到頁面頂端並重新查詢"><svg class="icon" aria-hidden="true"><use href="#i-arrow-upward"/></svg></button>
+<button id="scrollToTopBtn" type="button" title="起去面上" aria-label="回到頁面頂端"><svg class="icon" aria-hidden="true"><use href="#i-arrow-upward"/></svg></button>
 
 <!-- 更新模態框結構 -->
 <div id="fullDataModal" class="modal">
@@ -572,6 +579,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
 <script src="data.js"></script>
 <script src="category.js"></script>
 <script src="name.js"></script>
+<script src="radical.js"></script>
 <script src="script.js"></script>
 <script>
 // 註冊 Service Worker（需 https 或 localhost）；離線可用、第二次以後開啟更快

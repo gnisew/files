@@ -71,8 +71,9 @@
     <strong>使用方式</strong>
     <ol>
       <li>選擇 kautian.ods 或 kautian.xlsx，等待轉換完成。</li>
-      <li>下載 <code>data.js</code>、<code>variants.js</code>、<code>compare.js</code>、<code>name.js</code>、<code>alt.js</code>、<code>freq.js</code>、<code>suggest.js</code>（或打包的 zip）。</li>
+      <li>下載 <code>data.js</code>、<code>variants.js</code>、<code>compare.js</code>、<code>name.js</code>、<code>alt.js</code>、<code>radical.js</code>、<code>freq.js</code>、<code>suggest.js</code>（或打包的 zip）。</li>
       <li>放進網站資料夾，覆蓋舊檔，和 <code>index.html</code> 放在同一層即可。</li>
+      <li><code>radical.js</code> 來自工作表「<b>部首</b>」（選用，沒有就不產生，網站沿用舊的 radical.js；也接受「字表」（字、部首、部首外筆畫、總筆畫）＋「部首總覽」（部首、部首筆畫）兩張工作表的格式；若檔案<b>只有</b>「部首」工作表，則只輸出 radical.js）。欄位：<code>漢字</code>、<code>部首</code>、<code>部首筆畫</code>、<code>部首外筆畫</code>；總筆畫自動＝部首筆畫＋部首外筆畫。一個字可有多列（屬多個部首）。</li>
       <li><code>suggest.js</code> 是搜尋框「輸入提示」的排序依據（每個詞目 id 的詞頻分數，檔案很小）。</li>
       <li><code>freq.js</code> 是詞頻資料（欄位：漢字、羅馬字、總次數；只出現 1 次的省略次數，視為 1），「分析」頁的斷詞分析會用到；<code>freq.tsv</code> 是同一份資料的表格版，只供用試算表檢視，不必放進網站資料夾。</li>
     </ol>
@@ -459,6 +460,68 @@ function buildAlt(S) {
   return { text: 'var myAltChars = ' + dumps(obj) + ';\n', words: m.size, pairs };
 }
 
+// 新增：部首資料（工作表「部首」：漢字、部首、部首筆畫、部首外筆畫）→ radical.js
+// 輸出格式與舊的 radical.js 完全相同（myRadicalData / myRadicalOf / myRadicalGroupByStrokes），script.js 不必改。
+// 部首順序＝工作表中第一次出現的順序（再依部首筆畫排序，同筆畫維持工作表順序）；同一部首內依「部首外筆畫」由小到大，同筆畫內的字維持工作表順序。
+// 同一個字可列在多個部首（各一列）；同字同部首重複的列只留第一筆。總筆畫＝部首筆畫＋部首外筆畫（不用另外填）。
+function buildRadical(S) {
+  const rads = new Map();   // 「部首\t部首筆畫」→ {name, strokes, g: Map(外筆畫 → [字])}
+  const bad = [];
+  S['部首'].recs.forEach((r, i) => {
+    const han = clean(r['漢字']), name = clean(r['部首']);
+    const st = parseInt(r['部首筆畫'], 10), out = parseInt(r['部首外筆畫'], 10);
+    if (!han && !name) return;
+    if (!han || !name || isNaN(st) || isNaN(out) || st < 0 || out < 0) { bad.push('第 ' + (i + 2) + ' 列：' + han + '／' + name + '／' + r['部首筆畫'] + '／' + r['部首外筆畫']); return; }
+    const k = name + '\t' + st;
+    if (!rads.has(k)) rads.set(k, { name, strokes: st, g: new Map() });
+    const g = rads.get(k).g;
+    if (!g.has(out)) g.set(out, []);
+    if (!g.get(out).includes(han)) g.get(out).push(han);
+  });
+  const list = [...rads.values()].map((r, i) => ({ r, i })).sort((a, b) => a.r.strokes - b.r.strokes || a.i - b.i).map(x => x.r);
+  let chars = 0;
+  const lines = list.map(r => {
+    const gs = [...r.g.entries()].sort((a, b) => a[0] - b[0]).map(([o, cs]) => { chars += cs.length; return '[' + o + ',' + dumps(cs.join('')) + ']'; });
+    return '  { name: ' + dumps(r.name) + ', strokes: ' + r.strokes + ', groups: [' + gs.join(',') + '] },';
+  });
+  const text = `// 部首資料（由教典資料轉換器的「部首」工作表產生）
+// 載入方式：index.html 在 script.js 之前加入
+//
+// myRadicalData：陣列，依部首筆畫、部首順序排列
+//   name    部首
+//   strokes 部首本身的筆畫
+//   groups  [[部首外筆畫, '字字字'], ...]，字串用 [...str] 拆成單字（含 𪜶 這類擴充字）
+//           總筆畫＝strokes＋部首外筆畫
+//
+// myRadicalOf(字)  → { name, strokes, outside, total } 的陣列（查一個字屬於哪個部首；一般只有一筆）
+// myRadicalGroupByStrokes()  → [[部首筆畫, [部首物件...]], ...]（部首選單用）
+const myRadicalData = [
+${lines.join('\n')}
+];
+
+// ---- 小工具 ----
+let _radicalIndex = null;
+function myRadicalOf(ch) {
+  if (!_radicalIndex) {                                    // 第一次使用才建立（字 → 部首資料）
+    _radicalIndex = new Map();
+    myRadicalData.forEach(r => r.groups.forEach(([outside, str]) => {
+      [...str].forEach(c => {
+        if (!_radicalIndex.has(c)) _radicalIndex.set(c, []);
+        _radicalIndex.get(c).push({ name: r.name, strokes: r.strokes, outside, total: r.strokes + outside });
+      });
+    }));
+  }
+  return _radicalIndex.get(ch) || [];
+}
+function myRadicalGroupByStrokes() {
+  const m = new Map();
+  myRadicalData.forEach(r => { if (!m.has(r.strokes)) m.set(r.strokes, []); m.get(r.strokes).push(r); });
+  return [...m.entries()];
+}
+`;
+  return { text, radicals: list.length, chars, bad };
+}
+
 // ---------- 新增：詞頻（斷詞分析用）----------
 // 從「詞目（含又唸作、合音唸作、俗唸作）」與「例句」的羅馬字斷出詞，統計每個「漢字＋羅馬字」出現幾次。
 // 同字不同音算不同的詞（例：「行」kiânn／hîng 分開計）。
@@ -589,6 +652,31 @@ function buildFreq(S) {
   return { js, tsv, byId, words: list.length, once, vTokens, sents, sTokens, dup, skipped, top: list.slice(0, 8) };
 }
 
+// 新增：支援另一種部首檔格式——工作表「字表」（字、部首、部首外筆畫、總筆畫）＋「部首總覽」（部首、部首筆畫）
+// 轉成「部首」工作表的格式（漢字、部首、部首筆畫、部首外筆畫），之後交給 buildRadical 處理。
+// 部首筆畫優先用「部首總覽」；查不到時用「總筆畫 － 部首外筆畫」推算。
+function normalizeRadicalSheets(S) {
+  if (S['部首'] || !S['字表']) return;
+  const st = new Map();
+  if (S['部首總覽']) for (const r of S['部首總覽'].recs) st.set(clean(r['部首']), clean(r['部首筆畫']));
+  const recs = S['字表'].recs.map(r => {
+    const name = clean(r['部首']), out = clean(r['部首外筆畫']);
+    let rs = st.get(name);
+    if (rs == null || rs === '') { const t = parseInt(r['總筆畫'], 10), o = parseInt(out, 10); rs = (isNaN(t) || isNaN(o)) ? '' : String(t - o); }
+    return { '漢字': clean(r['字'] ?? r['漢字']), '部首': name, '部首筆畫': rs, '部首外筆畫': out };
+  });
+  S['部首'] = { cols: ['漢字', '部首', '部首筆畫', '部首外筆畫'], recs };
+}
+
+// 新增：只有「部首」工作表時，只產生 radical.js
+function convertRadicalOnly(S) {
+  const radical = buildRadical(S);
+  return {
+    'radical.js': radical.text,
+    stats: { radicalOnly: true, radical: { radicals: radical.radicals, chars: radical.chars, bad: radical.bad } },
+  };
+}
+
 function convert(S) {
   const entries = S['詞目'].recs;
   const senseByEntry = new Map(), senseToEntry = new Map();
@@ -674,6 +762,7 @@ function convert(S) {
 
   const names = (S['姓'] && S['名']) ? buildNames(S) : null;   // 新增
   const alts = (S['異用字'] && S['異用字'].recs.length) ? buildAlt(S) : null;   // 新增：沒有「異用字」工作表就略過
+  const radical = (S['部首'] && S['部首'].recs.length) ? buildRadical(S) : null;   // 新增：沒有「部首」工作表就略過
   const freq = buildFreq(S);   // 新增：詞頻（斷詞分析用）
 
   let body = rows.map(r => r.join('\t')).join('\n');
@@ -684,11 +773,13 @@ function convert(S) {
     'compare.js': 'var myCompareCols = ' + dumps(ccols) + ';\nvar myCompare = ' + dumps(compare) + ';\n',
     ...(names ? { 'name.js': names.text } : {}),   // 新增
     ...(alts ? { 'alt.js': alts.text } : {}),   // 新增
+    ...(radical ? { 'radical.js': radical.text } : {}),   // 新增：部首
     'freq.js': freq.js, 'freq.tsv': freq.tsv,   // 新增：詞頻
     'suggest.js': 'var mySuggestFreq = ' + dumps(freq.byId) + ';\n',   // 新增：輸入提示用的詞頻（{詞目id: 分數}）
     stats: { entries: rows.length, variants: vids.length, compare: compare.length, sample: rows.slice(0, 3),
              names: names ? { surnames: names.surnames, given: names.given } : null,
              alt: alts ? { words: alts.words, pairs: alts.pairs } : null,   // 新增
+             radical: radical ? { radicals: radical.radicals, chars: radical.chars, bad: radical.bad } : null,   // 新增
              freq },
   };
 }
@@ -725,10 +816,13 @@ async function handleFile(file) {
       S = readSheets(wb);
     }
     buf = null;
+    normalizeRadicalSheets(S);   // 新增：「字表」＋「部首總覽」格式 → 轉成「部首」工作表
     const missing = REQUIRED.filter(n => !S[n]);
-    if (missing.length) throw new Error('缺少工作表：' + missing.join('、') + '。請確認這是 kautian 辭典資料檔。');
+    // 新增：只有「部首」工作表（完整辭典的工作表一個都沒有）→ 只輸出 radical.js
+    const radicalOnly = !!(S['部首'] && S['部首'].recs.length) && missing.length === REQUIRED.length;
+    if (missing.length && !radicalOnly) throw new Error('缺少工作表：' + missing.join('、') + '。請確認這是 kautian 辭典資料檔。');
     setStatus('轉換中 ⋯'); await nextFrame();
-    outputs = convert(S);
+    outputs = radicalOnly ? convertRadicalOnly(S) : convert(S);
     showResult(file.name);
     setStatus('完成！', 'ok');
   } catch (err) {
@@ -738,19 +832,23 @@ async function handleFile(file) {
 
 function showResult() {
   const st = outputs.stats;
-  $('statTable').innerHTML = `
+  const radicalRow = `<tr><th>部首</th><td>${st.radical ? `${st.radical.radicals.toLocaleString()} 個部首、${st.radical.chars.toLocaleString()} 筆字（radical.js）${st.radical.bad.length ? `<details><summary>${st.radical.bad.length} 列資料不完整，已略過</summary>${st.radical.bad.map(esc).join('<br>')}</details>` : ''}` : '（檔案內沒有「部首」工作表，略過）'}</td></tr>`;
+  if (st.radicalOnly) {   // 新增：只有部首工作表 → 只顯示部首統計
+    $('statTable').innerHTML = radicalRow;
+  } else $('statTable').innerHTML = `
     <tr><th>詞目</th><td>${st.entries.toLocaleString()} 筆</td></tr>
     <tr><th>語音差異</th><td>${st.variants.toLocaleString()} 詞</td></tr>
     <tr><th>華語對照</th><td>${st.compare.toLocaleString()} 組</td></tr>
     <tr><th>姓名</th><td>${st.names ? `姓 ${st.names.surnames.toLocaleString()} 字、名 ${st.names.given.toLocaleString()} 字` : '（檔案內沒有「姓」「名」工作表，略過）'}</td></tr>
     <tr><th>異用字</th><td>${st.alt ? `${st.alt.words.toLocaleString()} 個異用字（${st.alt.pairs.toLocaleString()} 組對應）` : '（檔案內沒有「異用字」工作表，略過）'}</td></tr>
+    ${radicalRow}
     <tr><th>詞頻</th><td>${st.freq.words.toLocaleString()} 個不同的詞（同字不同音分開計；其中 ${st.freq.once.toLocaleString()} 個只出現 1 次，不列次數）<br>
       詞彙 ${st.freq.vTokens.toLocaleString()} 筆、句子 ${st.freq.sents.toLocaleString()} 句（斷出 ${st.freq.sTokens.toLocaleString()} 個詞）<br>
       輸入提示詞頻：${Object.keys(st.freq.byId).length.toLocaleString()} 個詞目有分數（suggest.js）<br>
       最常見：${st.freq.top.map(r => esc(r[0]) + '（' + esc(r[1]) + '）' + (r[2] || 1).toLocaleString()).join('、')}<br>
       ${st.freq.skipped.length ? `<details><summary>${st.freq.skipped.length} 筆字數與音節數對不上，未統計</summary>${st.freq.skipped.map(x => esc(x[0] + '：' + x[1] + '　' + x[2])).join('<br>')}</details>` : '沒有略過的句子'}</td></tr>
     <tr><th>範例</th><td>${st.sample.map(r => r[0] + '　' + r[1] + '　→　' + r[8]).join('<br>')}</td></tr>`;
-  const info = { 'data.js': '主資料，網站啟動時載入', 'variants.js': '語音差異，開啟詳細頁時載入', 'compare.js': '華語對照，點該分頁時載入', 'name.js': '姓名資料，姓名查詢使用，網站啟動時載入', 'alt.js': '異用字資料，文章頁「異用字檢查」第一次使用時載入', 'freq.js': '詞頻資料（漢字＋羅馬字），文章頁「斷詞分析」第一次使用時載入', 'suggest.js': '輸入提示的詞頻分數（{詞目id: 分數}，很小），搜尋框打字時第一次用到才載入', 'freq.tsv': '同一份詞頻的表格版，可用 Excel／試算表開啟（只供檢視，網站不需要）' };
+  const info = { 'data.js': '主資料，網站啟動時載入', 'variants.js': '語音差異，開啟詳細頁時載入', 'compare.js': '華語對照，點該分頁時載入', 'name.js': '姓名資料，姓名查詢使用，網站啟動時載入', 'alt.js': '異用字資料，文章頁「異用字檢查」第一次使用時載入', 'radical.js': '部首與筆畫資料，詳細頁單字詞目顯示「部首 筆畫」，網站啟動時載入（工作表「部首」，沒有就不產生）', 'freq.js': '詞頻資料（漢字＋羅馬字），文章頁「斷詞分析」第一次使用時載入', 'suggest.js': '輸入提示的詞頻分數（{詞目id: 分數}，很小），搜尋框打字時第一次用到才載入', 'freq.tsv': '同一份詞頻的表格版，可用 Excel／試算表開啟（只供檢視，網站不需要）' };
   $('files').innerHTML = '';
   for (const name of Object.keys(info).filter(n => outputs[n] != null)) {
     const div = document.createElement('div'); div.className = 'file';
@@ -766,7 +864,7 @@ $('zipBtn').onclick = async () => {
   if (!outputs) return;
   if (typeof JSZip === 'undefined') { setStatus('無法載入 JSZip，請改為逐一下載。', 'err'); return; }
   const zip = new JSZip();
-  for (const n of ['data.js', 'variants.js', 'compare.js', 'name.js', 'alt.js', 'freq.js', 'suggest.js', 'freq.tsv']) if (outputs[n] != null) zip.file(n, outputs[n]);
+  for (const n of ['data.js', 'variants.js', 'compare.js', 'name.js', 'alt.js', 'radical.js', 'freq.js', 'suggest.js', 'freq.tsv']) if (outputs[n] != null) zip.file(n, outputs[n]);
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kautian-data.zip';
   document.body.appendChild(a); a.click(); a.remove();

@@ -82,6 +82,19 @@ const COMPARE_TAB = '華語對照';
 const NAME_TAB = '姓名';                       // 新增：姓名查詢分頁（放在分頁最後面）
 searchTypes.push(NAME_TAB);                    // 新增
 const isSpecialTab = t => t === COMPARE_TAB || t === NAME_TAB;   // 新增：不使用一般列表的分頁
+// 新增：「部首」分頁（比照「分類」：平常隱藏，只有從詳細頁點部首進來才出現）。
+// 資料裡沒有「部首」欄，所以替每個單字詞目加一個不可列舉的虛擬欄位 item['部首']（屬多個部首時以「、」相連），
+// 之後與「分類」一樣逐項「完全符合」比對（查「木」只找部首是「木」的字，不會找到含「木」的詞）。
+const RADICAL_TAB = '部首';
+if (typeof myRadicalOf === 'function') {   // radical.js 沒載入就不提供此分頁
+  dictionary.forEach(it => {
+    const han = (it['台語'] || '').replace(/【[^】]*】/g, '').trim();
+    const chars = [...han];
+    const names = chars.length === 1 ? [...new Set(myRadicalOf(chars[0]).map(r => r.name))] : [];
+    Object.defineProperty(it, RADICAL_TAB, { value: names.join('、'), writable: true });   // 不可列舉：不會出現在其他欄位的迴圈裡
+  });
+  searchTypes.push(RADICAL_TAB);
+}
 const _lazy = {};
 function loadScript(src) {
   if (!_lazy[src]) {
@@ -474,22 +487,22 @@ function romRich(text, ranges, vowel) {
   return out;
 }
 function vwToggleHtml() {
-  return `<button type="button" class="vw-toggle" title="開關音讀母音的顏色（細項在「設定」）">母音標色：<b class="sw" data-on="${(window.vwOn) ? 1 : 0}">${window.vwOn ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="vw-toggle" title="開關音讀母音的顏色（細項在「設定」）">母音標色<b class="sw" data-on="${(window.vwOn) ? 1 : 0}">${window.vwOn ? '開' : '關'}</b></button>`;
 }
 // 詳細頁「聲調色彩」開關（總開關；細項在設定裡）
 function tnToggleHtml() {
-  return `<button type="button" class="tn-toggle" title="開關字調色彩（細項在「設定」）">字調標色：<b class="sw" data-on="${(window.tnOn) ? 1 : 0}">${window.tnOn ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="tn-toggle" title="開關字調色彩（細項在「設定」）">字調標色<b class="sw" data-on="${(window.tnOn) ? 1 : 0}">${window.tnOn ? '開' : '關'}</b></button>`;
 }
 // 詳細頁「句色」開關（分句標色總開關；細項在設定裡）
 function scToggleHtml() {
-  return `<button type="button" class="sc-toggle" title="開關釋義的分句標色（細項在「設定」）">釋義句色：<b class="sw" data-on="${(window.scCfg && window.scCfg.on) ? 1 : 0}">${window.scCfg && window.scCfg.on ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="sc-toggle" title="開關釋義的分句標色（細項在「設定」）">釋義句色<b class="sw" data-on="${(window.scCfg && window.scCfg.on) ? 1 : 0}">${window.scCfg && window.scCfg.on ? '開' : '關'}</b></button>`;
 }
 // 詳細頁「例句語詞查詢」「近反義顯示」開關（細項在設定裡）
 function rqToggleHtml() {
-  return `<button type="button" class="rq-toggle" title="開關例句分詞的點擊查詢（設定裡也可調整）">例句分詞查詢：<b class="sw" data-on="${window.rqOn ? 1 : 0}">${window.rqOn ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="rq-toggle" title="開關例句分詞的點擊查詢（設定裡也可調整）">分詞查詢<b class="sw" data-on="${window.rqOn ? 1 : 0}">${window.rqOn ? '開' : '關'}</b></button>`;
 }
 function rwToggleHtml() {
-  return `<button type="button" class="rw-toggle" title="開關例句分詞的近反義懸停顯示（設定裡也可調整）">近反義懸停顯示：<b class="sw" data-on="${window.rwOn ? 1 : 0}">${window.rwOn ? '開' : '關'}</b></button>`;
+  return `<button type="button" class="rw-toggle" title="開關例句分詞的近反義懸停顯示（設定裡也可調整）">分詞近反義<b class="sw" data-on="${window.rwOn ? 1 : 0}">${window.rwOn ? '開' : '關'}</b></button>`;
 }
 function refreshColorUI() {   // 設定或開關改變後：更新詳細頁與列表
   document.querySelectorAll('.entry-han[data-han]').forEach(el => { el.innerHTML = toneHanHtml(el.dataset.han, el.dataset.rom); });
@@ -729,7 +742,7 @@ function exToggleHtml() {
   return `<button type="button" class="ex-toggle" title="切換例句顯示方式">例句顯示：<b>${m}</b></button>`;
 }
 document.addEventListener('click', function (e) {
-  const btn = e.target.closest('.ex-toggle'); if (!btn) return;
+  const btn = e.target.closest('.ex-toggle, .ex-head-toggle'); if (!btn) return;   // 修改：加入列表表頭的「例句」切換鈕（.ex-head-toggle）
   const next = EX_MODES[(EX_MODES.indexOf(window.exMode) + 1) % EX_MODES.length];
   if (window.setExampleMode) window.setExampleMode(next); else window.exMode = next;
   document.querySelectorAll('.sense-ex li[data-ex]').forEach(li => {
@@ -755,6 +768,22 @@ function searchByCategory(cat) {
 document.addEventListener('click', function (e) {
   const chip = e.target.closest('.chip[data-cat]'); if (!chip) return;
   searchByCategory(chip.dataset.cat);
+});
+
+// 新增：以「部首」查詢（詳細頁的部首）→ 關閉詳細頁，切到「部首」分頁，只列部首完全符合的字
+function searchByRadical(name) {
+  hideDetailUI();
+  currentDetailId = null;
+  setRawRx(false);
+  searchInput.value = name;
+  currentSearchType = RADICAL_TAB;
+  performSearch();
+  updateActiveSearchType();
+  window.scrollTo(0, 0);
+}
+document.addEventListener('click', function (e) {
+  const b = e.target.closest('.radical-link[data-rad]'); if (!b) return;
+  searchByRadical(b.dataset.rad);
 });
 
 // ======== 台羅音讀：資料以「/」分隔兩種音讀（前為主、後為副），可選 全部／主音讀／副音讀 ========
@@ -969,6 +998,16 @@ function detailHtml(item) {
     }))];
     return parts.length ? `<span class="alt-note"><span class="rel-tag">${label}</span>${parts.join('、')}</span>` : '';
   };
+  // 新增：單字詞目 → 部首與筆畫「部首 部首筆畫-部首外筆畫-總筆畫」（例：鳥 11-10-21）；靠右顯示。同字若屬多個部首，各列一組
+  const radicalNote = () => {
+    if (typeof myRadicalOf !== 'function') return '';   // radical.js 沒載入就略過
+    const chars = [...hanPlain];
+    if (chars.length !== 1) return '';                  // 只處理單字
+    const rs = myRadicalOf(chars[0]);
+    if (!rs.length) return '';
+    return '<span class="radical-note" title="部首　部首筆畫－部首外筆畫－總筆畫">' +
+      rs.map(r => `<button type="button" class="radical-link" data-rad="${escHtml(r.name)}" title="查詢部首「${escHtml(r.name)}」的字">${escHtml(r.name)}</button> ${r.strokes}-${r.outside}-${r.total}`).join('、') + '</span>';   // 修改：部首改成可點擊的按鈕
+  };
   let html = '<div class="entry-detail"><div class="entry-head">';
   // 標題列：詞目 + 「教育部辭典原頁」外連圖示
   const moeId = String(item['詞目id'] || '').trim();   // 有詞目id：直連該詞條頁（/su/837）；沒有才退回以詞目搜尋
@@ -979,11 +1018,12 @@ function detailHtml(item) {
   if (hanPlain || moeId) html += `<a class="moe-link" href="${moeUrl}" target="_blank" rel="noopener" title="到教育部臺灣台語常用詞辭典查看「${escHtml(hanPlain)}」" aria-label="教育部辭典原頁"><svg class="icon" aria-hidden="true"><use href="#i-open-in-new"/></svg></a>`;
   html += '</div>';
   html += `<div class="entry-romline"><span class="entry-rom-main" data-rom="${escHtml(item['台羅'] || '')}">${romHtml(item['台羅'])}</span>` +
-    altNote('又唸作', '又唸') + altNote('俗唸作', '俗唸') + '</div></div>';
+    altNote('又唸作', '又唸') + altNote('俗唸作', '俗唸') + radicalNote() + '</div></div>';   // 修改：音讀列最後加上部首筆畫
   if (item['分類']) {
     html += '<div class="entry-chips">' + item['分類'].split('、').map(c => c.trim()).filter(Boolean).map(c => `<button type="button" class="chip" data-cat="${escHtml(c)}" title="查詢「${escHtml(c)}」分類的詞">${escHtml(c)}</button>`).join('') + '</div>';
   }
-  const secTools = (withEx, withSc) => { const btns = `${tnToggleHtml()}${vwToggleHtml()}${withSc ? scToggleHtml() : ''}${withEx ? exToggleHtml() + rqToggleHtml() + rwToggleHtml() : ''}`;   // 字調標色、母音標色、釋義句色、例句顯示、例句語詞查詢、近反義顯示 收進一個「顯示」按鈕（電腦版、手機版相同）
+  const secTools = (withEx, withSc) => { const sep = '<div class="tm-sep" role="separator"></div>';
+    const btns = `${tnToggleHtml()}${vwToggleHtml()}${withSc ? scToggleHtml() : ''}${withEx ? sep + rqToggleHtml() + rwToggleHtml() + sep + exToggleHtml() : ''}`;   // 修改：分三組（標色開關｜分詞查詢、分詞近反義｜例句顯示），組間加細線，「例句顯示」放最下面（電腦版、手機版相同）
     return `<span class="sec-tools"><span class="sec-tools-m"><button type="button" class="tools-m-btn" aria-expanded="false" aria-haspopup="true"><svg class="icon" aria-hidden="true"><use href="#i-tune"/></svg>顯示</button><div class="tools-m-pop" hidden>${btns}</div></span></span>`; };
   if (item['釋義']) html += sec('釋義' + secTools(!!item['例句'], true), senseDetailHtml(item));
   else if (item['例句']) html += sec('例句' + secTools(false), item['例句']);
@@ -1023,7 +1063,7 @@ let hasSearchResults = false;
 let filteredData = [];
 
 // ======== 網址參數：q 查詢詞、t 類型、p 頁碼、d 詳細檢視的詞目id（預設值不寫入網址）========
-const TYPE_CODE = { '分類': 'fl', '釋義': 'sy', '例句': 'lj', '華語例句': 'lh', '近義詞': 'jy', '反義詞': 'fy', '華語對照': 'hy', '姓名': 'xm' };
+const TYPE_CODE = { '分類': 'fl', '釋義': 'sy', '例句': 'lj', '華語例句': 'lh', '近義詞': 'jy', '反義詞': 'fy', '華語對照': 'hy', '姓名': 'xm', [RADICAL_TAB]: 'bs' };   // 修改：加上「部首」(bs)
 const CODE_TYPE = Object.fromEntries(Object.entries(TYPE_CODE).map(([k, v]) => [v, k]));
 const typeToCode = t => TYPE_CODE[t] || t;
 const codeToType = c => CODE_TYPE[c] || c;
@@ -1062,6 +1102,7 @@ function buildUrl() {
 }
 // mode：'push' 新增一筆歷史（新查詢、開啟詳細檢視）；'replace' 只更新網址（換頁、換類型）
 function syncUrl(mode) {
+  updateTitle();   // 新增：查詢、開關詳細檢視時，同步分頁標題
   if (_restoring) return;
   const url = buildUrl();
   if (url === location.pathname + location.search) return;
@@ -1072,6 +1113,25 @@ function syncSearchUrl() {
   const q = normQ();
   syncUrl(q !== _urlQ || modeKey() !== _urlR ? 'push' : 'replace');   // 修改：模式改變也算新查詢（rawKey → modeKey）
   _urlQ = q; _urlR = modeKey(); _shownQ = q; _shownT = currentSearchType; _shownR = modeKey();   // 修改：多記 _urlR、_shownR
+}
+// 新增：分頁標題跟著查詢變動
+//   有查詢：「花(206) 和樂典-烏衣行」；開啟詞目：「沃花-和樂典-烏衣行」；其他：「和樂典-烏衣行」
+//   用 setTimeout 0 延後到狀態都更新完（例如 currentDetailId 在關閉時才被清掉）再讀取。
+function updateTitle() {
+  clearTimeout(window._titleTimer);
+  window._titleTimer = setTimeout(() => {
+    const BASE = '和樂典-烏衣行';
+    let t = BASE;
+    if (currentDetailId != null) {
+      const it = dictionary.find(x => x['詞目id'] === currentDetailId);
+      const w = it ? String(it['台語'] || '').replace(/【[^】]*】/g, '').trim() : '';
+      if (w) t = w + '-' + BASE;
+    } else if (_shownQ) {
+      const q = searchInput.value.trim();
+      if (q) t = q + (isSpecialTab(currentSearchType) ? '' : '(' + filteredData.length + ')') + ' ' + BASE;   // 修改：查詢（筆數）與「和樂典」之間加一個空格   // 比對、取名分頁沒有一般列表，不顯示筆數
+    }
+    if (document.title !== t) document.title = t;
+  }, 0);
 }
 // 開啟／切換詳細檢視
 function setDetail(item) {
@@ -1090,6 +1150,7 @@ function hideDetailUI() {
   document.getElementById('sidebarModal').style.display = 'none';
   document.getElementById('fullDataModal').style.display = 'none';
   document.body.style.overflow = '';
+  updateTitle();   // 新增
 }
 // 新增：回到完全沒有查詢的首頁時，分頁固定回到預設的「詞目」（並更新記住的分頁）
 function resetHomeTab() {
@@ -1152,6 +1213,7 @@ function applyUrlState(initial) {
   } finally { _restoring = false; }
 }
 window.addEventListener('popstate', () => applyUrlState(false));
+window.addEventListener('popstate', updateTitle);   // 新增：上一頁／下一頁後，標題跟著還原
 
 
 
@@ -1815,7 +1877,7 @@ function compareSearchResults(a, b, searchTerm, searchType) {
 }
 
 // 「分類」欄須完全符合：以「、」切成各個類別，逐一與查詢詞整體比對（查「生」不會找到「生養老死」）
-const EXACT_FIELDS = new Set(['分類']);
+const EXACT_FIELDS = new Set(['分類', RADICAL_TAB]);   // 修改：「部首」也須完全符合
 let _catSub = null;   // 新增：目前查詢若是分類階層的小類／大類，這裡放比對函式（見 catPredicate）
 const _exactCache = new Map();
 function fieldTest(regex, type, value) {
@@ -1853,6 +1915,7 @@ function generateSearchTypeSelector() {
         button.appendChild(countSpan);
         button.id = `button-${type}`;
         if (type === '分類' && currentSearchType !== '分類') button.classList.add('tab-hidden');   // 預設不顯示
+        if (type === RADICAL_TAB && currentSearchType !== RADICAL_TAB) button.classList.add('tab-hidden');   // 新增：「部首」預設不顯示
         if (type === NAME_TAB && currentSearchType !== NAME_TAB) button.classList.add('tab-hidden');   // 新增：「姓名」預設不顯示，查得到姓名（筆數 > 0）時才顯示
         button.addEventListener('click', () => {
             if (!button.disabled) {
@@ -1911,7 +1974,7 @@ function calculateTypeCounts(regex) {
     });
     // 新增：目前分頁沒有結果時，切到第一個「有結果」的其他分頁（用上面算好的筆數判斷，與分頁數字一致）
     if (typeCounts[currentSearchType] === 0) {
-        const firstValidType = searchTypes.find(t => t !== currentSearchType && typeCounts[t] > 0);
+        const firstValidType = searchTypes.find(t => t !== currentSearchType && t !== RADICAL_TAB && typeCounts[t] > 0);   // 修改：排除隱藏的「部首」分頁
         if (firstValidType) {
             currentSearchType = firstValidType;
             updateActiveSearchType();
@@ -1939,7 +2002,7 @@ function updateActiveSearchType() {
         const on = t === currentSearchType;   // 例句、華例並列為分頁（手機版也一樣）
         button.classList.toggle('active', on);
         // 「分類」分頁平常隱藏，只有從詳細頁點分類標籤進來（目前正在看分類）時才出現
-        if (t === HIDDEN_TAB) button.classList.toggle('tab-hidden', !on);
+        if (t === HIDDEN_TAB || t === RADICAL_TAB) button.classList.toggle('tab-hidden', !on);   // 修改：「部首」同樣只在目前正在看時顯示
     });
     syncExScope();
 }
@@ -2000,7 +2063,7 @@ function buildExampleRows(list) {
 }
 function exampleRowsHtml(rows) {
     const lab = (t, title) => `<span class="mobile-header"${title ? ` title="${title}"` : ''}>${t}</span>`;
-    let html = `<table class="results-table ex-table"><thead><tr><th aria-label="序號"></th><th>${colLabel('台語')}${colLabel('台羅')}</th><th>例句</th></tr></thead><tbody>`;   // 修改：「詞目」「音讀」兩欄合併成「詞目音讀」
+    let html = `<table class="results-table ex-table"><thead><tr><th aria-label="序號"></th><th><button type="button" class="sort-toggle" title="切換排序：詞目＞音讀／音讀＞詞目">${colLabel('台語')}${colLabel('台羅')}<span class="rom-mode">${SORT_LABEL[window.sortMode || 'han']}</span></button></th><th><button type="button" class="ex-head-toggle" title="切換例句顯示方式：RUBY／標準／分詞">例句<span class="rom-mode">${EX_LABEL[window.exMode] || 'RUBY'}</span></button></th></tr></thead><tbody>`;   // 修改：「詞目」「音讀」兩欄合併成「詞目音讀」；新增：表頭可切換排序（詞>音 ⇄ 音>詞）、「例句」表頭可切換顯示方式（RUBY／標準／分詞），例句、華例都適用
     rows.forEach(({ item, i, line }, n) => {
         const m = line.match(/^\[(\d+)\] ([\s\S]*)$/);
         const hanLen = Array.from(String(item['台語'] || '').replace(/【[^】]*】/g, '').replace(/[\s,，、\/／()（）]/g, '')).length;
@@ -2255,121 +2318,41 @@ function getRelevantValues(item, searchType) {
   return isExType(searchType) ? (item[fieldOf(searchType)] || '').split('\n').filter(Boolean) : [item[searchType] || ''];
 }
 
-// 生成>分頁導覽
-function generatePagination(totalItems, currentPage, totalPages) {
-    // 手機版改用精簡分頁（頭 ‹ 1 2 3 › 尾 ⋯）
-    if (window.innerWidth <= 768) return generateMobilePagination(totalItems, currentPage, totalPages);
-
-    const paginationContainer = document.createElement('div');
-    paginationContainer.className = 'pagination';
-
-    // 首頁按鈕
-    const firstPageButton = document.createElement('button');
-    firstPageButton.textContent = '頭';
-    firstPageButton.disabled = currentPage === 1;
-    firstPageButton.addEventListener('click', () => changePage(1));
-    paginationContainer.appendChild(firstPageButton);
-
-    // 上一頁
-    const isMobile = window.innerWidth <= 768;
-    const prevButton = document.createElement('button');
-    prevButton.textContent = isMobile ? '‹' : '‹ 上一頁';
-    prevButton.title = '上一頁';
-    prevButton.className = 'page-nav';
-    prevButton.disabled = currentPage === 1;
-    prevButton.addEventListener('click', () => changePage(currentPage - 1));
-    paginationContainer.appendChild(prevButton);
-
-    // 頁碼按鈕：只顯示目前頁前後幾頁（電腦 5 個、手機 3 個），按鈕可以做大一些
-    const maxVisiblePages = isMobile ? 3 : 5;
-    const startPage = Math.max(1, Math.min(currentPage - Math.floor(maxVisiblePages / 2), totalPages - maxVisiblePages + 1));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    for (let i = startPage; i <= endPage; i++) {
-        const pageButton = document.createElement('button');
-        pageButton.textContent = i;
-        pageButton.classList.toggle('active', i === currentPage);
-        pageButton.addEventListener('click', () => changePage(i));
-        paginationContainer.appendChild(pageButton);
+// 新增：音讀排序時的「聲母索引」——回傳 { list:[{ch, page}], tier:分層名稱或'' }；不適用時 list 為空
+// 只取音讀的第一個字母（ts、th→t；kh→k）；無聲母的字（a、i、u、e、o）就是它們自己。
+// 修改：搜尋結果若分成「完全符合／部分符合…」多層，每層各自依音讀排序，所以索引只針對「目前這一頁所在的那一層」。
+// 自我檢查：該層內每個字母必須是連續的一段，否則不顯示索引，避免跳到錯的地方。
+function buildInitialIndex(currentPage) {
+    const none = { list: [], tier: '' };
+    if (window.sortMode !== 'rom' || !Array.isArray(filteredData) || filteredData.length === 0) return none;
+    const T = tierInfo();
+    // 目前頁面裡，哪一層的筆數最多，就用那一層
+    const p0 = (currentPage - 1) * ITEMS_PER_PAGE, p1 = Math.min(filteredData.length, p0 + ITEMS_PER_PAGE);
+    const cnt = [0, 0, 0, 0, 0];
+    for (let i = p0; i < p1; i++) cnt[T.tiers[i]]++;
+    let t = 4; for (let k = 0; k < 5; k++) if (cnt[k] > cnt[t]) t = k;
+    const from = T.start[t], to = from + T.counts[t];
+    if (to - from <= ITEMS_PER_PAGE) return none;          // 這一層不到一頁，不需要索引
+    const seen = new Set(), list = [];
+    let prev = null;
+    for (let i = from; i < to; i++) {
+        const k = romSortKey(filteredData[i]);
+        if (!k) continue;                                  // 沒有音讀的（排在最後）不列入索引
+        const ch = /^[a-z]/.test(k) ? k[0] : '#';          // 非英文字母開頭的歸為「#」
+        if (ch === prev) continue;
+        if (seen.has(ch)) return none;                     // 字母又出現第二段：放棄索引
+        seen.add(ch); prev = ch;
+        list.push({ ch, page: Math.floor(i / ITEMS_PER_PAGE) + 1 });
     }
-
-    // 下一頁
-    const nextButton = document.createElement('button');
-    nextButton.textContent = isMobile ? '›' : '下一頁 ›';
-    nextButton.title = '下一頁';
-    nextButton.className = 'page-nav page-next';   // 修改：多加 page-next，電腦版把「下一頁」做成淡藍底膠囊
-    nextButton.disabled = currentPage === totalPages;
-    nextButton.addEventListener('click', () => changePage(currentPage + 1));
-    paginationContainer.appendChild(nextButton);
-
-    // 尾頁按鈕
-    const lastPageButton = document.createElement('button');
-    lastPageButton.textContent = '尾';
-    lastPageButton.disabled = currentPage === totalPages;
-    lastPageButton.addEventListener('click', () => changePage(totalPages));
-    paginationContainer.appendChild(lastPageButton);
-
-    // 跳到指定頁面
-    const jumpContainer = document.createElement('div');
-    jumpContainer.className = 'jump-container';
-    
-    const jumpInput = document.createElement('input');
-    jumpInput.type = 'number';
-    jumpInput.min = 1;
-    jumpInput.max = totalPages;
-    jumpInput.placeholder = `共${totalPages}頁`;
-
-    jumpInput.addEventListener('focus', () => {
-        jumpInput.placeholder = '跳到...';
-    });
-
-    // 修改輸入處理邏輯
-    jumpInput.addEventListener('change', (e) => {
-        let page = parseInt(e.target.value);
-        
-        // 如果輸入的頁數大於總頁數，則跳到最後一頁
-        if (page > totalPages) {
-            page = totalPages;
-        }
-        
-        // 如果輸入有效數字且大於等於1
-        if (page && page >= 1) {
-            changePage(page);
-            e.target.value = ''; // 清空輸入框
-            jumpInput.placeholder = `共${totalPages}頁`; // 恢復提示文字
-        }
-    });
-
-    jumpContainer.appendChild(jumpInput);
-    // 把 jumpContainer 放在尾頁按鈕左邊
-    paginationContainer.insertBefore(jumpContainer, lastPageButton);
-
-  // 每頁顯示筆數選單
-  const itemsPerPageContainer = document.createElement('div');
-  itemsPerPageContainer.className = 'items-per-page-container';
-  const itemsPerPageSelect = document.createElement('select');
-  itemsPerPageSelect.id = 'itemsPerPageSelect';
-  [5, 10, 20, 50, 100].forEach(num => {
-    const option = document.createElement('option');
-    option.value = num;
-    option.textContent = `${num}/頁`;
-    if (num === ITEMS_PER_PAGE) {
-      option.selected = true;
-    }
-    itemsPerPageSelect.appendChild(option);
-  });
-  itemsPerPageSelect.addEventListener('change', (e) => {
-    const newItemsPerPage = parseInt(e.target.value);
-    changeItemsPerPage(newItemsPerPage);
-  });
-  itemsPerPageContainer.appendChild(itemsPerPageSelect);
-
-  paginationContainer.insertBefore(itemsPerPageContainer, lastPageButton.nextSibling);
-
-  return paginationContainer;
+    return list.length >= 2 ? { list, tier: T.grouped ? TIER_LABELS[t] : '' } : none;
 }
 
-// 生成>手機版精簡分頁：‹ 1 2 3 尾 [下一頁 ›] ⋯（首頁、跳頁、每頁筆數收進「⋯」）
+// 生成>分頁導覽（修改：電腦版與手機版共用同一套精簡分頁，只差頁碼個數：電腦 4 個、手機 3 個）
+function generatePagination(totalItems, currentPage, totalPages) {
+    return generateMobilePagination(totalItems, currentPage, totalPages);
+}
+
+// 生成>精簡分頁（電腦、手機共用）：‹ 1 2 3 (4) …尾 [下一頁 ›] ⋮（首頁、跳頁、每頁筆數收進「⋮」更多選項）
 function generateMobilePagination(totalItems, currentPage, totalPages) {
     const box = document.createElement('div');
     box.className = 'pagination pagination-m';
@@ -2388,8 +2371,8 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
 
     box.appendChild(mk('‹', '上一頁', currentPage === 1, () => changePage(currentPage - 1), 'pm-nav'));
 
-    // 頁碼：目前頁盡量置中，共 3 個
-    const maxVisible = 3;
+    // 頁碼：目前頁盡量置中；手機 3 個、電腦 4 個
+    const maxVisible = window.innerWidth <= 768 ? 3 : 4;
     const start = Math.max(1, Math.min(currentPage - 1, totalPages - maxVisible + 1));
     const end = Math.min(totalPages, start + maxVisible - 1);
     for (let i = start; i <= end; i++) {
@@ -2416,6 +2399,26 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
     const firstBtn = mk('首頁', '回到第一頁', currentPage === 1, () => changePage(1), 'pm-first');
     info.append(infoText);   // 修改：「首頁」按鈕移到下面的跳頁列（跳到第幾頁的左邊）
     pop.appendChild(info);
+
+    // 新增：聲母索引（只有「音>詞」排序且有 2 頁以上才出現；點選後跳到該字母第一筆所在頁）
+    const idxInfo = totalPages > 1 ? buildInitialIndex(currentPage) : { list: [], tier: '' };
+    const idxList = idxInfo.list;
+    if (idxList.length) {
+        const idxRow = document.createElement('div');
+        idxRow.className = 'pm-row pm-idx-row';
+        const idxLabel = document.createElement('span');
+        idxLabel.textContent = idxInfo.tier ? '聲母・' + idxInfo.tier : '聲母';   // 修改：有分層時註明是哪一層的索引
+        const idxBox = document.createElement('div');
+        idxBox.className = 'pm-idx';
+        // 目前頁第一筆的字母，用來標示「現在在哪一段」
+        const curIdx = idxList.filter(x => x.page <= currentPage).pop();
+        idxList.forEach(x => {
+            const c = mk(x.ch, x.ch === '#' ? '其他' : `跳到 ${x.ch}（第${x.page}頁）`, false, () => changePage(x.page), 'pm-idx-chip' + (curIdx && curIdx.ch === x.ch ? ' on' : ''));
+            idxBox.appendChild(c);
+        });
+        idxRow.append(idxLabel, idxBox);
+        pop.appendChild(idxRow);
+    }
 
     const jumpRow = document.createElement('div');
     jumpRow.className = 'pm-row';
@@ -2452,10 +2455,15 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
     perRow.append(perLabel, sel);
     pop.appendChild(perRow);
 
-    const moreBtn = mk('⋯', '更多設定', false, e => {
+    // 修改：齒輪改成「垂直三個點」，避免和右上角選單的「設定」混淆，也不會和最末頁前面的「…5」混淆
+    const moreBtn = mk('', '更多選項', false, e => {   // 修改：title／aria-label 由「更多設定」改為「更多選項」
         e.stopPropagation();
         pop.classList.toggle('open');
     }, 'pm-more');
+    moreBtn.innerHTML =
+        '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">' +
+        '<circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>' +
+        '</svg>';
     more.append(moreBtn, pop);
     box.appendChild(more);
 
@@ -3503,7 +3511,7 @@ function initializeLanguageSettings() {
 }
 
 
-// 返回頂部按鈕：往下捲超過一屏就顯示；點擊回到頁面最頂端，並（桌面版）聚焦搜尋框方便重新查詢
+// 返回頂部按鈕：往下捲超過一屏就顯示；點擊回到頁面最頂端
 document.addEventListener('DOMContentLoaded', () => {
   const scrollToTopBtn = document.getElementById('scrollToTopBtn');
   let ticking = false;
@@ -3517,10 +3525,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { passive: true });
 
   scrollToTopBtn.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (window.innerWidth > 768) {   // 手機版不自動聚焦，避免鍵盤突然彈出
-      setTimeout(() => { searchInput.focus({ preventScroll: true }); searchInput.select(); }, 350);
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });   // 修改：只回到頂端，不再自動聚焦、全選搜尋框
   });
   updateBtn();
 });/*略*/
@@ -3730,7 +3735,8 @@ function showFullData(index) {
   
   const item = filteredData[index];
 const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.trim()), currentSearchType);
-  if (currentDetailId == null) _listScrollY = window.scrollY;   // 記住列表位置，返回時回到原處
+  if (currentDetailId == null) { _listScrollY = window.scrollY; window._detailOpenIdx = index; }   // 記住列表位置，返回時回到原處（修改：同時記下一開始點開的是第幾筆）
+  window._detailIdx = index;   // 新增：目前看的是第幾筆（用「上一個／下一個」換詞後，返回時要回到這一筆）
   setDetail(item);
 
   if (window.innerWidth > 768) {
@@ -3762,20 +3768,36 @@ const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.
     <div class="mobile-modal-header">
       <button class="close-button" type="button" aria-label="返回結果" title="返回結果"><svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg></button>
       <button class="detail-q" type="button" aria-label="回到搜尋" title="回到搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>${qText || '搜尋'}</span></button>
+      <button class="detail-menu" type="button" aria-label="選單" aria-haspopup="true" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      <div class="detail-menu-pop" role="menu" hidden>
+        <button type="button" role="menuitem" data-act="cat"><svg class="icon" aria-hidden="true"><use href="#i-apps"/></svg>分類</button>
+        <button type="button" role="menuitem" data-act="article"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>分析</button>
+        <button type="button" role="menuitem" data-act="settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>設定</button>
+      </div>
     </div>
   `;
+
+  // 新增：內容最後的切換列（上一個／下一個詞目，直接顯示詞目名稱，不必返回列表；不固定，捲到底才看到）
+  const wordOf = i => escHtml(String((filteredData[i] || {})['台語'] || '').replace(/【[^】]*】/g, '').trim());
+  const hasPrev = index > 0, hasNext = index < filteredData.length - 1;
+  const navHtml = filteredData.length > 1 ? `
+    <nav class="detail-nav" aria-label="切換詞目">
+      <button type="button" class="dn-btn dn-prev" ${hasPrev ? '' : 'disabled'} aria-label="上一個詞目"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg><span class="dn-word">${hasPrev ? wordOf(index - 1) : ''}</span></button>
+      <span class="dn-pos">${index + 1} / ${filteredData.length}</span>
+      <button type="button" class="dn-btn dn-next" ${hasNext ? '' : 'disabled'} aria-label="下一個詞目"><span class="dn-word">${hasNext ? wordOf(index + 1) : ''}</span><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+    </nav>` : '';
+
 
   // 生成詳細內容表格
   let tableContent = '<div class="mobile-modal-content">';
   tableContent += detailHtml(item);
+  tableContent += navHtml;
   tableContent += '</div>';
 
   // 更新模態框內容
   const modalContent = document.getElementById('fullDataContent');
-  modalContent.innerHTML = headerContent + tableContent;
+  modalContent.innerHTML = headerContent + tableContent;   // 修改：切換列已改放進 tableContent 內（內容最後）
   fillVariants(item, modalContent.querySelector('.mobile-modal-content'));
-  { const tr = modalContent.querySelector('.entry-titlerow'), mv = modalContent.querySelector('.entry-titlerow .moe-link');   // 序號：放在詞目列右側（外連圖示左邊）
-    if (tr) { const no = document.createElement('span'); no.className = 'entry-no' + (isExactMatch ? ' exact-match' : ''); no.textContent = displayNo(index); tr.insertBefore(no, mv); } }
 
   // 顯示模態框
   const modal = document.getElementById('fullDataModal');
@@ -3788,6 +3810,10 @@ const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.
   if (contentArea) {
     contentArea.scrollTop = 0;
   }
+  if (modalContent.parentElement) modalContent.parentElement.scrollTop = 0;   // 新增：實際捲動的是外層 .modal-content，換詞後回到最上面
+  const dnPrev = modalContent.querySelector('.dn-prev'), dnNext = modalContent.querySelector('.dn-next');   // 新增：綁定上一個／下一個
+  if (dnPrev) dnPrev.onclick = () => showFullData(index - 1);
+  if (dnNext) dnNext.onclick = () => showFullData(index + 1);
 
   // 綁定關閉按鈕事件
   const closeButton = modalContent.querySelector('.close-button');
@@ -3797,6 +3823,22 @@ const isExactMatch = isExactMatchItem(item, searchTermReplace(searchInput.value.
     closeDetailState();
   };
   if (window.closeDetailView) closeButton.onclick = () => window.closeDetailView(false);   // 返回：回到查詢結果原本的位置
+  const dMenu = modalContent.querySelector('.detail-menu'), dPop = modalContent.querySelector('.detail-menu-pop');   // 新增：右上角三條線選單（與首頁相同：分類／分析／設定）
+  if (dMenu && dPop) {
+    const setOpen = on => { dPop.hidden = !on; dMenu.setAttribute('aria-expanded', on); };
+    dMenu.onclick = e => { e.stopPropagation(); setOpen(dPop.hidden); };
+    dPop.onclick = e => {
+      const it = e.target.closest('button[data-act]'); if (!it) return;
+      e.stopPropagation(); setOpen(false);
+      const act = it.dataset.act;
+      if (act === 'settings') settingsTrigger.click();            // 設定頁、分析頁都蓋在詳細頁上方（z-index 較高），直接代按即可
+      else if (act === 'article') document.getElementById('articleTrigger').click();
+      else if (act === 'cat') {                                   // 分類面板畫在首頁上、會被詳細頁蓋住，而且選了類別本來就要離開詳細頁：先回到首頁頂端，再打開面板
+        if (window.closeDetailView) window.closeDetailView(true, true);   // 第二個參數：不要讓搜尋框取得焦點（避免跳出鍵盤）
+        setTimeout(() => document.getElementById('catTrigger').click(), 200);   // 等遮罩移除、畫面穩定後再開
+      }
+    };
+  }
   const searchBtn = modalContent.querySelector('.detail-q');   // 查詢框：直接回到首頁最頂端的搜尋框（全選，可直接改查）
   if (searchBtn) searchBtn.onclick = function() {
     if (window.closeDetailView) window.closeDetailView(true);
@@ -4102,7 +4144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 詳細檢視頂部列：返回 / LOGO / 搜尋框
   // toTop = false：返回查詢結果（回到開啟前的頁碼與捲動位置）；true：回到首頁最頂端並聚焦搜尋框
-  function closeDetail(toTop) {
+  function closeDetail(toTop, noFocus) {   // 修改：新增 noFocus，回到頂端時可不聚焦搜尋框
     // 修改：回到搜尋時直接到首頁頂端的搜尋框，中間完全不露出列表
     // 做法：先蓋一層與頁面同色的遮罩 → 在遮罩下關閉詳細檢視、捲到頂端、處理 history.back() 的還原 →
     //       等捲動與畫面都穩定後，才移除遮罩（遮罩期間任何一幀的列表都不會被看到）
@@ -4121,7 +4163,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.style.overflow = '';
       closeDetailState();
       top();
-      searchInput.focus({ preventScroll: true }); searchInput.select();
+      if (!noFocus) { searchInput.focus({ preventScroll: true }); searchInput.select(); }   // 修改：加上 noFocus 判斷
 
       window.addEventListener('popstate', top, { once: true });         // popstate 是非同步的，期間補捲到頂端
       requestAnimationFrame(top); setTimeout(top, 0); setTimeout(top, 80);
@@ -4136,8 +4178,17 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebarModal.style.display = 'none'; modal.style.display = 'none';
     document.body.style.overflow = '';
     closeDetailState();
-    const y = _listScrollY;
-    const go = () => window.scrollTo(0, y);
+    const y = _listScrollY, idx = window._detailIdx;
+    // 新增：若中途用「上一個／下一個」換過詞，返回時改回到「目前這一筆」所在的頁與位置，而不是一開始點開的那一筆
+    const moved = typeof idx === 'number' && idx !== window._detailOpenIdx && !isExType(currentSearchType) && !isSpecialTab(currentSearchType);
+    const go = () => {
+      if (!moved) { window.scrollTo(0, y); return; }
+      const page = Math.floor(idx / ITEMS_PER_PAGE) + 1;
+      if (page !== _lastPage) { displayResults(filteredData, page); syncUrl('replace'); }   // 該筆在別的分頁：先換到那一頁
+      const num = document.querySelector('#results .item-number[data-index="' + idx + '"]');
+      const row = num && num.closest('tr');
+      if (row) window.scrollTo(0, Math.max(0, row.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3));   // 放在畫面上方三分之一處
+    };
     go(); requestAnimationFrame(go); setTimeout(go, 80); setTimeout(go, 250);   // 列表可能剛重繪，多補幾次
   }
   window.closeDetailView = closeDetail;   // 手機版詳細頁的返回鈕、查詢框共用
@@ -4327,9 +4378,9 @@ ABAC	如「想空想縫」
     navigation.appendChild(select);
 
     // 新增：^開頭、結尾$ 勾選；兩個都勾時，旁邊顯示「＝精確」標記（不再有獨立的 ^精確$ 按鈕）
-    const mkBox = (text, title) => {
+    const mkBox = (text, title, cls) => {   // 修改：多一個 cls 參數，讓開頭、結尾各自有專屬 class（上色用）
       const label = document.createElement('label');
-      label.className = 'keyboard-exact';
+      label.className = 'keyboard-exact' + (cls ? ' ' + cls : '');   // 修改：加上 cls
       label.title = title;
       const box = document.createElement('input');
       box.type = 'checkbox';
@@ -4338,8 +4389,8 @@ ABAC	如「想空想縫」
       label._title = title;   // 新增：記住原本的提示文字（正則模式時會暫時改掉）
       return { label, box };
     };
-    const bStart = mkBox('^開頭', '作為開頭（加上 ^）');
-    const bEnd = mkBox('結尾$', '作為結尾（加上 $）');
+    const bStart = mkBox('^開頭', '作為開頭（加上 ^）', 'kb-start');   // 修改：加第三個參數
+    const bEnd = mkBox('結尾$', '作為結尾（加上 $）', 'kb-end');   // 修改：加第三個參數
     const exactMark = document.createElement('span');
     exactMark.className = 'kb-exact-mark'; exactMark.textContent = '＝精確'; exactMark.title = '開頭＋結尾＝精確比對';
     const syncBoxes = () => {
@@ -4349,7 +4400,10 @@ ABAC	如「想空想縫」
       const a = { start: x.s || auto, end: x.e || auto };   // 修改：加入 auto
       bStart.box.checked = a.start; bEnd.box.checked = a.end; exactMark.classList.toggle('on', a.start && a.end);
       [bStart, bEnd].forEach(b => { b.box.disabled = false; b.label.classList.remove('kb-disabled'); b.label.title = b.label._title; });
-      virtualKeyboardToggle.classList.toggle('exact-on', a.start || a.end);
+      // 修改：不再用紅點（exact-on），改以 ˅ 按鈕底色表示：只有開頭＝黃、只有結尾＝紅、兩者都有＝紫
+      virtualKeyboardToggle.classList.toggle('anchor-start', a.start && !a.end);
+      virtualKeyboardToggle.classList.toggle('anchor-end', a.end && !a.start);
+      virtualKeyboardToggle.classList.toggle('anchor-both', a.start && a.end);
     };
     _syncAnchorBoxes = syncBoxes;   // 新增：讓 setRawRx 能刷新勾選狀態
     const applyAnchor = (start, end) => {
@@ -4653,6 +4707,15 @@ else restoreFromUrl();
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) setOpen(false); });
 })();
 
+
+// ======== 詳細頁右上角選單：點外面或按 Esc 就關閉 ========
+(function () {
+  const closeAll = () => document.querySelectorAll('.detail-menu-pop:not([hidden])').forEach(p => {
+    p.hidden = true; const b = p.parentNode.querySelector('.detail-menu'); if (b) b.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.detail-menu, .detail-menu-pop')) closeAll(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+})();
 
 // ======== 詳細頁：調色／音色／句色／例句 收在一個「顯示」按鈕裡 ========
 document.addEventListener('click', function (e) {
