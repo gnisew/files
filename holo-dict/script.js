@@ -2342,7 +2342,7 @@ function buildInitialIndex(currentPage) {
         if (ch === prev) continue;
         if (seen.has(ch)) return none;                     // 字母又出現第二段：放棄索引
         seen.add(ch); prev = ch;
-        list.push({ ch, page: Math.floor(i / ITEMS_PER_PAGE) + 1 });
+        list.push({ ch, page: Math.floor(i / ITEMS_PER_PAGE) + 1, idx: i });   // 修改：多記 idx（該字母第一筆在 filteredData 的位置）
     }
     return list.length >= 2 ? { list, tier: T.grouped ? TIER_LABELS[t] : '' } : none;
 }
@@ -2413,7 +2413,7 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
         // 目前頁第一筆的字母，用來標示「現在在哪一段」
         const curIdx = idxList.filter(x => x.page <= currentPage).pop();
         idxList.forEach(x => {
-            const c = mk(x.ch, x.ch === '#' ? '其他' : `跳到 ${x.ch}（第${x.page}頁）`, false, () => changePage(x.page), 'pm-idx-chip' + (curIdx && curIdx.ch === x.ch ? ' on' : ''));
+            const c = mk(x.ch, x.ch === '#' ? '其他' : `跳到 ${x.ch}（第${x.page}頁）`, false, () => changePage(x.page, x.idx), 'pm-idx-chip' + (curIdx && curIdx.ch === x.ch ? ' on' : ''));
             idxBox.appendChild(c);
         });
         idxRow.append(idxLabel, idxBox);
@@ -2490,7 +2490,7 @@ function changeItemsPerPage(newItemsPerPage) {
 }
 
 
-function changePage(newPage) {
+function changePage(newPage, targetIdx) {   // 修改：新增 targetIdx（選填）：換頁後直接捲到這一筆並閃一下標示
     // 不需要重新過濾數據，只需要重新排序和顯示
     
     const searchTerm = searchInput.value.trim();
@@ -2501,6 +2501,18 @@ function changePage(newPage) {
     // 顯示新頁面的結果
     displayResults(filteredData, newPage);
     syncUrl('replace');
+
+    // 新增：指定了某一筆（聲母索引）→ 捲到那一筆並標示；找不到才用下面原本的「捲到頂端」
+    if (targetIdx != null) {
+        const a = document.querySelector(`#results .item-number[data-index="${targetIdx}"]`);
+        const tr = a && a.closest('tr');
+        if (tr) {
+            tr.classList.add('idx-hit');
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => tr.classList.remove('idx-hit'), 1800);
+            return;
+        }
+    }
 
     // 滾動到結果容器的頂部
     const resultsContainer = document.getElementById('results');

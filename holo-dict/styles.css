@@ -3840,3 +3840,7 @@ button.radical-link:focus-visible { outline: 2px solid #1a73e8; outline-offset: 
 .keyboard-exact.kb-end:hover { background: #fde4e1; border-color: #f1a8a1; }
 .keyboard-exact.kb-end:has(input:checked) { background: #f9c6c1; border-color: #f1a8a1; color: #d93025; }
 .kb-exact-mark { color: #8430ce; }   /* 「＝精確」改紫色，與 ˅ 按鈕的紫色一致 */
+
+/* 新增：聲母索引跳轉後，目標那一筆淡黃色閃一下 */
+@keyframes idxHit { 0%, 60% { background-color: #fff3c4; } 100% { background-color: transparent; } }
+#results tr.idx-hit > td { animation: idxHit 1.8s ease-out; }
