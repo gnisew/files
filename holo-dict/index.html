@@ -166,13 +166,14 @@ if (/[?&](q|cas|d|a)=|[?&]b=(cat|rad|py)(&|$)/.test(location.search)) {
 <div class="cat-full" id="catFull" role="dialog" aria-label="分類瀏覽（全部檢視）">
     <div class="cat-full-card">
         <div class="cat-full-head">
-            <div class="cat-full-switch" role="tablist" aria-label="瀏覽方式"><button type="button" role="tab" data-mode="cat" class="on" aria-selected="true">分類</button><button type="button" role="tab" data-mode="rad" aria-selected="false">部首</button><button type="button" role="tab" data-mode="py" aria-selected="false">拼音</button></div>   <!-- 修改：原本的標題「分類瀏覽」換成切換鈕 -->
+            <div class="cat-full-switch" role="tablist" aria-label="瀏覽方式"><button type="button" role="tab" data-mode="cat" class="on" aria-selected="true">分類</button><button type="button" role="tab" data-mode="rad" aria-selected="false">部首</button><button type="button" role="tab" data-mode="py" aria-selected="false">拼音</button></div>
             <input type="text" id="catFullFilter" placeholder="篩選分類⋯⋯" autocomplete="off" spellcheck="false">
             <button type="button" class="cat-full-close" id="catFullClose" aria-label="關閉"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
         </div>
         <div class="rad-rail" id="radRail" hidden></div>   <!-- 新增：部首模式的筆畫導覽列 -->
         <div class="cat-full-body" id="catFullBody"></div>
-        <div class="py-detail" id="pyDetail" hidden></div>   <!-- 新增：拼音模式的例字面板（放在捲動區外，固定在版面底部） -->
+        <div class="py-detail" id="pyDetail" hidden></div>
+        <div class="py-detail rad-detail" id="radDetail" hidden></div>   <!-- 新增：部首「檢視文字」模式的字面板（同拼音例字面板的上下欄做法） -->   <!-- 新增：拼音模式的例字面板（放在捲動區外，固定在版面底部） -->
     </div>
 </div>
 

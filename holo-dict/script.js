@@ -1110,6 +1110,7 @@ function buildUrl() {
       if (_pyOne && _pyView !== 'mx' && _pyCur) p.set('bc', _pyCur);
     }
     if (_browseMode === 'rad' && _radCur) p.set('bs', _radCur);   // 新增：部首目前捲到的筆畫（第一組不寫）
+    if (_browseMode === 'rad' && _radAct === 'text' && _radSel) p.set('bq', _radSel);   // 新增：「檢視文字」模式選中的部首
   }   // 新增：分類／部首／拼音瀏覽開著（b＝哪一種；bp＝拼音選中的音節）
   const qs = p.toString();
   return location.pathname + (qs ? '?' + qs : '');
@@ -1186,6 +1187,8 @@ function applyUrlState(initial) {
       if (!catFull.classList.contains('open') || _browseMode !== bm) toggleCategoryFull(true, bm, { fromUrl: true });
       else if (pyChg) renderPinyinFull();
       if (bm === 'rad') {   // 新增：還原部首的筆畫位置
+        const bq = sp.get('bq') || '';   // 新增：還原「檢視文字」選中的部首
+        if (bq !== _radSel) { _radSel = bq; if (bq) { _radAct = 'text'; syncRadAct(); } radMarkSel(); }
         const bs = sp.get('bs') || '';
         if (bs !== _radCur) { if (bs) radScrollTo(bs, false); else catFullBody.scrollTop = 0; _radCur = bs; }
       }
@@ -1622,7 +1625,7 @@ const SIMPLE = (() => {
     return { src, hl: '(?:' + parts.map(p => comp(p, false)).join('|') + ')', and: true, disp: shortenH(src), code: 'p' };   // 修改：disp 用 \h 縮短
   }
   // 新增：正則模式的 ^ $ ——框內「開頭的 ^」「結尾的 $」視同勾選（比對方式與 ^開頭／結尾$ 勾選相同：多個讀音以 / 分開者逐一比對、結尾可帶【…】）
-  const A_ST = '(?:^|(?<=/))', A_EN = '(?:【[^】]*】)?(?:$|(?=/))';
+  const A_ST = '(?:^|(?<=/))(?:【[^】]*】)?', A_EN = '(?:【[^】]*】)?(?:$|(?=/))';
   const hasTopAlt = x => splitTop(x, '|').length > 1;
   function splitAnchors(t) {   // → { s, e, body }；本體含最外層 | 時（如 ^a|b）不解讀，維持標準正則的意思
     let body = t, s = false, e = false;
@@ -1652,13 +1655,13 @@ const SIMPLE = (() => {
     if (code === 'p') return ['', ''];
     if (code === 'b') return [LB + '(?:', ')' + LA];
     if (code === 'g') return ['(?:', ')'];
-    return [(/s/.test(code) ? '(?:^|(?<=/))' : '') + '(?:', ')' + (/e/.test(code) ? '(?:【[^】]*】)?(?:$|(?=/))' : '')];
+    return [(/s/.test(code) ? '(?:^|(?<=/))(?:【[^】]*】)?' : '') + '(?:', ')' + (/e/.test(code) ? '(?:【[^】]*】)?(?:$|(?=/))' : '')];
   }
   // 新增：只要求開頭或只要求結尾（多個讀音以「/」分開者逐一比對）
   function anchorWrap(body, start, end) {
-    return (start ? '(?:^|(?<=/))' : '') + '(?:' + body + ')' + (end ? '(?:【[^】]*】)?(?:$|(?=/))' : '');
+    return (start ? '(?:^|(?<=/))(?:【[^】]*】)?' : '') + '(?:' + body + ')' + (end ? '(?:【[^】]*】)?(?:$|(?=/))' : '');
   }
-  function exactWrap(body) { return '(?:^|(?<=/))(?:' + body + ')(?:【[^】]*】)?(?:$|(?=/))'; }
+  function exactWrap(body) { return '(?:^|(?<=/))(?:【[^】]*】)?(?:' + body + ')(?:【[^】]*】)?(?:$|(?=/))'; }
 
   // 新增：正則模式專用的短代號 \h ＝ 一個漢字（HAN 的完整寫法）。框內顯示 \h，查詢時才展開；[...] 字元集內與 \\h 的 \\ 不展開
   function expandH(t) {
@@ -3293,6 +3296,7 @@ catFullFilter.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
   if (_browseMode === 'rad') {   // 新增：部首模式，Enter＝進入第一個部首
     const t = catFullBody.querySelector('.rad-tile:not(:disabled)');
+    if (t && _radAct === 'text') { const h = catFullBody.querySelector('.rad-tile.is-hit:not(:disabled)') || t; radSelect(h.dataset.rad, h); return; }   // 新增：檢視文字＝選取第一個（或命中的）部首
     if (t) { closeBrowseForPick(); searchByRadical(t.dataset.rad); }
     return;
   }
@@ -3307,7 +3311,10 @@ catFullFilter.addEventListener('keydown', e => {
 });
 catFullBody.addEventListener('click', e => {
   const rt = e.target.closest('.rad-tile[data-rad]');   // 新增：點部首 → 關閉大版面，以該部首查詢
-  if (rt) { closeBrowseForPick(); searchByRadical(rt.dataset.rad); return; }
+  if (rt) {
+    if (_radAct === 'text') { radSelect(rt.dataset.rad === _radSel ? '' : rt.dataset.rad, rt); return; }   // 新增：檢視文字＝留在這裡，下方列出該部首的字
+    closeBrowseForPick(); searchByRadical(rt.dataset.rad); return;
+  }
   const b = e.target.closest('[data-cat]'); if (!b) return;
   closeBrowseForPick();
   searchByCategory(b.dataset.cat);
@@ -3325,6 +3332,72 @@ if (!HAS_RADICAL) {   // radical.js 沒載入：藏起部首入口
   const rb = document.getElementById('catRadical'); if (rb) rb.hidden = true;
 }
 let _radCur = '', _radUrlTimer = 0;   // 新增：部首目前捲到的筆畫（''＝第一組，不寫進網址）
+// ---- 新增：部首「檢視文字」模式 ----
+// 部首右側的選項「直接查詢｜檢視文字」：直接查詢（預設）＝點部首後離開瀏覽、以該部首查詢（原本的做法）；
+// 檢視文字＝點部首後留在瀏覽畫面，下方（同拼音的上下欄）列出該部首的字，依部首外筆畫分列，點字開詞條。
+let _radAct = 'text', _radSel = '', _radHan = null;   // 修改：固定為「檢視文字」（已移除「直接查詢｜檢視文字」切換鈕；要直接查詢請按面板裡的「查詢此部首」）   // _radAct：go／text（記在 localStorage）；_radSel：檢視文字時選中的部首
+const radActEl = document.getElementById('radAct'), radDetailEl = document.getElementById('radDetail');
+function syncRadAct() {   // 選項鈕的亮燈
+  if (!radActEl) return;
+  radActEl.querySelectorAll('button').forEach(b => { const on = b.dataset.act === _radAct; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+}
+function radChars(name) {   // 該部首在辭典裡的單字：[[部首外筆畫, [{han, id}, ...]], ...]（順序依 radical.js；辭典有、部首表沒有的放最後「其他」＝-1）
+  const r = myRadicalData.find(x => x.name === name); if (!r) return [];
+  if (!_radHan) {
+    _radHan = new Map();
+    dictionary.forEach(it => {
+      const v = it[RADICAL_TAB]; if (!v) return;
+      const han = String(it['台語'] || '').replace(/【[^】]*】/g, '').trim(); if ([...han].length !== 1) return;
+      v.split('、').forEach(n => { let m = _radHan.get(n); if (!m) _radHan.set(n, m = new Map()); if (!m.has(han)) m.set(han, String(it['詞目id'] || '')); });
+    });
+  }
+  const have = _radHan.get(name) || new Map(), seen = new Set(), out = [];
+  r.groups.forEach(([o, str]) => {
+    const l = [];
+    [...str].forEach(c => { if (have.has(c) && !seen.has(c)) { seen.add(c); l.push({ han: c, id: have.get(c) }); } });
+    if (l.length) out.push([o, l]);
+  });
+  const rest = []; have.forEach((id, c) => { if (!seen.has(c)) rest.push({ han: c, id }); });
+  if (rest.length) out.push([-1, rest]);
+  return out;
+}
+function radDrawDetail() {   // 底部面板：被選中部首的字
+  if (!radDetailEl) return;
+  if (_browseMode !== 'rad' || _radAct !== 'text' || !_radSel) { radDetailEl.hidden = true; radDetailEl.innerHTML = ''; return; }
+  const E = escHtml, rows = radChars(_radSel), r = myRadicalData.find(x => x.name === _radSel);
+  const total = rows.reduce((n, [, l]) => n + l.length, 0), hits = new Set([...catFullFilter.value.trim()]);   // 篩選框輸入的字會標色
+  radDetailEl.innerHTML = `<div class="py-dh"><b>${E(_radSel)}</b><small>${r ? r.strokes + ' 畫・' : ''}${total} 字</small><button type="button" class="rad-go" title="離開瀏覽，以此部首查詢">查此部首</button><button type="button" class="py-x" aria-label="收起" title="收起"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="py-rows">` +
+    rows.map(([o, l]) => `<div class="py-tr"><div class="py-tn" title="${o < 0 ? '部首表未列' : '部首外 ' + o + ' 畫' + (r ? '，總筆畫 ' + (r.strokes + o) : '')}"><b>${o < 0 ? '其他' : '+' + o}</b></div><div class="py-hz">` +
+      l.map(x => `<button type="button" class="py-han${hits.has(x.han) ? ' is-hit' : ''}" data-id="${E(x.id)}" title="查詢「${E(x.han)}」">${E(x.han)}</button>`).join('') + '</div></div>').join('') + '</div>';
+  radDetailEl.hidden = false;
+  radLayout();
+}
+function radLayout() {   // 新增：依面板寬度與各列字數，智慧分 1～3 欄；一欄放不下的列橫跨多欄
+  if (!radDetailEl || radDetailEl.hidden) return;
+  const box = radDetailEl.querySelector('.py-rows'); if (!box) return;
+  const trs = [...box.querySelectorAll('.py-tr')]; if (!trs.length) return;
+  box.classList.remove('rad-cols'); trs.forEach(t => { t.style.gridColumn = ''; });
+  const W = box.clientWidth, h0 = box.querySelector('.py-han');
+  let cols = Math.max(1, Math.min(3, Math.floor((W + 12) / 330)));   // 每欄至少約 330px
+  if (window.innerWidth <= 768 || !h0) cols = 1;
+  if (cols < 2) return;
+  const colW = (W - 12 * (cols - 1)) / cols, charW = h0.offsetWidth + 2;
+  const perCol = Math.max(1, Math.floor((colW - 72 - 40) / charW));   // 一欄扣掉左邊「+n」標籤與內距後，大約放幾個字
+  const spans = trs.map(t => Math.min(cols, Math.ceil(t.querySelectorAll('.py-han').length / perCol) || 1));
+  if (spans.every(n => n > 1)) return;   // 每列都很長：維持單欄
+  box.style.setProperty('--rc', cols); box.classList.add('rad-cols');
+  trs.forEach((t, i) => { if (spans[i] > 1) t.style.gridColumn = 'span ' + spans[i]; });
+}
+window.addEventListener('resize', () => { clearTimeout(radLayout._t); radLayout._t = setTimeout(radLayout, 80); });
+function radMarkSel() {   // 標出選中的部首方格，並重畫面板
+  catFullBody.querySelectorAll('.rad-tile.on').forEach(b => { if (b.dataset.rad !== _radSel || _radAct !== 'text') b.classList.remove('on'); });
+  if (_radSel && _radAct === 'text') { const t = [...catFullBody.querySelectorAll('.rad-tile')].find(x => x.dataset.rad === _radSel); if (t) t.classList.add('on'); }
+  radDrawDetail();
+}
+function radSelect(name, tile) {   // 點部首方格（檢視文字）：再點一次收起
+  _radSel = name; radMarkSel(); syncUrl('replace');
+  if (name && tile) pyReveal(tile, true);   // 面板展開後清單變矮，把被點的方格捲到可見處
+}
 function radScrollTo(s, smooth) {   // 新增：捲到指定筆畫（導覽列點擊、網址還原共用）
   const sec = catFullBody.querySelector(`.rad-sec[data-s="${s}"]`); if (!sec) return;
   catFullBody.scrollTo({ top: sec.getBoundingClientRect().top - catFullBody.getBoundingClientRect().top + catFullBody.scrollTop - 4, behavior: smooth ? 'smooth' : 'auto' });
@@ -3356,10 +3429,10 @@ function renderRadicalFull() {
     list = list.filter(r => hit ? hit.has(r.name) : (cnt.get(r.name) || 0) > 0);   // 沒篩選時，辭典裡沒有字的部首不列
     if (!list.length) return;
     strokes.push(s);
-    html += `<section class="rad-sec" data-s="${s}"><h3 class="rad-sec-h">${s}<small>畫</small></h3><div class="rad-grid">` +
+    html += `<section class="rad-sec" data-s="${s}"><h3 class="rad-sec-h">${s}</h3><div class="rad-grid">` +
       list.map(r => {
         const n = cnt.get(r.name) || 0, lv = n >= 100 ? 4 : n >= 40 ? 3 : n >= 15 ? 2 : n >= 5 ? 1 : 0;   // 新增：依字數分 0～4 級，決定方格底色深淺
-        return `<button type="button" class="rad-tile${hit ? ' is-hit' : ''}" data-h="${lv}" data-rad="${E(r.name)}" title="${E(r.name)}部・${r.strokes} 畫・${n} 字"${n ? '' : ' disabled'}><b>${E(r.name)}</b><small>${n || ''}</small></button>`;
+        return `<button type="button" class="rad-tile${hit ? ' is-hit' : ''}${_radAct === 'text' && r.name === _radSel ? ' on' : ''}" data-h="${lv}" data-rad="${E(r.name)}" title="${E(r.name)}部・${r.strokes} 畫・${n} 字"${n ? '' : ' disabled'}><b>${E(r.name)}</b><small>${n || ''}</small></button>`;
       }).join('') + '</div></section>';
   });
   if (html && !kw) html += '<p class="rad-note">方格下方數字＝辭典收錄的單字數；底色越深，字越多</p>';   // 新增：圖例說明
@@ -3368,6 +3441,7 @@ function renderRadicalFull() {
   if (_radCur) { _radCur = ''; clearTimeout(_radUrlTimer); _radUrlTimer = setTimeout(() => { if (_browseOpen) syncUrl('replace'); }, 300); }   // 新增：重畫（篩選）後捲回頂端，網址的 bs 跟著拿掉
   catFullRail.hidden = !!kw || !strokes.length;   // 篩選中不顯示導覽列
   catFullRail.innerHTML = catFullRail.hidden ? '' : '<span class="rad-unit">畫數</span>' + strokes.map(s => `<button type="button" data-s="${s}">${s}</button>`).join('');
+  radDrawDetail();   // 新增：篩選的字要在面板裡標色
   updateRadicalSpy();
 }
 function updateRadicalSpy() {   // 依捲動位置，標示導覽列目前的筆畫
@@ -3391,6 +3465,8 @@ function updateRadicalSpy() {   // 依捲動位置，標示導覽列目前的筆
 function renderBrowse() {
   const _pd = document.getElementById('pyDetail'); if (_pd && _browseMode !== 'py') _pd.hidden = true;   // 新增：離開拼音模式就藏起例字面板
   _pyBar.hidden = _browseMode !== 'py'; if (_browseMode !== 'py') catFullBody.classList.remove('is-mx');   // 新增：排版切換列只在拼音模式出現
+  if (radActEl) { radActEl.hidden = _browseMode !== 'rad'; syncRadAct(); }   // 新增：「直接查詢｜檢視文字」只在部首模式出現
+  if (radDetailEl && _browseMode !== 'rad') radDetailEl.hidden = true;
   if (_browseMode === 'rad') renderRadicalFull();
   else if (_browseMode === 'py') renderPinyinFull();   // 新增：拼音模式
   else renderCategoryFull();   // 修改：導覽列改由 renderCategoryFull 自己處理（原本這裡先藏起並清空）
@@ -3399,7 +3475,7 @@ function setBrowseMode(mode) {
   if (mode === 'rad' && !HAS_RADICAL) mode = 'cat';
   catFullRail.classList.toggle('is-cat', mode === 'cat');   // 新增：分類模式的大類按鈕用灰底
   if (mode === 'cat') _catRailOpen = true; else catFullRail.classList.remove('is-open');   // 新增：每次進分類模式都預設展開；其他模式維持原本的單排
-  _browseMode = mode; _radCur = '';   // 修改：多重設 _radCur（每次開啟／切換模式，部首都從第一組開始）
+  _browseMode = mode; _radCur = ''; _radSel = '';   // 修改：多重設 _radCur（每次開啟／切換模式，部首都從第一組開始）
   catFull.querySelectorAll('.cat-full-switch button').forEach(b => { const on = b.dataset.mode === mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
   catFullFilter.value = '';
   catFullFilter.placeholder = mode === 'rad' ? '字、部首、筆畫數' : mode === 'py' ? '音節或字，例：tsi、tsit8、貴' : '篩選分類⋯⋯';   // 修改：多了拼音
@@ -3420,12 +3496,14 @@ catFullRail.addEventListener('click', e => {   // 點筆畫 → 捲到該筆畫
 (function () {
   const r = catFullRail; let down = false, moved = false, sx = 0, sl = 0;
   const wrap = document.createElement('div'); wrap.className = 'rad-rail-wrap';
-  r.parentNode.insertBefore(wrap, r); wrap.appendChild(r);   // 外面包一層：左右兩端的遮罩層、展開鈕放在這裡，才不會跟著內容捲
+  const inner = document.createElement('div'); inner.className = 'rad-rail-in';   // 新增：導覽列自己的容器（遮罩層、展開鈕以它為準），右邊才有位置放「直接查詢｜檢視文字」
+  r.parentNode.insertBefore(wrap, r); wrap.appendChild(inner); inner.appendChild(r);   // 外面包一層：左右兩端的遮罩層、展開鈕放在這裡，才不會跟著內容捲
   const lab = document.createElement('div'); lab.className = 'rad-unit rail-lab'; lab.hidden = true; lab.setAttribute('aria-hidden', 'true');   // 左邊固定的標籤（複製自內容裡的「韻母」）
   const end = document.createElement('div'); end.className = 'rail-end'; end.hidden = true;   // 右端：白色漸層遮住尾端＋展開鈕
   const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'rail-more';
   mb.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  end.appendChild(mb); wrap.appendChild(lab); wrap.appendChild(end);
+  end.appendChild(mb); inner.appendChild(lab); inner.appendChild(end);
+  if (radActEl) wrap.appendChild(radActEl);   // 新增：「直接查詢｜檢視文字」從標題列移到筆畫數字的右邊（仍只在部首模式顯示）
   const isOpen = () => r.classList.contains('is-open');
   function label() { const o = isOpen(); mb.title = o ? '收合' : '展開全部'; mb.setAttribute('aria-label', mb.title); mb.setAttribute('aria-expanded', o); }
   function fade() {   // 左邊標籤的寬度／是否已捲動（捲動後標籤右邊才有淡出）
@@ -3684,7 +3762,7 @@ function renderPinyinFull() {
         }).join('') + '</div>';
       } else if (rev) {   // 反向：18 個聲母固定位置（兩排各 9 個），這個韻母沒有的聲母留成灰色、不能點
         const have = new Map(g.es.map(e => [e.ini, e]));
-        inner = `<div class="py-grid py-rv">${PY_ORDER.map(i => have.has(i) ? pyChip(have.get(i), true, one) : `<span class="py-syl py-no" aria-hidden="true"><b>${i ? E(i) : '零'}</b></span>`).join('')}</div>`;
+        inner = `<div class="py-grid py-rv">${PY_ORDER.map(i => have.has(i) ? pyChip(have.get(i), true, false) : `<span class="py-syl py-no" aria-hidden="true"><b>${i ? E(i) : '零'}</b></span>`).join('')}</div>`;
       } else inner = `<div class="py-grid">${g.es.map(e => pyChip(e, false)).join('')}</div>`;
       if (rev && view === 'fam') { const k = pyFamOf(g.key); if (k !== lastK && !one) { lastK = k; html += pyFamBanner(PY_FAM[k - 1]); } }   // 反向＋家族：各家族之間放一條標題
       const lb = E(g.key), ttl = rev ? '-' + g.key + ' 韻母' : (g.ini ? g.ini + ' 聲母' : '零聲母');
@@ -3721,7 +3799,7 @@ function pyDrawDetail() {   // 底部面板：被選中音節的各調單字
   const two = ks.length >= 2;
   const tl = ['1', '2', '3', '4', '5', '7', '8', '9']; if (e.tones.has('6')) tl.splice(5, 0, '6');   // 新增：聲調列（各調字數，沒有的調淡化；點了捲到該調）
   const strip = '<div class="py-ts" role="group" aria-label="聲調">' + tl.map(t => { const n = (e.tones.get(t) || []).length; return `<button type="button" class="py-tp${n ? '' : ' is-no'}${t === _pyTone ? ' on' : ''}" data-t="${t}" style="--tn:var(--tn${t})" title="${t} ${TONE_NAME[t] || ''}${n ? '・' + n + ' 字' : '・無'}"${n ? '' : ' disabled'}><b>${t}</b></button>`; }).join('') + '</div>';
-  box.innerHTML = `<div class="py-dh"><b>${E(e.s)}</b><small>${e.n} 字</small>${strip}<button type="button" class="py-x" aria-label="收起" title="收起"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="py-rows${two ? ' py-2c' : ''}">` +   // 修改：標題列（含 X）固定；下面的各調列包進 .py-rows 才會捲動
+  box.innerHTML = `<div class="py-dh"><b>${E(e.s)}</b><small>${e.n} 字</small>${strip}<button type="button" class="rad-go py-go" title="離開瀏覽，以此音讀查詢（^${E(e.s)}0$：任意聲調）">查此音讀</button><button type="button" class="py-x" aria-label="收起" title="收起"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="py-rows${two ? ' py-2c' : ''}">` +   // 修改：標題列（含 X）固定；下面的各調列包進 .py-rows 才會捲動
     ks.map(t => {
       let r; try { r = holoNumberToTone(e.s + t); } catch (err) { r = e.s + t; }   // 數字調 → 字中調：tsi2 → tsí
       return `<div class="py-tr${t === _pyTone ? ' is-hit' : ''}${wide.has(t) ? ' py-w' : ''}" data-t="${t}" style="--tn:var(--tn${t})"><div class="py-tn" title="${t} ${TONE_NAME[t] || ''}"><b>${E(r)}</b></div><div class="py-hz">` +
@@ -3740,7 +3818,14 @@ function pyReveal(btn, smooth) {   // 新增：面板展開後清單變矮，若
   if (needH) o.left = Math.max(0, catFullBody.scrollLeft + (b.left - r.left) - (r.width - b.width) / 2);
   catFullBody.scrollTo(o);
 }
-function openEntryById(id) {   // 關閉大版面，直接開啟該詞目的詳細頁（做法同 applyUrlState 的 d=詞目id）
+function searchByPinyinSyl(syl) {   // 新增：拼音瀏覽「查此音讀」：搜尋框填 ^音節0$（0＝任意聲調），照一般查詢列出結果
+  hideDetailUI(); currentDetailId = null; setRawRx(false);
+  searchInput.value = '^' + syl + '0$'; searchClear.style.display = 'block';
+  currentSearchType = defaultType();
+  performSearch(); updateActiveSearchType();
+  window.scrollTo(0, 0);
+}
+function openEntryById(id, listOnly) {   // 關閉大版面，直接開啟該詞目的詳細頁（做法同 applyUrlState 的 d=詞目id）；修改：listOnly＝只列出搜尋結果清單，不進詳細頁（部首例字用）
   const item = dictionary.find(x => String(x['詞目id']) === String(id)); if (!item) return;
   closeBrowseForPick();
   hideDetailUI(); currentDetailId = null; setRawRx(false);
@@ -3749,6 +3834,7 @@ function openEntryById(id) {   // 關閉大版面，直接開啟該詞目的詳�
   performSearch(); updateActiveSearchType();
   let idx = filteredData.indexOf(item);
   if (idx < 0) { filteredData = [item]; hasSearchResults = true; displayResults(filteredData, 1); idx = 0; }
+  if (listOnly) { window.scrollTo(0, 0); return; }   // 新增：只停在結果清單
   showFullData(idx);
 }
 catFull.addEventListener('click', e => {   // 修改：原本掛在 catFullBody，面板移出後改掛 catFull
@@ -3769,11 +3855,25 @@ catFull.addEventListener('click', e => {   // 修改：原本掛在 catFullBody�
     if (_pySel) pyReveal(sb, true);   // 新增：展開面板後，把被點的音節捲到上方可見處，不被面板遮住
     return;
   }
+  if (e.target.closest('.py-go')) { const n = _pySel; if (n) { closeBrowseForPick(); searchByPinyinSyl(n); } return; }   // 新增：查此音讀 → 離開瀏覽，查 ^音節0$（任意聲調、完全符合）
   if (e.target.closest('.py-x')) {
     _pySel = ''; syncUrl('replace'); catFullBody.querySelectorAll('.py-syl.on, .py-cell.on').forEach(b => b.classList.remove('on')); mxPaint('sel', null); pyDrawDetail(); return;
   }
   const hz = e.target.closest('.py-han[data-id]');
   if (hz) openEntryById(hz.dataset.id);   // 點字：開詞條
+});
+
+if (radActEl) radActEl.addEventListener('click', e => {   // 新增：部首右側的選項
+  const b = e.target.closest('button[data-act]'); if (!b || b.dataset.act === _radAct) return;
+  _radAct = b.dataset.act; _radSel = '';
+  try { localStorage.setItem(myLocal + 'radAct', _radAct); } catch (err) {}
+  syncRadAct(); radMarkSel(); syncUrl('replace');
+});
+catFull.addEventListener('click', e => {   // 新增：部首「檢視文字」面板：收起、查詢此部首、點字開詞條
+  if (_browseMode !== 'rad' || !radDetailEl || !radDetailEl.contains(e.target)) return;
+  if (e.target.closest('.py-x')) { radSelect(''); return; }
+  if (e.target.closest('.rad-go')) { const n = _radSel; closeBrowseForPick(); searchByRadical(n); return; }
+  const hz = e.target.closest('.py-han[data-id]'); if (hz) openEntryById(hz.dataset.id, true);   // 修改：點部首例字 → 進搜尋結果清單（不是直接開詳細頁）
 });
 
 document.addEventListener('keydown', e => {

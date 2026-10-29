@@ -4425,3 +4425,135 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
 .cat-full-head input { background: #fff; }
 .cat-full-close { background: #e6e9ed; }
 .cat-full-close:hover { background: #d9dde2; color: #1a73e8; }
+
+
+/* ===== 新增：部首「直接查詢｜檢視文字」選項（在「分類｜部首｜拼音」右側）＋ 檢視文字的字面板 ===== */
+.rad-act { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 3px; background: #e6e9ed; border-radius: 20px; }
+.rad-act[hidden] { display: none; }
+.rad-act button {
+    padding: 3px 10px; border: 0; border-radius: 17px; background: none; color: #5f6368; white-space: nowrap;
+    font: inherit; font-size: calc(11px * var(--fs, 1)); cursor: pointer; transition: background .15s, color .15s;
+}
+.rad-act button:hover { color: #1a73e8; }
+.rad-act button.on { background: #fff; color: #1a73e8; font-weight: 400; box-shadow: 0 1px 3px rgba(60, 64, 67, .22); }
+.rad-tile.on, .rad-tile.on:hover, .rad-tile.on:active { background: #1a73e8; border-color: #1a73e8; color: #fff; box-shadow: none; transform: none; }   /* 修改：選中的部首改藍底白字，無陰影、無位移 */
+.rad-tile.on small, .rad-tile.on:hover small { color: rgba(255, 255, 255, .85); }
+.rad-detail .py-tr { --tn: #202124; }   /* 字用深灰（拼音面板依聲調上色，部首沒有調） */
+.rad-detail .py-tn { color: #80868b; }
+.rad-detail .py-dh small { white-space: nowrap; }
+.rad-go {
+    margin-left: auto; height: 28px; padding: 0 12px; border: 1px solid #dadce0; border-radius: 14px; background: #fff;
+    color: #1a73e8; white-space: nowrap; font: inherit; font-size: calc(13px * var(--fs, 1)); cursor: pointer;
+}
+.rad-go:hover { background: #e8f0fe; border-color: #aecbfa; }
+.rad-detail .py-x { margin-left: 4px; }
+/* 修改：「直接查詢｜檢視文字」移到筆畫數字列的右邊（script.js 把它放進 .rad-rail-wrap，與導覽列同一排） */
+.rad-rail-wrap { display: flex; align-items: center; }
+.rad-rail-in { position: relative; flex: 1 1 auto; min-width: 0; }   /* 導覽列＋左右遮罩／展開鈕；吃掉剩餘寬度，選項固定靠右 */
+.rad-rail-wrap:has(.rad-rail:not([hidden]), .rad-act:not([hidden])) { border-bottom: 1px solid #e1e4e8; box-shadow: 0 4px 6px -4px rgba(60, 64, 67, .18); }   /* 底線與陰影改畫在整排（含選項）下面 */
+.rad-rail-wrap .rad-rail { border-bottom: 0; box-shadow: none; }
+.rad-rail-in .rail-lab, .rad-rail-in .rail-end { bottom: 0; }
+.rad-rail-wrap .rad-act { margin: 8px 20px 8px 4px; }
+.rad-rail-wrap:has(.rad-rail.is-open) { align-items: flex-start; }   /* 導覽列攤開成多排時，選項留在右上角 */
+.rad-rail-wrap:has(.rad-rail.is-open) .rad-act { margin-top: 10px; }
+@media (max-width: 768px) {
+    .rad-rail-wrap .rad-act { margin: 6px 12px 6px 2px; }
+    .rad-rail-wrap .rad-act button { padding: 3px 8px; }
+}
+
+/* 新增：部首「檢視文字」底部面板——依寬度與字數分 1～3 欄（script.js 的 radLayout 決定欄數與橫跨） */
+.rad-detail .py-rows.rad-cols { display: grid; grid-template-columns: repeat(var(--rc, 2), minmax(0, 1fr)); gap: 6px 12px; align-content: start; }
+
+/* 新增：部首「檢視文字」底部例字面板——電腦版垂直空間加大（只動 .rad-detail，拼音面板維持原樣）
+   原本共用 .py-detail 的 max-height: min(52vh, 460px)，視窗不高時只露出約 3～4 列。
+   改成：高度上限提高到 60vh／520px；並保證至少約 5 列（220px）可見，視窗很矮時才讓出給上方清單。 */
+@media (min-width: 769px) {
+    .rad-detail { max-height: max(240px, min(60vh, 520px)); }
+    .rad-detail .py-rows.rad-cols { gap: 6px 12px; }
+    .rad-detail .py-tr { padding: 7px 14px; }   /* 每列略縮 1px 上下內距，同樣高度多放一點 */
+}
+
+/* ===== 新增：電腦版「部首＋檢視文字」改成左右並排（左：部首方格；右：該部首的例字）=====
+   點了部首（右側面板出現）時，卡片由上下堆疊改成兩欄：標題列、筆畫導覽列橫跨整排，
+   下面左邊是部首清單、右邊是固定寬度的例字面板，面板與清單各自捲動、都用滿整個高度。
+   例字面板在窄欄裡自然單欄排列（script.js 的 radLayout 算出欄數 < 2 就維持單欄），不必左右來回看。
+   只影響電腦版；手機版（≤768px）仍維持底部面板。拼音模式不受影響。 */
+@media (min-width: 769px) {
+    .cat-full-card:has(> .rad-detail:not([hidden])) {
+        display: grid; grid-template-columns: minmax(0, 1fr) 400px; grid-template-rows: auto auto minmax(0, 1fr);
+    }
+    .cat-full-card:has(> .rad-detail:not([hidden])) > * { grid-column: 1 / -1; }
+    .cat-full-card:has(> .rad-detail:not([hidden])) > .cat-full-head { grid-row: 1; }
+    .cat-full-card:has(> .rad-detail:not([hidden])) > .rad-rail-wrap { grid-row: 2; }
+    .cat-full-card:has(> .rad-detail:not([hidden])) > .cat-full-body { grid-column: 1; grid-row: 3; }
+    .cat-full-card:has(> .rad-detail:not([hidden])) > .rad-detail {
+        grid-column: 2; grid-row: 3; min-height: 0; max-height: none;
+        border-top: 0; border-left: 1px solid #e3e6ea; box-shadow: none; background: #fcfcfd;
+    }
+    .rad-detail .py-dh { padding: 14px 20px 8px; }
+    .rad-detail .py-dh small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .rad-detail .py-tn { flex-basis: 44px; }   /* 窄欄：「+n」標籤縮小，讓出空間給字 */
+    .rad-detail .py-han { font-size: calc(24px * var(--fs, 1)); }
+}
+
+/* ===== 新增：電腦版部首例字面板改用「斑馬間隔色」=====
+   右側例字面板已是獨立的一欄，每列都有灰底色塊會太重、列與列之間的留白也浪費高度。
+   改成：奇數列無底色、偶數列淡灰底，列之間不留縫（同樣高度多看一兩列）。
+   被篩選命中的列仍用原本的加深底色＋細框。手機版（底部面板、各調色塊）維持原樣。 */
+@media (min-width: 769px) {
+    .rad-detail .py-rows { gap: 0; }
+    .rad-detail .py-tr { background: transparent; border-radius: 10px; padding: 8px 14px; }
+    .rad-detail .py-tr:nth-child(even) { background: #f4f5f7; }
+    .rad-detail .py-tr.is-hit { background: #eef3fd; box-shadow: inset 0 0 0 1px #c6d7f5; }
+}
+
+/* ===== 新增：部首例字面板的字——滑過／鍵盤選取改成藍色系（原本是白底＋陰影，在無底色的列上看不出來、也和上方方格的藍色不搭）===== */
+.rad-detail .py-han { transition: background .12s, color .12s; }
+.rad-detail .py-han:hover,
+.rad-detail .py-han:focus-visible { background: #e8f0fe; color: #1a73e8; box-shadow: none; outline: 0; }
+.rad-detail .py-han:focus-visible { box-shadow: inset 0 0 0 1.5px #1a73e8; }
+.rad-detail .py-han:active { background: #d2e3fc; }
+.rad-detail .py-han.is-hit:hover { background: #fde68a; color: #1a73e8; }   /* 篩選命中的字（黃底）滑過時略加深，字也轉藍 */
+
+/* ===== 新增：拼音「家族／清單」電腦版左右並排（左：音節方塊；右：該音節各調的字）=====
+   做法同部首「檢視文字」：選了音節（右側面板出現）時，卡片改成兩欄；標題列、排版列、聲母導覽列橫跨整排，
+   下面左邊是音節清單、右邊是固定寬度的字面板，兩邊各自捲動、都用滿整個高度。
+   矩陣（.is-mx）需要整排寬度，維持原本的底部面板；手機版（≤768px）也維持底部面板。 */
+@media (min-width: 769px) {
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) {
+        display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto auto auto minmax(0, 1fr);
+    }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) > * { grid-column: 1 / -1; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) > .cat-full-head { grid-row: 1; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) > .py-view { grid-row: 2; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) > .rad-rail-wrap { grid-row: 3; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) > .cat-full-body { grid-column: 1; grid-row: 4; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) > #pyDetail {
+        grid-column: 2; grid-row: 4; min-height: 0; max-height: none;
+        border-top: 0; border-left: 1px solid #e3e6ea; box-shadow: none; background: #fcfcfd;
+    }
+    /* 右側面板：窄欄裡各調單欄排列；標題列放不下聲調鈕時，聲調鈕換到第二行 */
+    #pyDetail .py-dh { flex-wrap: wrap; padding: 14px 20px 8px; }
+    #pyDetail .py-ts { order: 3; flex: 1 0 100%; margin: 6px 0 0; }
+    #pyDetail .py-rows.py-2c { grid-template-columns: minmax(0, 1fr); }
+    #pyDetail .py-tn { flex-basis: 56px; }
+    /* 左側清單變窄：韻母→聲母的 18 個聲母由「2 排 9 個」改成「3 排 6 個」，方塊才放得下完整音節 */
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) .py-grid.py-rv { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* ===== 新增：拼音右側字面板（家族／清單）改用「斑馬間隔色」=====
+   字與音節已依聲調上色，每列再加一塊同色底色就太重（色彩重複、也佔去留白）。
+   改成：奇數列淡灰底、偶數列無底色（第一列先灰），列之間不留縫；字仍保留聲調顏色。
+   被篩選命中的調維持「淡色底＋細框」；字滑過改淡灰底、無陰影。矩陣的底部面板、手機版維持原樣。 */
+@media (min-width: 769px) {
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-rows { gap: 0; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tr { background: transparent; border-radius: 10px; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tr:nth-child(odd) { background: #f4f5f7; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tr.is-hit { background: #f1f3f4; background: color-mix(in srgb, var(--tn) 12%, #fff); box-shadow: inset 0 0 0 1px #dadce0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tn) 35%, #fff); }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-han:hover { background: #e8eaed; box-shadow: none; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-han.is-hit:hover { background: #fde68a; }
+}
+
+/* 新增：拼音面板「查此音讀」鈕（沿用 .rad-go 外觀），貼在 ✕ 左邊 */
+.py-dh .py-go { margin-left: auto; flex: 0 0 auto; }
+.py-dh .py-go + .py-x { margin-left: 4px; }
