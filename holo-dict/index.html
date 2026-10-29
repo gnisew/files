@@ -12,8 +12,8 @@
 	<link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
 	<link rel="stylesheet" href="styles.css">
 <script>
-// 網址帶有查詢（q / d）或換詞頁（a）時，先隱藏畫面並關閉過場動畫，等 script.js 還原完畢再顯示，避免先看到首頁
-if (/[?&](q|cas|d|a)=/.test(location.search)) {
+// 網址帶有查詢（q / d）、換詞頁（a）或分類瀏覽（b=cat／rad／py）時，先隱藏畫面並關閉過場動畫，等 script.js 還原完畢再顯示，避免先看到首頁
+if (/[?&](q|cas|d|a)=|[?&]b=(cat|rad|py)(&|$)/.test(location.search)) {
   document.documentElement.classList.add('restoring');
   setTimeout(function () { document.documentElement.classList.remove('restoring'); }, 3000);   // 保險：最久 3 秒
 }
@@ -49,7 +49,7 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
     document.documentElement.classList.toggle('ex-arrow', window.rwOn || window.rqOn);   // 近反義或查詢啟用時，詳細頁例句上游標一律是箭頭   // 新增：近反義顯示（例句的詞，滑鼠懸停時顯示近義、反義詞；預設關）
     window.showMixed = a.mx === 'on';   // 是否列出「混拼符合」（預設不顯示）
     window.sortMode = a.so === 'rom' ? 'rom' : 'han';   // 列表排序：han＝詞目＞音讀（預設）、rom＝音讀＞詞目
-    window.defMode = (a.df === 'full' || a.df === 'std' || a.df === 'brief') ? a.df : 'brief';
+    window.defMode = (a.df === 'full' || a.df === 'std' || a.df === 'brief' || a.df === 'line') ? a.df : 'brief';   // 修改：多接受 'line'（單行）
     // 聲調色彩：總開關 / 詞目 / 例句 / 要標示的聲調
     window.tnOn = a.tn === 'on';
     window.tnHead = a.tnh !== 'off';
@@ -145,14 +145,6 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
 <button class="cat-trigger" id="catTrigger" type="button" aria-label="分類瀏覽" aria-expanded="false" title="分類瀏覽">
     <svg class="icon" aria-hidden="true"><use href="#i-apps"/></svg>
 </button>
-<div class="cat-panel" id="catPanel" role="dialog" aria-label="分類瀏覽">
-    <div class="cat-panel-head">
-        <button type="button" class="cat-back" id="catBack" aria-label="返回大類" hidden><svg class="icon" aria-hidden="true"><use href="#i-arrow-back"/></svg></button>
-        <input type="text" id="catFilter" placeholder="篩選分類⋯⋯" autocomplete="off" spellcheck="false">
-        <button type="button" class="cat-expand" id="catExpand" aria-label="全部檢視" title="全部檢視（展開大版面）"><svg class="icon" aria-hidden="true"><use href="#i-fullscreen"/></svg></button>
-    </div>
-    <div class="cat-grid" id="catGrid"></div>
-</div>
 <button class="settings-trigger" id="settingsTrigger" aria-label="設定" title="設定">
     <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
 </button>
@@ -174,11 +166,13 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
 <div class="cat-full" id="catFull" role="dialog" aria-label="分類瀏覽（全部檢視）">
     <div class="cat-full-card">
         <div class="cat-full-head">
-            <div class="cat-full-title">分類瀏覽</div>
+            <div class="cat-full-switch" role="tablist" aria-label="瀏覽方式"><button type="button" role="tab" data-mode="cat" class="on" aria-selected="true">分類</button><button type="button" role="tab" data-mode="rad" aria-selected="false">部首</button><button type="button" role="tab" data-mode="py" aria-selected="false">拼音</button></div>   <!-- 修改：原本的標題「分類瀏覽」換成切換鈕 -->
             <input type="text" id="catFullFilter" placeholder="篩選分類⋯⋯" autocomplete="off" spellcheck="false">
             <button type="button" class="cat-full-close" id="catFullClose" aria-label="關閉"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
         </div>
+        <div class="rad-rail" id="radRail" hidden></div>   <!-- 新增：部首模式的筆畫導覽列 -->
         <div class="cat-full-body" id="catFullBody"></div>
+        <div class="py-detail" id="pyDetail" hidden></div>   <!-- 新增：拼音模式的例字面板（放在捲動區外，固定在版面底部） -->
     </div>
 </div>
 
@@ -338,7 +332,8 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                     <div class="seg" data-key="df" role="radiogroup" aria-labelledby="lblDf">
                         <button type="button" data-v="full">完整</button>
                         <button type="button" data-v="std">標準</button>
-                        <button type="button" data-v="brief">精簡</button>
+                        <button type="button" data-v="brief">合併</button>   <!-- 修改：精簡→合併 -->
+                        <button type="button" data-v="line">單行</button>   <!-- 新增 -->
                     </div>
                 </div>
                 <div class="setting-row">
@@ -417,14 +412,14 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">套用範圍</div>
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblTnh">套用於詞目</label></div>
+                    <div class="setting-text"><label id="lblTnh">詞目</label></div>
                     <div class="seg" data-key="tnh" role="radiogroup" aria-labelledby="lblTnh">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblTne">套用於例句</label></div>
+                    <div class="setting-text"><label id="lblTne">例句</label></div>
                     <div class="seg" data-key="tne" role="radiogroup" aria-labelledby="lblTne">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
@@ -436,17 +431,16 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-row stack">
                     <div class="setting-text"><label>標示的聲調</label></div>
                     <div class="tn-chips" id="tnChips">
-                        <button type="button" class="tn-chip" data-t="1" style="--tn:var(--tn1)"><i class="dot"></i>1<small>陰平</small></button>
-                        <button type="button" class="tn-chip" data-t="2" style="--tn:var(--tn2)"><i class="dot"></i>2<small>陰上</small></button>
-                        <button type="button" class="tn-chip" data-t="3" style="--tn:var(--tn3)"><i class="dot"></i>3<small>陰去</small></button>
-                        <button type="button" class="tn-chip" data-t="4" style="--tn:var(--tn4)"><i class="dot"></i>4<small>陰入</small></button>
-                        <button type="button" class="tn-chip" data-t="5" style="--tn:var(--tn5)"><i class="dot"></i>5<small>陽平</small></button>
-                        <button type="button" class="tn-chip" data-t="6" style="--tn:var(--tn6)" disabled title="音讀沒有單獨的第 6 調"><i class="dot"></i>6<small>陽上</small></button>
-                        <button type="button" class="tn-chip" data-t="7" style="--tn:var(--tn7)"><i class="dot"></i>7<small>陽去</small></button>
-                        <button type="button" class="tn-chip" data-t="8" style="--tn:var(--tn8)"><i class="dot"></i>8<small>陽入</small></button>
-                        <button type="button" class="tn-chip" data-t="9" style="--tn:var(--tn9)"><i class="dot"></i>9<small>高升</small></button>
+                        <button type="button" class="tn-chip" data-t="1" style="--tn:var(--tn1)"><span class="tn-sym" aria-hidden="true">a</span>1<small>陰平</small></button>
+                        <button type="button" class="tn-chip" data-t="2" style="--tn:var(--tn2)"><span class="tn-sym" aria-hidden="true">á</span>2<small>陰上</small></button>
+                        <button type="button" class="tn-chip" data-t="3" style="--tn:var(--tn3)"><span class="tn-sym" aria-hidden="true">à</span>3<small>陰去</small></button>
+                        <button type="button" class="tn-chip" data-t="4" style="--tn:var(--tn4)"><span class="tn-sym" aria-hidden="true">ah</span>4<small>陰入</small></button>
+                        <button type="button" class="tn-chip" data-t="5" style="--tn:var(--tn5)"><span class="tn-sym" aria-hidden="true">â</span>5<small>陽平</small></button>
+                        <button type="button" class="tn-chip" data-t="6" style="--tn:var(--tn6)" disabled title="音讀沒有單獨的第 6 調"><span class="tn-sym" aria-hidden="true">á</span>6<small>陽上</small></button>
+                        <button type="button" class="tn-chip" data-t="7" style="--tn:var(--tn7)"><span class="tn-sym" aria-hidden="true">ā</span>7<small>陽去</small></button>
+                        <button type="button" class="tn-chip" data-t="8" style="--tn:var(--tn8)"><span class="tn-sym" aria-hidden="true">a̍h</span>8<small>陽入</small></button>
+                        <button type="button" class="tn-chip" data-t="9" style="--tn:var(--tn9)"><span class="tn-sym" aria-hidden="true">a̋</span>9<small>高升</small></button>
                     </div>
-                    <div class="tn-quick"><button type="button" id="tnAll">全選</button><button type="button" id="tnNone">全不選</button></div>
                     <div class="setting-preview mini" id="previewTn"></div>
                 </div>
                 </div>
@@ -472,14 +466,14 @@ if (/[?&](q|cas|d|a)=/.test(location.search)) {
                 <div class="setting-group">套用範圍</div>
                 <div class="setting-card">
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblVwh">套用於詞目音讀</label></div>
+                    <div class="setting-text"><label id="lblVwh">詞目音讀</label></div>
                     <div class="seg" data-key="vwh" role="radiogroup" aria-labelledby="lblVwh">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <div class="setting-text"><label id="lblVwe">套用於例句音讀</label></div>
+                    <div class="setting-text"><label id="lblVwe">例句音讀</label></div>
                     <div class="seg" data-key="vwe" role="radiogroup" aria-labelledby="lblVwe">
                         <button type="button" data-v="on">套用</button>
                         <button type="button" data-v="off">不套用</button>

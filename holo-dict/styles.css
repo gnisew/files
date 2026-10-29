@@ -1814,6 +1814,9 @@ html:not(.rq-on) :is(.x-han, .x-ruby) button.rel-word:hover { color: inherit; bo
 
 /* ===== 釋義：精簡模式（所有解釋合併成一段）===== */
 .def-brief { overflow-wrap: anywhere; }
+/* 新增：單行模式——合併後不換行，超出格子的部分隱藏（以「…」收尾）。width:0＋min-width:100% 讓它不撐寬欄位 */
+.def-oneline { width: 0; min-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 769px) { .results-table td:has(.def-oneline) { width: 50%; } }   /* 電腦版：釋義欄佔表格一半寬，其餘欄位依內容分配；想調整寬窄改這個百分比 */
 
 /* ===== 設定頁：台羅音讀、釋義顯示的即時預覽（取代說明文字）===== */
 .setting-preview.mini { margin: 8px 0 0; padding: 10px 14px; }
@@ -1910,16 +1913,18 @@ mark.hit {
 }
 
 :root {
-  /* ===== 聲調色彩：9 個聲調各用一個色相（彼此色差都拉開，白底上對比度約 4～9）===== */
-  --tn1: #0d63d3;   /* 陰平 藍 */
-  --tn2: #18813b;   /* 陰上 綠 */
-  --tn3: #da281b;   /* 陰去 紅 */
-  --tn4: #9e31b9;   /* 陰入 紫 */
-  --tn5: #038086;   /* 陽平 青 */
-  --tn6: #567f39;   /* 陽上（台羅沒有單獨標示，備用） */
-  --tn7: #a66d00;   /* 陽去 琥珀 */
-  --tn8: #da1b74;   /* 陽入 桃紅 */
-  --tn9: #624537;   /* 高升 咖啡 */
+  /* ===== 聲調色彩（白底上對比度約 3.5～10；拉大色相與明度差距，相鄰色更好分辨）=====
+     1 藍、2 紅、3 咖啡、4 土黃、5 橘、7 綠、8 紫、9 青；
+     暖色四個（紅、橘、土黃、咖啡）刻意拉開：紅＝偏冷的正紅、橘＝亮橘、土黃＝偏黃的暗金、咖啡＝很深的褐。 */
+  --tn1: #1457e6;   /* 修改：1 陰平 藍（更純的寶藍） */
+  --tn2: #e0112b;   /* 修改：2 陰上 紅（更鮮豔的正紅） */
+  --tn3: #5c3517;   /* 修改：3 陰去 咖啡（更深，與橘、土黃拉開明度） */
+  --tn4: #a07a00;   /* 修改：4 陰入 土黃（更偏黃） */
+  --tn5: #e8650a;   /* 修改：5 陽平 橘（更亮） */
+  --tn6: #e0112b;   /* 修改：6 陽上＝同第 2 調（紅），備用 */
+  --tn7: #2a8f2a;   /* 修改：7 陽去 綠（更偏黃綠，與青拉開） */
+  --tn8: #8a2be2;   /* 修改：8 陽入 紫（更偏紫紅，與藍拉開） */
+  --tn9: #008a9e;   /* 修改：9 高升 青（更偏青藍，與綠拉開） */
 }
 .tn.tn1 { color: var(--tn1); } .tn.tn2 { color: var(--tn2); } .tn.tn3 { color: var(--tn3); }
 .tn.tn4 { color: var(--tn4); } .tn.tn5 { color: var(--tn5); } .tn.tn6 { color: var(--tn6); }
@@ -1935,14 +1940,12 @@ mark.hit {
   font-size: calc(14px * var(--fs, 1)); transition: background-color .15s, color .15s, border-color .15s;
 }
 .tn-chip small { font-size: .78em; opacity: .85; }
-.tn-chip .dot { width: .65em; height: .65em; border-radius: 50%; background: var(--tn); opacity: .35; }
+/* 聲調符號：用台羅的調符（a á à â ā a̍h a̋）取代圓點；未選取時淡色，選取後轉實色 */
+.tn-chip .tn-sym { min-width: 1.5em; text-align: center; font-weight: 600; font-size: 1.05em; line-height: 1; color: var(--tn); opacity: .4; }
 .tn-chip:hover:not(:disabled) { border-color: var(--tn); }
 .tn-chip.on { color: #202124; border-color: var(--tn); background: color-mix(in srgb, var(--tn) 9%, #fff); }
-.tn-chip.on .dot { opacity: 1; }
+.tn-chip.on .tn-sym { opacity: 1; }
 .tn-chip:disabled { opacity: .4; cursor: not-allowed; }
-.tn-quick { display: flex; gap: 14px; }
-.tn-quick button { border: 0; background: none; padding: 0; cursor: pointer; color: #1a73e8; font-size: calc(13px * var(--fs, 1)); }
-.tn-quick button:hover { text-decoration: underline; }
 #previewTn .pv-han { font-size: 1.2em; margin: 0 0 6px; }
 
 /* ===== 詳細頁：調色開關（放在「釋義」標題列右側、例句切換鈕左邊；樣式與例句切換鈕相同）===== */
@@ -2276,14 +2279,16 @@ html.cat-full-open { overflow: hidden; }
     display: none; position: fixed; inset: 0; z-index: 2000;
     align-items: center; justify-content: center;
     padding: 16px; box-sizing: border-box;
-    background: rgba(32, 33, 36, .45);
+    background: rgba(32, 33, 36, .4); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);   /* 修改：背景加霧化 */
 }
 .cat-full.open { display: flex; }
+.cat-full.open .cat-full-card { animation: catPop .22s cubic-bezier(.2, .8, .2, 1); }   /* 新增：開啟時淡入＋輕微放大 */
+@keyframes catPop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 .cat-full-card {
     display: flex; flex-direction: column;
     width: min(980px, 100%); height: min(760px, 100%);   /* 固定尺寸：不隨內容多寡忽大忽小 */
     background: #fff; border-radius: 16px; overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, .3);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .28), 0 2px 8px rgba(0, 0, 0, .12);   /* 修改：陰影更柔 */
 }
 .cat-full-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid #eee; }
 .cat-full-title { font-size: calc(18px * var(--fs, 1)); font-weight: 600; color: #1a73e8; white-space: nowrap; }
@@ -2312,6 +2317,8 @@ html.cat-full-open { overflow: hidden; }
 }
 .cat-full-major small { font-size: .8em; font-weight: 400; color: #9aa0a6; }
 .cat-full-major:hover { color: #1a73e8; border-bottom-color: #1a73e8; }
+/* 新增：從頂部導覽列跳到大類別時，標題閃一下（沿用拼音的 pyPulse 動畫） */
+.cat-full-sec.is-pulse .cat-full-major { animation: pyPulse .9s ease-out; border-radius: 8px; }
 .cat-full-list { display: flex; flex-direction: column; }
 .cat-full-item {
     display: flex; align-items: baseline; justify-content: flex-start; gap: 8px;
@@ -2333,6 +2340,138 @@ html.cat-full-open { overflow: hidden; }
     .cat-full-card { height: 100%; border-radius: 0; }
     .cat-full-title { display: none; }
     .cat-full-close { margin-left: 0; }
+}
+
+/* ===== 新增：「部首」瀏覽模式（與分類共用大版面）===== */
+.cat-rad-btn {
+    flex: 0 0 auto; height: 36px; padding: 0 14px; border: none; border-radius: 18px;
+    background: #f1f3f4; color: #1a73e8; cursor: pointer; font: inherit; font-size: calc(14px * var(--fs, 1));
+}
+.cat-rad-btn:hover { background: #e3e6ea; }
+/* 標題列：分類｜部首 切換鈕 */
+.cat-full-switch { display: flex; flex: 0 0 auto; padding: 3px; background: #f1f3f4; border-radius: 20px; }
+.cat-full-switch button {
+    padding: 5px 16px; border: 0; border-radius: 17px; background: none; color: #5f6368;
+    font: inherit; font-size: calc(14px * var(--fs, 1)); cursor: pointer; transition: background .15s, color .15s;
+}
+.cat-full-switch button.on { background: #fff; color: #1a73e8; font-weight: 600; box-shadow: 0 1px 3px rgba(60, 64, 67, .22); }
+/* 筆畫導覽列：點數字跳到該筆畫；捲動時自動標示目前所在筆畫（右緣淡出，提示可橫向滑動） */
+.rad-rail {
+    display: flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 8px 20px; border-bottom: 1px solid #f1f3f4; overflow-x: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+}
+.rad-rail[hidden] { display: none; }
+.rad-rail::-webkit-scrollbar { display: none; }
+.rad-unit { flex: 0 0 auto; padding-right: 6px; color: #bdc1c6; font-size: calc(12px * var(--fs, 1)); letter-spacing: .08em; }
+.rad-rail button {
+    flex: 0 0 auto; min-width: 34px; height: 34px; padding: 0 8px; border: 0; border-radius: 17px; background: none;
+    color: #80868b; font: inherit; font-size: calc(14px * var(--fs, 1)); font-variant-numeric: tabular-nums; cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.rad-rail button:hover { background: #f1f3f4; color: #1a73e8; }
+.rad-rail button.on { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
+/* 內容：左邊筆畫（捲動時黏在左側），右邊部首方格；各段之間用較深的分隔線＋較大的上下留白分群（不加底色，避免干擾方塊的熱度色階） */
+.rad-sec { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 22px 0; }   /* 修改：上下留白 14px → 22px */
+.rad-sec:first-child { padding-top: 6px; }   /* 修改：2px → 6px */
+.rad-sec + .rad-sec { border-top: 1px solid #e1e4e8; }   /* 修改：分隔線顏色 #f3f4f6 → #e1e4e8（加深） */
+.rad-sec-h {
+    position: sticky; top: 4px; align-self: start; margin: 0; padding-top: 4px;
+    display: flex; flex-direction: column; align-items: flex-start;
+    font-size: calc(24px * var(--fs, 1)); font-weight: 500; color: #1a73e8; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.rad-sec-h small { margin-top: 5px; font-size: calc(11px * var(--fs, 1)); font-weight: 400; color: #bdc1c6; letter-spacing: .08em; }
+.rad-grid { display: grid; grid-template-columns: repeat(auto-fill, 58px); gap: 8px; justify-content: start; }
+/* 部首方格：大字在上、單字數在下（不再疊在字上）；無框線，淡底色，滑過才轉藍 */
+.rad-tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    height: 60px; min-width: 0; padding: 0; border: 1px solid transparent; border-radius: 12px;
+    background: #f8f9fa; color: #202124; cursor: pointer; font: inherit;
+    transition: background .15s, border-color .15s, color .15s, transform .15s;
+}
+.rad-tile b { font-weight: 400; font-size: calc(21px * var(--fs, 1)); line-height: 1.1; }
+.rad-tile small { height: 12px; font-size: calc(10px * var(--fs, 1)); line-height: 12px; color: #9aa0a6; font-variant-numeric: tabular-nums; }
+.rad-tile[data-h="1"] { background: #f3f6fb; }   /* 新增：字數越多底色越深（0～4 級）*/
+.rad-tile[data-h="2"] { background: #eaf1fc; }
+.rad-tile[data-h="3"] { background: #dfeafb; }
+.rad-tile[data-h="4"] { background: #d3e3fa; }
+.rad-tile:hover { background: #fff; border-color: #aecbfa; color: #1a73e8; box-shadow: 0 3px 10px rgba(26, 115, 232, .18); transform: translateY(-1px); }
+.rad-tile:hover small { color: #669df6; }
+.rad-tile:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+.rad-tile:active { transform: scale(.96); box-shadow: none; }
+.rad-tile.is-hit { background: #e8f0fe; border-color: #aecbfa; color: #1a73e8; }
+.rad-tile:disabled { opacity: .35; cursor: default; pointer-events: none; }
+
+/* ===== 新增：「拼音」瀏覽模式（沿用部首的版面：左邊聲母、右邊音節方塊；底部黏著一個面板，依聲調列出單字）===== */
+.py-sec { grid-template-columns: 54px 1fr; }
+.py-sec .rad-sec-h { font-size: calc(21px * var(--fs, 1)); }
+.py-grid { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.py-syl {
+    display: inline-flex; align-items: center; gap: 2px; height: 38px; padding: 0 9px 0 12px;
+    border: 1px solid transparent; border-radius: 12px; background: #f8f9fa; color: #202124; cursor: pointer; font: inherit;
+    transition: background .15s, border-color .15s, color .15s, transform .15s;
+}
+.py-syl b { font-weight: 400; font-size: calc(17px * var(--fs, 1)); }
+.py-syl b i { font-style: normal; color: #bdc1c6; margin-right: 1px; }   /* 新增：韻母前的「-」用淡灰色 */
+.py-syl small { align-self: flex-end; margin-bottom: 4px; font-size: calc(9px * var(--fs, 1)); line-height: 1; color: #c4c7cc; font-variant-numeric: tabular-nums; }   /* 修改：數字改到右下角，字更小、顏色更淡 */
+.py-syl[data-h="1"] { background: #f3f6fb; }   /* 單字越多底色越深（0～4 級，與部首方格同色階） */
+.py-syl[data-h="2"] { background: #eaf1fc; }
+.py-syl[data-h="3"] { background: #dfeafb; }
+.py-syl[data-h="4"] { background: #d3e3fa; }
+.py-syl:hover { background: #fff; border-color: #aecbfa; color: #1a73e8; transform: translateY(-1px); }
+.py-syl:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+.py-syl:active { transform: scale(.96); }
+.py-syl.on, .py-syl.on:hover { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+.py-syl.on small { color: #1a73e8; opacity: .6; }   /* 修改：選中時淡一點的藍 */
+/* 例字面板：獨立在捲動區下方、固定在版面底部（不再疊在清單上，清單不會從底下露出來）；內部自己捲動，且不會把滾動傳給下面的清單 */
+.py-detail {
+    flex: 0 0 auto; display: flex; flex-direction: column; padding: 0;   /* 修改：面板本身不捲動；標題列（含 X）固定，只有下面的 .py-rows 捲動 */
+    background: #fff; border-top: 1px solid #e3e6ea; box-shadow: 0 -6px 16px rgba(60, 64, 67, .10);
+    max-height: min(52vh, 460px); overflow: hidden;
+}
+.py-rows {   /* 新增：各調列的捲動區 */
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px calc(14px + env(safe-area-inset-bottom, 0px));
+    scrollbar-width: thin; scrollbar-color: #dadce0 transparent;   /* 修改：細、淡的捲軸 */
+}
+.py-rows::-webkit-scrollbar { width: 6px; }
+.py-rows::-webkit-scrollbar-track { background: transparent; }
+.py-rows::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 3px; }
+.py-rows::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+.py-rows::-webkit-scrollbar-button { display: none; }   /* 去掉上下箭頭 */
+.py-detail[hidden] { display: none; }
+.py-dh { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 8px 20px 4px; }   /* 修改：加上自己的內距（原本靠面板的內距） */
+.py-dh b { font-size: calc(20px * var(--fs, 1)); font-weight: 500; color: #202124; }
+.py-dh small { font-size: calc(12px * var(--fs, 1)); color: #9aa0a6; }
+.py-x { margin-left: auto; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: none; color: #80868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.py-x:hover { background: #f1f3f4; color: #1a73e8; }
+.py-rows { display: flex; flex-direction: column; gap: 6px; }   /* 新增：各調之間用留白分開（取代分隔線） */
+.py-tr { display: flex; gap: 12px; align-items: baseline; padding: 8px 14px; border-radius: 12px; background: #f8f9fa; background: color-mix(in srgb, var(--tn) 7%, #fff); }   /* 修改：padding 6px 8px → 8px 14px、圓角 10px → 12px；新增底色：同調色的 7% 淡色（不支援 color-mix 的舊瀏覽器用 #f8f9fa） */
+/* 刪除：.py-tr + .py-tr 的分隔線（改用底色塊＋留白） */
+.py-tr.is-hit { background: #f1f3f4; background: color-mix(in srgb, var(--tn) 16%, #fff); box-shadow: inset 0 0 0 1px #f1f3f4; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tn) 35%, #fff); }   /* 修改：被篩選命中的調，底色加深＋細框 */
+.py-tn { flex: 0 0 72px; white-space: nowrap; color: var(--tn); }   /* 字中調的音節用該調的顏色；調名改成滑過才顯示 */
+.py-tn b { font-weight: 500; font-size: calc(16px * var(--fs, 1)); line-height: 1.2; }
+.py-hz { display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; }
+.py-han { padding: 0 5px; border: 0; border-radius: 8px; background: none; color: var(--tn); cursor: pointer; font: inherit; font-size: calc(23px * var(--fs, 1)); line-height: 1.35; }
+.py-han:hover { background: #fff; box-shadow: 0 1px 4px rgba(60, 64, 67, .18); }   /* 修改：淡色底上改成白底＋淡陰影（原本 #e8f0fe） */
+.py-han sup { margin-left: 1px; font-size: .45em; opacity: .75; }   /* 白／文讀標記 */
+.py-han.is-hit { background: #fef3c7; }   /* 篩選框輸入的字 */
+/* 新增：電腦版、字數少的音節（script.js 加 .py-2c）：各調分左右兩欄，依 1、2 / 3、4… 的順序排 */
+@media (min-width: 769px) {
+    .py-rows.py-2c { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; align-content: start; }   /* 修改：欄距 40px → 12px（色塊本身已分欄） */
+    /* 刪除：兩條分隔線規則 */
+}
+@media (max-width: 768px) {
+    .py-sec { grid-template-columns: 46px 1fr; }
+    .py-tn { flex-basis: 66px; }
+}
+@media (max-width: 768px) {
+    .cat-full-head { padding: 10px 12px; gap: 8px; }
+    .cat-full-switch button { padding: 5px 12px; }
+    .rad-rail { padding: 6px 12px; }
+    .rad-sec { grid-template-columns: 36px 1fr; gap: 0 6px; padding: 18px 0; }   /* 修改：手機版上下留白 12px → 18px */
+    .rad-sec-h { font-size: calc(20px * var(--fs, 1)); }
+    .rad-grid { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
+    .rad-tile { height: 54px; border-radius: 10px; }
+    .rad-tile b { font-size: calc(19px * var(--fs, 1)); }
 }
 
 /* 詞目旁的「教育部辭典原頁」連結圖示 */
@@ -3136,7 +3275,8 @@ body { background-color: var(--bg-page); }
   box-shadow: var(--input-shadow-focus);
 }
 .search-box::placeholder { color: var(--input-ph); font-size: calc(14px * var(--fs, 1)); }   /* 提示文字比輸入的字小一階 */
-@media (max-width: 768px) { .search-box::placeholder { font-size: calc(12.5px * var(--fs, 1)); } }
+@media (max-width: 768px) { .search-box::placeholder { font-size: calc(12.5px * var(--fs, 1)); text-overflow: ellipsis; } }   /* 修改：新增 text-overflow */
+.search-box { text-overflow: ellipsis; }   /* 新增：提示文字太長時顯示「…」而不是被切掉 */
 
 
 /* ===== 側邊欄：仿 Claude.ai（比主畫面略深一階的暖米色，邊線暖灰；滑過／選取用暖灰） ===== */
@@ -3844,3 +3984,444 @@ button.radical-link:focus-visible { outline: 2px solid #1a73e8; outline-offset: 
 /* 新增：聲母索引跳轉後，目標那一筆淡黃色閃一下 */
 @keyframes idxHit { 0%, 60% { background-color: #fff3c4; } 100% { background-color: transparent; } }
 #results tr.idx-hit > td { animation: idxHit 1.8s ease-out; }
+
+
+/* ===== 修正：手機版詳細檢視右側留白比左側大（新增）=====
+   原因：上方「捲軸：更柔和」把 .modal-content::-webkit-scrollbar 設成 width:12px，
+   手機（尤其 Android Chrome）會真的保留 12px 的捲軸軌道，右側就比左側多出約 12px。
+   做法：手機版詳細檢視不佔位、不顯示捲軸（手指仍可正常捲動），左右留白就一致。 */
+@media (max-width: 768px) {
+  .modal-content,
+  .modal-content:hover {
+    scrollbar-width: none;        /* Firefox、新版 Chrome */
+    -ms-overflow-style: none;
+  }
+  .modal-content::-webkit-scrollbar {   /* 舊版 Chrome／Safari */
+    display: none; width: 0; height: 0;
+  }
+}
+
+
+/* ===== 分類標籤：改灰底深灰字、字稍小，降低干擾（新增）===== */
+.entry-chips button.chip {
+  font-size: calc(12px * var(--fs, 1));   /* 原 13px */
+  padding: 4px 8px;                       /* 原 5px 9px */
+  background: #f1f3f4;                    /* 原 #e8f0fe（淡藍）*/
+  color: #5f6368;                         /* 原 #1a56b8（藍）*/
+}
+.entry-chips button.chip:hover,
+.entry-chips button.chip:active {
+  background: #e8f0fe;                    /* 滑過／按下才出現淡藍底藍字 */
+  color: #1a56b8;
+}
+
+/* ===== 「顯示」按鈕：字稍小、不粗體（新增）===== */
+.tools-m-btn {
+  font-size: calc(12px * var(--fs, 1));   /* 原 13px */
+  font-weight: 400;                       /* 原本繼承 .sec-title 的 600（粗體）*/
+}
+
+
+/* ===== 修正：近／反義詞的音讀標籤（文／白）把該行撐高，造成「近」「反」沒對齊（新增）=====
+   原因：.tag-sub.tag-rom 用 vertical-align:.85em 把小標籤抬高，會增加該行的行高，
+   第一行的詞與音讀被往下推，「近」「反」卻仍靠上，看起來就偏高。
+   做法：改用 position:relative 往上位移（只改外觀、不影響行高）。位置與原本抬高的高度相同。 */
+.rel-rom .tag-sub.tag-rom {
+  vertical-align: baseline;
+  position: relative;
+  top: -.85em;
+}
+
+
+/* ===== 修正（第二次）：顯示音讀時，「近」「反」標籤要對齊第一行文字的垂直中間（新增）=====
+   原因：標籤是靠上對齊（align-items:flex-start），而第一行（詞＋音讀）的行高比標籤高，
+   所以標籤的上緣對齊行的上緣，中心就比文字偏高。
+   做法：量出一行的行高（1lh），讓標籤往下移「（行高 − 標籤高）÷ 2」，使兩者中心對齊；
+   長句折行時標籤仍在第一行旁，不會跑到最後一行。 */
+@property --rl { syntax: '<length>'; inherits: true; initial-value: 0px; }
+.rel-line:has(.rel-item) { --rl: 1lh; }
+.rel-line:has(.rel-item) .rel-tag {
+  /* 標籤高 ＝ 字級 × 1（line-height:1）＋ 上下 padding 4px ＋ 上下框線 2px */
+  margin-top: max(0px, calc((var(--rl) - (12px * var(--fs, 1) + 6px)) / 2));
+}
+
+
+/* ===== 修正：窄手機的頁面導覽擠不下，「…23」被擠成兩行（新增）=====
+   原因：整排是不換行的 flex，按鈕被壓到最小寬度後，文字（…23）只好自己折行。
+   做法：1) 所有分頁按鈕文字不折行；2) ≤400px 時按鈕、間距、字級整體縮小（配合 script.js 只顯示 2 個頁碼）。 */
+.pagination.pagination-m button { white-space: nowrap; }
+@media (max-width: 400px) {
+  .pagination.pagination-m button { min-width: 30px; padding: 0 2px; font-size: .95em; }
+  .pagination.pagination-m button.pm-nav { min-width: 34px; }
+  .pagination.pagination-m button.pm-next,
+  .pagination.pagination-m button.pm-next:hover:not(:disabled) { min-width: 76px; padding: 0 12px; margin: 0 2px 0 4px; font-size: .95em; }
+  .pagination.pagination-m button.pm-more { min-width: 28px; margin-left: 0; }
+}
+
+
+/* ===== 修正：頁碼位數較多（如 846）時，目前頁的底線太短（新增）=====
+   原因：底線是固定 16px 寬的 ::after，3 位數以上就比數字還短。
+   做法：關掉 ::after，改用文字本身的底線（text-decoration），長度自動跟著數字寬度。 */
+.pagination.pagination-m button.active::after { display: none; }
+.pagination.pagination-m button.active,
+.pagination.pagination-m button.active:hover {
+  text-decoration: underline;
+  text-decoration-color: #1a73e8;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 6px;
+  text-decoration-skip-ink: none;   /* 底線不要在數字筆畫處斷開 */
+}
+
+
+/* ===== 新增：「⋮」彈窗裡的「符合程度」跳轉（完全符合／部分符合…）===== */
+.page-more-pop .pm-tier-row { flex-direction: column; align-items: stretch; gap: 6px; }
+.page-more-pop .pm-tier { display: flex; flex-wrap: wrap; gap: 6px; }
+.pagination.pagination-m .page-more-pop button.pm-tier-chip {
+  min-width: 0; height: 32px; padding: 0 12px; flex: none; white-space: nowrap;
+  border: 1px solid #dadce0; border-radius: 8px; background: #fff;
+  color: #3c4043; font-size: .9em; line-height: 1;
+}
+.pagination.pagination-m .page-more-pop button.pm-tier-chip:hover:not(:disabled) { background: #f1f3f4; color: #3c4043; border: 1px solid #dadce0; }
+.pagination.pagination-m .page-more-pop button.pm-tier-chip.on,
+.pagination.pagination-m .page-more-pop button.pm-tier-chip.on:hover { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+.pagination.pagination-m .page-more-pop button.pm-tier-chip::after { display: none; }   /* 不要沿用頁碼的底線標記 */
+
+
+/* ===== 手機版全螢幕搜尋：搜尋框去掉外圍的圓角膠囊邊框（新增）=====
+   只影響手機（≤768px）進入搜尋狀態（html.search-active）時；電腦版與首頁的搜尋框不變。
+   邊框、圓角、陰影（含滑過、聚焦時）一併去掉，搜尋框直接融入上方白色的搜尋列。 */
+@media (max-width: 768px) {
+  html.search-active .search-box,
+  html.search-active .search-box:hover,
+  html.search-active .search-box:focus {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+}
+
+
+/* ===== 手機版全螢幕搜尋：「最近查詢／清除全部」標題列底色加深（新增）=====
+   原本與下方的查詢紀錄同為 #fafafa，標題與清單分不出來；改成淡灰色底（#eceff1），文字也加深一點。 */
+html.search-active .search-history .hist-head {
+  background: #eceff1;
+  color: #5f6368;
+}
+
+
+/* ===== 手機版全螢幕搜尋：X 清除按鈕再靠右（新增）=====
+   提示面板打開、放大鏡已隱藏時，X 原本離右緣 25px（加上外層 10px，約 38～45px），
+   與左邊「返回」箭頭離左緣的距離不對稱；改成 6px，兩側大致對稱。放大鏡還在的時候不動，避免兩者重疊。 */
+html.search-active .search-wrapper.sg-open:has(.sg-q) .search-clear { right: 6px; }
+
+
+/* ===== 手機版：已經有查詢結果（搜尋框沒有在輸入）時，隱藏放大鏡（新增）=====
+   結果已經查好了，放大鏡等於「再查一次同樣的字」；要改字時點進搜尋框，會進入全螢幕搜尋，
+   那裡有「輸入的字 - 查詢」列可以查詢。放大鏡隱藏後，X 移到原本放大鏡的位置，文字也多出可用寬度。 */
+@media (max-width: 768px) {
+  html:not(.search-active) .search-header.has-results .search-icon { display: none; }
+  html:not(.search-active) .search-header.has-results .search-clear { right: 25px; }
+  html:not(.search-active) .search-header.has-results .search-wrapper .search-box { padding-right: 62px; }
+}
+
+
+/* ===== 手機版全螢幕搜尋：只要下方提示面板打開（含還沒輸入時的「最近查詢」），就隱藏放大鏡（新增）=====
+   原本只有「輸入的字 - 查詢」那一列出現時才隱藏放大鏡；現在改成面板一打開就隱藏，
+   X 也一開始就放在最右邊（離右緣 6px），輸入第一個字時不會先出現在別處、再跳過去。 */
+html.search-active .search-wrapper.sg-open .search-icon { display: none; }
+html.search-active .search-wrapper.sg-open .search-clear { right: 6px; }
+html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
+
+/* ===== 新增：部首瀏覽細部修飾 ===== */
+#catFullFilter {
+    padding-left: 38px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239aa0a6'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") no-repeat 13px center / 18px;
+    transition: border-color .15s, box-shadow .15s;
+}
+#catFullFilter:focus { box-shadow: 0 0 0 3px rgba(26, 115, 232, .15); }
+.cat-full-body { scrollbar-width: thin; scrollbar-color: #dadce0 transparent; }
+.rad-note { margin: 8px 0 0; padding-top: 14px; border-top: 1px solid #f3f4f6; color: #9aa0a6; font-size: calc(12px * var(--fs, 1)); text-align: center; }
+@media (max-width: 768px) {
+    .rad-sec { grid-template-columns: 32px 1fr; gap: 0 8px; }
+}
+
+/* ===== 新增：拼音瀏覽的三種排版（清單／對齊／矩陣）===== */
+/* 排版切換列：小號膠囊，樣式與上方「分類｜部首｜拼音」一致 */
+.py-view { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 8px 20px 0; }
+.py-view[hidden] { display: none; }
+.py-view button {
+    height: 28px; padding: 0 12px; border: 0; border-radius: 14px; background: none;
+    color: #80868b; font: inherit; font-size: calc(13px * var(--fs, 1)); cursor: pointer; transition: background .15s, color .15s;
+}
+.py-view button:hover { background: #f1f3f4; color: #1a73e8; }
+.py-view button.on { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
+
+
+/* 矩陣：直列＝韻母、橫欄＝聲母；聲母列與韻母欄捲動時黏住 */
+.cat-full-body.is-mx { padding-top: 0; padding-left: 8px; padding-right: 12px; }
+.py-mx { border-collapse: separate; border-spacing: 3px; margin: 0 auto; }
+.py-mx th { font-weight: 500; background: #fff; }
+.py-mx thead th {
+    position: sticky; top: 0; z-index: 2; height: 40px; min-width: 40px; padding: 0 2px;
+    color: #1a73e8; font-size: calc(15px * var(--fs, 1)); box-shadow: 0 1px 0 #e1e4e8;
+}
+.py-mx tbody th {
+    position: sticky; left: 0; z-index: 1; padding: 0 10px 0 4px; text-align: right; white-space: nowrap;
+    color: #202124; font-size: calc(15px * var(--fs, 1)); box-shadow: 1px 0 0 #f1f3f4;
+}
+.py-mx th i { font-style: normal; color: #bdc1c6; }
+.py-mx .py-mx-corner { left: 0; z-index: 3; }
+.py-mx tbody tr:hover > th { color: #1a73e8; }
+.py-mx td { padding: 0; text-align: center; }
+.py-cell {
+    width: 40px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 9px;
+    background: #f3f5f8; color: #5f6368; font: inherit; font-size: calc(12px * var(--fs, 1)); font-variant-numeric: tabular-nums; cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s, transform .15s;
+}
+.py-cell[data-h="1"] { background: #e9f0fb; }
+.py-cell[data-h="2"] { background: #d9e6fa; color: #3c4a6b; }
+.py-cell[data-h="3"] { background: #c3d8f8; color: #1f3a73; }
+.py-cell[data-h="4"] { background: #a9c8f5; color: #14306b; }
+.py-cell:hover { background: #fff; border-color: #aecbfa; color: #1a73e8; transform: translateY(-1px); }
+.py-cell:focus-visible { outline: 2px solid #1a73e8; outline-offset: 1px; }
+.py-cell:active { transform: scale(.94); }
+.py-cell.on, .py-cell.on:hover { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+
+@media (max-width: 768px) {
+    .py-view { padding: 6px 12px 0; }
+    .py-cell { width: 36px; height: 30px; }
+    .py-mx thead th { min-width: 36px; }
+    .py-mx tbody th { padding-right: 6px; font-size: calc(14px * var(--fs, 1)); }
+}
+
+/* ===== 拼音瀏覽：等寬方塊、家族分行、反向、聲調列、排版列開關 ===== */
+.py-grid { display: grid; grid-template-columns: repeat(auto-fill, 88px); gap: 8px; justify-content: start; align-content: start; }   /* 清單：每個音節方塊等寬 */
+.py-grid.py-rv { grid-template-columns: repeat(auto-fill, 72px); }   /* 反向：方塊內是聲母，較窄 */
+.py-syl { justify-content: center; width: 100%; min-width: 0; padding: 0 6px; white-space: nowrap; }
+.py-sec.py-rvs { grid-template-columns: 92px 1fr; }
+.py-rvs .rad-sec-h { font-size: calc(19px * var(--fs, 1)); }
+.py-rvs .rad-sec-h i { font-style: normal; color: #bdc1c6; }
+
+/* 家族：同一聲母裡，每個家族一行，左邊小標題 */
+.py-fam { display: grid; grid-template-columns: 60px 1fr; gap: 0 10px; align-items: start; }
+.py-fam + .py-fam { margin-top: 10px; }
+.py-fam-h { display: flex; flex-direction: column; padding-top: 11px; color: #80868b; font-size: calc(12px * var(--fs, 1)); line-height: 1.25; }
+.py-fam-h small, .py-fam-bn small, .py-mx-fam small { margin-top: 2px; color: #bdc1c6; font-size: calc(10px * var(--fs, 1)); font-weight: 400; letter-spacing: .04em; }
+.py-fam-bn { margin: 22px 0 0; padding: 7px 14px; border-radius: 10px; background: #f1f3f4; color: #5f6368; font-size: calc(13px * var(--fs, 1)); font-weight: 600; }
+.py-fam-bn:first-child { margin-top: 4px; }
+.py-fam-bn small { margin: 0 0 0 10px; }
+.py-mx-fam td { padding: 12px 4px 2px; text-align: left; color: #80868b; font-size: calc(12px * var(--fs, 1)); }
+.py-mx-fam small { margin: 0 0 0 8px; }
+
+/* 排版列：右邊兩個開關 */
+.py-view { flex-wrap: wrap; row-gap: 4px; }
+.py-view-sp { flex: 1 1 8px; }
+.py-view .py-tg { border: 1px solid #e1e4e8; }
+.py-view .py-tg.on { background: #e8f0fe; border-color: #aecbfa; color: #1a73e8; font-weight: 600; }
+.py-view.is-mx .py-tg, .py-view.is-mx .py-view-sp { display: none; }   /* 矩陣沒有分組，開關不適用 */
+
+/* 聲調列：面板標題列上的 1 2 3 4 5 7 8 9 */
+.py-ts { display: flex; gap: 4px; min-width: 0; margin-left: 10px; overflow-x: auto; scrollbar-width: none; }
+.py-ts::-webkit-scrollbar { display: none; }
+.py-tp {
+    flex: 0 0 auto; display: inline-flex; align-items: baseline; gap: 2px; height: 26px; padding: 0 8px; border: 0; border-radius: 13px;
+    background: #f1f3f4; background: color-mix(in srgb, var(--tn) 9%, #fff); color: var(--tn); font: inherit; cursor: pointer; transition: background .15s;
+}
+.py-tp b { font-weight: 600; font-size: calc(14px * var(--fs, 1)); line-height: 26px; }
+.py-tp small { font-size: calc(10px * var(--fs, 1)); opacity: .7; font-variant-numeric: tabular-nums; }
+.py-tp:hover { background: #e8eaed; background: color-mix(in srgb, var(--tn) 20%, #fff); }
+.py-tp.on { box-shadow: inset 0 0 0 1px var(--tn); }
+.py-tp.is-no { opacity: .28; cursor: default; pointer-events: none; background: #f1f3f4; }
+.py-tr.is-pulse { animation: pyPulse .9s ease-out; }
+@keyframes pyPulse { from { box-shadow: 0 0 0 3px rgba(26, 115, 232, .35); } to { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0); } }
+
+@media (max-width: 768px) {
+    .py-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+    .py-grid.py-rv { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
+    .py-syl { padding: 0 4px; }
+    .py-syl b { font-size: calc(15px * var(--fs, 1)); }
+    .py-sec.py-rvs { grid-template-columns: 72px 1fr; }
+    .py-fam { grid-template-columns: 1fr; }
+    .py-fam-h { flex-direction: row; align-items: baseline; gap: 6px; padding: 8px 0 4px; }
+    .py-fam-h small { margin-top: 0; }
+    .py-dh { flex-wrap: wrap; }
+    .py-ts { order: 3; flex: 1 0 100%; margin: 4px 0 2px; }
+}
+
+/* 修正：家族模式各行包在 .py-fams 裡（原本直接放進區塊的兩欄格線，版面錯亂） */
+.py-fams { min-width: 0; }
+/* 反向：18 個聲母固定位置，兩排各 9 個；沒有的聲母灰底、不能點 */
+.py-grid.py-rv { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+.py-syl.py-no { background: #eceff1; color: #c3c7cc; cursor: default; pointer-events: none; }
+.py-syl.py-no i { color: #d3d6da; }
+@media (max-width: 768px) {
+    .py-grid.py-rv { grid-template-columns: repeat(4, minmax(0, 1fr)); }   /* 手機：每排 4 個 */
+}
+
+/* 例字面板：字多或落單的調獨佔整列（其餘兩兩並排） */
+.py-rows.py-2c .py-tr.py-w { grid-column: 1 / -1; }
+
+/* 修正：不能點的聲母改成「空格」外觀（無底色、虛線框、很淡的字），和可點的實心方塊明顯區隔 */
+.py-syl.py-no { background: none; border: 1px dashed #e1e4e8; color: #d3d6da; }
+.py-syl.py-no i { color: #e1e4e8; }
+
+/* 導覽列：可拖曳／滾輪橫捲、有細滾動條；放不下時右側有圖示鈕，展開後攤成多排 */
+.rad-rail-wrap { position: relative; flex: 0 0 auto; }
+.rad-rail { position: relative; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-mask-image: none; mask-image: none; }   /* 原本固定的右側淡出改由下面依捲動位置決定 */
+.rad-rail.is-drag { cursor: grabbing; }
+.rad-rail.is-drag button { pointer-events: none; }
+.rad-rail.has-more::after { content: ""; flex: 0 0 44px; }   /* 尾端留白，最後一項才不會被展開鈕蓋住 */
+.rad-rail.is-open { flex-wrap: wrap; overflow-x: visible; overflow-y: auto; max-height: 38vh; padding-right: 60px; row-gap: 2px; cursor: default; }
+.rad-rail.is-open::after { display: none; }
+@media (hover: hover) {   /* 有滑鼠的裝置：顯示細滾動條，可直接拖曳；手機維持隱藏 */
+    .rad-rail { scrollbar-width: thin; scrollbar-color: #dadce0 transparent; }
+    .rad-rail::-webkit-scrollbar { display: block; height: 6px; width: 6px; }
+    .rad-rail::-webkit-scrollbar-track { background: transparent; }
+    .rad-rail::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 3px; }
+    .rad-rail::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+}
+
+
+/* 導覽列兩端：獨立的遮罩層（不用 mask，避免瀏覽器差異） */
+.rad-rail.has-more:not(.is-open) .rad-unit { visibility: hidden; }   /* 內容裡的標籤會被捲走，改由左邊固定的 .rail-lab 顯示 */
+.rail-lab {
+    position: absolute; left: 0; top: 0; bottom: 1px; z-index: 2; box-sizing: border-box; display: flex; align-items: center;
+    padding: 0 6px 0 20px; background: #fff; pointer-events: none;
+}
+.rail-lab[hidden], .rail-end[hidden] { display: none; }
+.rail-lab::after { content: ""; position: absolute; left: 100%; top: 0; bottom: 0; width: 26px; background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0)); opacity: 0; transition: opacity .15s; }
+.rail-lab.is-scrolled::after { opacity: 1; }
+.rail-end {
+    position: absolute; right: 0; top: 0; bottom: 1px; z-index: 2; width: 84px; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; padding-right: 14px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff 46px); pointer-events: none;
+}
+.rail-more {
+    pointer-events: auto; width: 32px; height: 32px; padding: 0; border: 1px solid #e1e4e8; border-radius: 50%; background: #fff; color: #5f6368;
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 3px rgba(60, 64, 67, .15); transition: background .15s, color .15s;
+}
+.rail-more:hover { background: #f1f3f4; color: #1a73e8; }
+.rail-more svg { transition: transform .2s; }
+.rad-rail.is-open ~ .rail-end { width: auto; bottom: auto; align-items: flex-start; padding-top: 8px; background: none; }   /* 展開後：鈕留在右上角 */
+.rad-rail.is-open ~ .rail-end .rail-more svg { transform: rotate(180deg); }
+@media (max-width: 768px) {
+    .rail-lab { padding-left: 12px; }
+}
+
+/* ===== 增加：矮視窗時縮小例字面板，讓上方音節清單留出空間 ===== */
+.py-detail { max-height: min(40vh, 360px); }   /* 修改：覆蓋原本的 min(52vh, 460px) */
+
+@media (max-height: 640px) {
+    .py-detail { max-height: 34vh; }
+    .py-dh { padding: 4px 20px 2px; }                    /* 修改：標題列上下縮小 */
+    .py-rows { padding-bottom: 8px; gap: 4px; }
+    .py-tr { padding: 4px 12px; gap: 8px; }              /* 修改：8px 14px → 4px 12px */
+    .py-han { font-size: calc(20px * var(--fs, 1)); line-height: 1.25; }   /* 修改：23px → 20px */
+    .py-rows.py-2c { gap: 4px 8px; }
+}
+
+/* 增加：加深「排版／聲母」與下方清單的分隔，並加一道淡陰影讓清單看起來是從下面捲過去 */
+.rad-rail {
+    border-bottom-color: #e1e4e8;                       /* 修改：#f1f3f4 → #e1e4e8 */
+    box-shadow: 0 4px 6px -4px rgba(60, 64, 67, .18);   /* 增加：往下的淡陰影 */
+}
+
+/* 增加：矩陣的「排序」切換（依韻類／依韻尾配對）；只在矩陣模式出現，靠右排 */
+.py-mxo { display: none; align-items: center; gap: 2px; margin-left: auto; }
+.py-view.is-mx .py-mxo { display: inline-flex; }
+.py-mxo button { border: 1px solid #e1e4e8; }
+.py-mxo button.on { background: #e8f0fe; border-color: #aecbfa; color: #1a73e8; font-weight: 600; }
+
+/* 增加：矩陣十字準線——游標所在的列、欄淡藍色帶；表頭變成實心藍底白字；游標那一格加粗框；左上角顯示音節 */
+.py-mx-corner::after {   /* 修改：藍底固定成「左上角那一格」的寬高（與下面側邊韻母的藍色膠囊同寬），字靠右對齊；音節特別長時才向左多撐開 */
+    content: attr(data-r); position: absolute; top: 0; bottom: 0; right: 0; min-width: 100%; width: max-content; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; border-radius: 10px;
+    font-size: calc(15px * var(--fs, 1)); white-space: nowrap; pointer-events: none;
+}
+.py-mx-corner[data-r]::after { background: #1a73e8; color: #fff; }   /* 修改：藍底白字，與表頭一致；沒有音節時（data-r 不存在）不顯示 */   /* 修改：用絕對定位的 ::after 顯示，不佔版面、不撐寬第一欄 */
+.py-mx .py-cell:hover { transform: none; }   /* 新增：矩陣格子 hover 不再上移 1px（邊緣會因此反覆進出而閃動） */
+/* 已點選的格子：列欄表頭持續標示（淡藍底＋粗體＋底線），手機也看得到 */
+.py-mx thead th.sel-c { background: #e8f0fe; box-shadow: inset 0 -3px 0 #1a73e8; border-radius: 10px 10px 0 0; }
+.py-mx tr.sel-r > th { background: #e8f0fe; color: #1a73e8; box-shadow: inset -3px 0 0 #1a73e8; border-radius: 10px 0 0 10px; }
+.py-mx tr.sel-r > th i { color: #8ab4f8; }
+@media (hover: hover) {
+    .py-mx tr.hot-r > td, .py-mx td.hot-c { background: rgba(26, 115, 232, .035); border-radius: 12px; }   /* 修改：.07 → .035，空白格（沒有例字）的色帶更淡；有數字的格子另由下一條疊色，不受影響 */
+    .py-mx tr.hot-r .py-cell, .py-mx td.hot-c .py-cell { box-shadow: inset 0 0 0 60px rgba(26, 115, 232, .13); }   /* 疊在原本依字數深淺的底色上，不蓋掉深淺 */
+    .py-mx td.hot-x .py-cell:not(.on) { background: #fff; color: #1a73e8; box-shadow: 0 0 0 2px #1a73e8; }   /* 游標那一格 */
+    .py-mx thead th.hot-c, .py-mx tbody tr.hot-r > th { background: #1a73e8; color: #fff; box-shadow: none; }   /* 修改：tr.hot-r > th 前面加 tbody，優先權才壓得過原本的 tbody tr:hover > th 藍字 */   /* 表頭：實心藍底白字 */
+    .py-mx thead th.hot-c { border-radius: 10px; }
+    .py-mx tbody tr.hot-r > th { border-radius: 10px; }
+    .py-mx tbody tr.hot-r > th i { color: rgba(255, 255, 255, .65); }
+}
+
+/* 新增：拼音「只看所選」＋韻母→聲母——方塊顯示完整音節，補上的韻母用淡灰色 */
+.py-syl b .py-p { color: #b0b5bb; }
+.py-one .py-syl.on b .py-p { color: inherit; opacity: .55; }
+@media (max-width: 768px) {
+    .py-one .py-syl b { font-size: calc(13px * var(--fs, 1)); }
+}
+
+/* 新增：分類模式的「大類」導覽列——每個大類按鈕都有灰底（選中的維持淡藍）；預設展開成多排 */
+.rad-rail.is-cat button { background: #f1f3f4; color: #5f6368; }
+.rad-rail.is-cat button:hover { background: #e8eaed; color: #1a73e8; }
+.rad-rail.is-cat button.on { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
+.rad-rail.is-cat.is-open { row-gap: 8px; column-gap: 6px; padding-top: 10px; padding-bottom: 10px; }
+.rad-rail.is-cat:not(.is-open) { column-gap: 6px; }
+
+/* 新增：分類模式不分欄——大類由上到下依序排列（順序和頂部導覽列一致、點大類捲動也能準確對齊）；小類橫向排列，節省高度 */
+.cat-full-cols { column-width: auto; column-count: 1; }
+.cat-full-list { flex-direction: row; flex-wrap: wrap; gap: 2px 4px; }
+.cat-full-list .cat-full-item { width: auto; }
+
+/* 新增：底部大類標題前的編號——固定寬高的灰底圓角方塊、數字置中（1 位數、2 位數同寬，標題文字才會上下對齊） */
+.cat-full-no {
+    flex: 0 0 auto; align-self: center; box-sizing: border-box; min-width: 26px; height: 22px; padding: 0 6px; margin-right: -2px;
+    display: inline-flex; align-items: center; justify-content: center; border-radius: 7px;
+    background: #f1f3f4; color: #80868b; font-style: normal; font-size: calc(12px * var(--fs, 1)); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.cat-full-major:hover .cat-full-no { background: #e8f0fe; color: #1a73e8; }
+
+/* 新增：大類依性質分色——頂部按鈕與底部編號同色（1 自然綠、2 人粉、3 生活黃、4 社會文化紫、5 語言青、0 附錄灰）；選中的大類改成實心藍 */
+.rad-rail.is-cat button[data-tone="1"], .cat-full-no[data-tone="1"] { background: #e6f4ea; color: #1e6b34; }
+.rad-rail.is-cat button[data-tone="2"], .cat-full-no[data-tone="2"] { background: #fce8f0; color: #a1315f; }
+.rad-rail.is-cat button[data-tone="3"], .cat-full-no[data-tone="3"] { background: #fdf0cf; color: #8a5a00; }
+.rad-rail.is-cat button[data-tone="4"], .cat-full-no[data-tone="4"] { background: #f1e8fd; color: #6b3fb0; }
+.rad-rail.is-cat button[data-tone="5"], .cat-full-no[data-tone="5"] { background: #dff3f1; color: #14675f; }
+.rad-rail.is-cat button[data-tone="1"]:hover { background: #d2ebd9; }
+.rad-rail.is-cat button[data-tone="2"]:hover { background: #f8d6e5; }
+.rad-rail.is-cat button[data-tone="3"]:hover { background: #fae5b0; }
+.rad-rail.is-cat button[data-tone="4"]:hover { background: #e4d3fa; }
+.rad-rail.is-cat button[data-tone="5"]:hover { background: #c8ebe7; }
+.rad-rail.is-cat button:hover { color: #1a73e8; }
+.rad-rail.is-cat button.on { background: #1a73e8 !important; color: #fff !important; font-weight: 600; }
+
+/* 新增：底部大類編號改成深色底＋白色數字（顏色仍依組別，與頂部淺色按鈕對應） */
+.cat-full-no { background: #80868b; color: #fff; }
+.cat-full-no[data-tone="1"] { background: #2f8f4e; color: #fff; }
+.cat-full-no[data-tone="2"] { background: #c2437a; color: #fff; }
+.cat-full-no[data-tone="3"] { background: #b97a0a; color: #fff; }
+.cat-full-no[data-tone="4"] { background: #7e57c2; color: #fff; }
+.cat-full-no[data-tone="5"] { background: #1f8a80; color: #fff; }
+.cat-full-major:hover .cat-full-no { background: #1a73e8; color: #fff; }
+
+/* 頂部大類：底色再淡一點、字級略小，讓「分類／部首／拼音」維持最上層 */
+.rad-rail.is-cat button { background: #f6f7f8; color: #5f6368; font-size: calc(14px * var(--fs, 1)); }
+.rad-rail.is-cat button[data-tone="1"] { background: #f2f9f4; color: #2b7a44; }
+.rad-rail.is-cat button[data-tone="2"] { background: #fdf4f8; color: #a8486f; }
+.rad-rail.is-cat button[data-tone="3"] { background: #fef9ec; color: #946512; }
+.rad-rail.is-cat button[data-tone="4"] { background: #f8f4fe; color: #7550b2; }
+.rad-rail.is-cat button[data-tone="5"] { background: #eff8f7; color: #25716a; }
+.rad-rail.is-cat button[data-tone="1"]:hover { background: #e3f2e8; }
+.rad-rail.is-cat button[data-tone="2"]:hover { background: #fae4ee; }
+.rad-rail.is-cat button[data-tone="3"]:hover { background: #fcf0cf; }
+.rad-rail.is-cat button[data-tone="4"]:hover { background: #eee3fb; }
+.rad-rail.is-cat button[data-tone="5"]:hover { background: #dcf0ed; }
+.rad-rail.is-cat button:hover { color: #1a73e8; }
+.rad-rail.is-cat button.on { background: #1a73e8 !important; color: #fff !important; font-weight: 600; }
+
+/* 頂部「分類／部首／拼音＋搜尋框」：給最高階層一塊淡灰底，與下方白底的大類區分開 */
+.cat-full-head { background: #f6f8fa; border-bottom: 1px solid #e1e4e8; }
+.cat-full-switch { background: #e6e9ed; }
+.cat-full-head input { background: #fff; }
+.cat-full-close { background: #e6e9ed; }
+.cat-full-close:hover { background: #d9dde2; color: #1a73e8; }

@@ -697,23 +697,24 @@ function hlHtml(html) {
     return skip ? p : p.replace(re, m => m ? `<mark class="hit">${m}</mark>` : m);
   }).join('');
 }
-// ======== 列表「釋義」顯示模式：完整（編號＋詞類）／標準（編號，無詞類）／精簡（合併成一段）========
-const DEF_MODES = ['full', 'std', 'brief'];
-const DEF_LABEL = { full: '完整', std: '標準', brief: '精簡' };
+// ======== 列表「釋義」顯示模式：完整（編號＋詞類）／標準（編號，無詞類）／合併（合併成一段）／單行（合併後不換行，超出隱藏）========
+const DEF_MODES = ['full', 'std', 'brief', 'line'];   // 修改：新增 'line'（單行）；內部代碼 brief 不變，名稱改為「合併」
+const DEF_LABEL = { full: '完整', std: '標準', brief: '合併', line: '單行' };   // 修改：精簡→合併；新增單行
 function defListHtml(text) {
   const mode = window.defMode || 'brief';
   const defs = (text || '').split('<br>').filter(Boolean);
-  if (mode === 'brief') {
+  if (mode === 'brief' || mode === 'line') {   // 修改：單行與合併用同一段內容，只差外層樣式
     const joined = defs.map(d => {
       let t = posChipHtml(d.replace(/^\d+\. /, '')).rest.trim();
       if (t && !/[。！？；」』）)…]$/.test(t)) t += '；';
       return t;
     }).join('').replace(/；$/, '。');   // 最後一段若沒有句號，補上
+    if (mode === 'line') return `<div class="def-brief def-oneline" title="${joined.replace(/<[^>]*>/g, '').replace(/"/g, '&quot;')}">${joined}</div>`;   // 新增：單行（不換行、超出隱藏；滑過顯示完整釋義）
     return `<div class="def-brief">${joined}</div>`;
   }
   return defs.map(d => defLineHtml(d, mode === 'std', true)).join('')   // 列表：詞類用單字簡稱;
 }
-document.addEventListener('click', function (e) {        // 表格頂端（手機版為各列標籤）的「釋義」：完整 → 標準 → 精簡
+document.addEventListener('click', function (e) {        // 表格頂端（手機版為各列標籤）的「釋義」：完整 → 標準 → 合併 → 單行
   const t = e.target.closest('.def-toggle'); if (!t) return;
   e.preventDefault();
   const next = DEF_MODES[(DEF_MODES.indexOf(window.defMode || 'brief') + 1) % DEF_MODES.length];
@@ -788,7 +789,7 @@ document.addEventListener('click', function (e) {
 
 // ======== 台羅音讀：資料以「/」分隔兩種音讀（前為主、後為副），可選 全部／主音讀／副音讀 ========
 const ROM_MODES = ['full', 'main', 'sub'];
-const ROM_LABEL = { full: '全', main: '主', sub: '副' };
+const ROM_LABEL = { full: '主副', main: '主', sub: '副' };   // 修改：full 的標籤 全→主副
 function romText(v) {
   const mode = window.romMode || 'full';
   if (mode === 'full' || !v || v.indexOf('/') < 0) return v || '';
@@ -853,7 +854,7 @@ function copyPlain(text) {
 
 // 近義詞／反義詞：每個詞可點擊，直接以該詞查詢「詞目」
 let _romIdx = null;
-function romOfWord(w) {   // 詞 → 音讀（辭典裡同字詞的各個音讀，去重後用「 ／ 」相接）；找不到回傳空字串
+function romOfWord(w) {   // 詞 → 音讀陣列（辭典裡同字詞的各個音讀，去重）；找不到回傳空陣列
   if (!_romIdx) {
     _romIdx = new Map();
     dictionary.forEach(it => {
@@ -863,13 +864,13 @@ function romOfWord(w) {   // 詞 → 音讀（辭典裡同字詞的各個音讀�
       if (!v.includes(rom)) v.push(rom);
     });
   }
-  return (_romIdx.get(relNorm(w)) || []).join(' ／ ');
+  return _romIdx.get(relNorm(w)) || [];   // 修改：改回傳陣列（每個音讀各自帶【白】【文】等標記），不再先接成一個字串
 }
 function relWordsHtml(text) {
   const ws = (text || '').split('、').map(w => w.trim()).filter(Boolean);
   const btn = w => `<button type="button" class="rel-word" data-word="${escHtml(w)}" title="查詢「${escHtml(w)}」">${escHtml(w)}</button>`;
   if (!window.rrOn) return ws.map(btn).join('<span class="rel-sep">、</span>');   // 預設：一行，用頓號分開
-  return ws.map(w => { const r = romOfWord(w); return `<div class="rel-item">${btn(w)}${r ? `<span class="rel-rom">${romHtml(r)}</span>` : ''}</div>`; }).join('');   // 顯示音讀：每個詞一行，音讀在詞後
+  return ws.map(w => { const rs = romOfWord(w); return `<div class="rel-item">${btn(w)}${rs.length ? `<span class="rel-rom">${rs.map(romHtml).join('<span class="rel-sep"> ／ </span>')}</span>` : ''}</div>`; }).join('');   // 修改：各音讀分別用 romHtml 轉換（標記才會跟在各自的拼音後面），再用「 ／ 」相接
 }
 function searchRelWord(word) {   // 修改：抽成函式，近反義浮窗的詞也共用
   hideDetailUI();
@@ -1070,6 +1071,7 @@ const codeToType = c => CODE_TYPE[c] || c;
 const defaultType = () => searchTypes[0];
 let _restoring = false;      // 依網址還原畫面時，不回寫網址
 let _articleOpen = false;    // 新增：換詞（語詞替換）頁面是否開著（對應網址參數 a=1）
+let _browseOpen = false;    // 新增：分類／部首／拼音瀏覽大視窗是否開著（對應網址參數 b）
 let _urlQ = '';              // 目前網址中的查詢詞（判斷要新增或取代歷史紀錄）
 let _shownQ = null, _shownT = null;   // 畫面上已顯示的查詢詞與類型
 // 新增：「原始正則模式」——按下「轉為正則」後，搜尋框內容完全當標準正則，不再經過簡易語法（單向，不能轉回）
@@ -1097,6 +1099,18 @@ function buildUrl() {
     if (currentDetailId) p.set('d', currentDetailId);
   }
   if (_articleOpen) p.set('a', '1');   // 新增：換詞頁開著
+  if (_browseOpen) {
+    p.set('b', _browseMode);
+    if (_browseMode === 'py') {
+      if (_pySel) p.set('bp', _pySel);
+      if (_pyView !== 'fam') p.set('bv', _pyView);
+      if (_pyRev) p.set('br', '1');
+      if (!_pyOne) p.set('bo', '0');
+      if (_pyView === 'mx' && _pyMxPair) p.set('bm', 'pair');
+      if (_pyOne && _pyView !== 'mx' && _pyCur) p.set('bc', _pyCur);
+    }
+    if (_browseMode === 'rad' && _radCur) p.set('bs', _radCur);   // 新增：部首目前捲到的筆畫（第一組不寫）
+  }   // 新增：分類／部首／拼音瀏覽開著（b＝哪一種；bp＝拼音選中的音節）
   const qs = p.toString();
   return location.pathname + (qs ? '?' + qs : '');
 }
@@ -1106,7 +1120,7 @@ function syncUrl(mode) {
   if (_restoring) return;
   const url = buildUrl();
   if (url === location.pathname + location.search) return;
-  if (mode === 'push') history.pushState({ detail: !!currentDetailId }, '', url);
+  if (mode === 'push') history.pushState({ detail: !!currentDetailId, browse: _browseOpen }, '', url);
   else history.replaceState(history.state, '', url);
 }
 function syncSearchUrl() {
@@ -1164,6 +1178,20 @@ function applyUrlState(initial) {
   if (window.holoArticleView) {   // 新增：網址有 a=1 就開換詞頁，沒有就關（直接連進來、上一頁／下一頁都適用）
     if (sp.get('a') === '1') window.holoArticleView.open({ fromUrl: true });
     else window.holoArticleView.close({ fromUrl: true });
+  }
+  { // 新增：b=cat／rad／py ＝ 瀏覽大視窗開著（上一頁／下一頁、直接連進來都適用）；沒有 b 就關
+    const bm = sp.get('b');
+    if (bm === 'cat' || bm === 'rad' || bm === 'py') {
+      const pyChg = bm === 'py' && pyStateFromUrl(sp);
+      if (!catFull.classList.contains('open') || _browseMode !== bm) toggleCategoryFull(true, bm, { fromUrl: true });
+      else if (pyChg) renderPinyinFull();
+      if (bm === 'rad') {   // 新增：還原部首的筆畫位置
+        const bs = sp.get('bs') || '';
+        if (bs !== _radCur) { if (bs) radScrollTo(bs, false); else catFullBody.scrollTop = 0; _radCur = bs; }
+      }
+      const bp = sp.get('bp');
+      if (bm === 'py' && bp && bp !== _pySel) { const e = getPinyinIndex().syl.get(bp); if (e) { _pySel = bp; _pyCur = sp.get('bc') || (_pyRev ? e.fin : (e.ini || '零')); renderPinyinFull(); } }
+    } else if (catFull.classList.contains('open')) toggleCategoryFull(false, null, { fromUrl: true });
   }
   let q = (sp.get('q') ?? sp.get('cas') ?? '').trim();   // cas 為舊版參數，保持相容
   const id = sp.get('d');
@@ -2120,10 +2148,10 @@ function displayResults(filteredData, currentPage) {
                 return `<th data-lang-type="${langType}">本音</th><th data-lang-type="${langType}">變音</th>`;
             }
             if (header === '台羅') {
-                return `<th data-lang-type="${langType}"${on}><button type="button" class="rom-toggle" title="切換音讀：全／主／副">${colLabel(header)}<span class="rom-mode">${ROM_LABEL[window.romMode || 'full']}</span></button></th>`;
+                return `<th data-lang-type="${langType}"${on}><button type="button" class="rom-toggle" title="切換音讀：主副／主／副">${colLabel(header)}<span class="rom-mode">${ROM_LABEL[window.romMode || 'full']}</span></button></th>`;
             }
             if (header === '釋義') {
-                return `<th data-lang-type="${langType}"${on}><button type="button" class="def-toggle" title="切換釋義顯示：完整／標準／精簡">${colLabel(header)}<span class="rom-mode">${DEF_LABEL[window.defMode || 'brief']}</span></button></th>`;
+                return `<th data-lang-type="${langType}"${on}><button type="button" class="def-toggle" title="切換釋義顯示：完整／標準／合併／單行">${colLabel(header)}<span class="rom-mode">${DEF_LABEL[window.defMode || 'brief']}</span></button></th>`;
             }
             if (header === '台語') {   // 新增：「詞目」表頭可切換排序
                 return `<th data-lang-type="${langType}"${on}><button type="button" class="sort-toggle" title="切換排序：詞目＞音讀／音讀＞詞目">${colLabel(header)}<span class="rom-mode">${SORT_LABEL[window.sortMode || 'han']}</span></button></th>`;
@@ -2371,10 +2399,14 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
 
     box.appendChild(mk('‹', '上一頁', currentPage === 1, () => changePage(currentPage - 1), 'pm-nav'));
 
-    // 頁碼：目前頁盡量置中；手機 3 個、電腦 4 個
-    const maxVisible = window.innerWidth <= 768 ? 3 : 4;
-    const start = Math.max(1, Math.min(currentPage - 1, totalPages - maxVisible + 1));
+    // 頁碼：目前頁盡量置中；窄手機 2 個、手機 3 個、電腦 5 個（電腦版另外保留首頁 1）
+    const wide = window.innerWidth > 768;   // 新增：電腦版（寬螢幕）
+    const maxVisible = window.innerWidth <= 400 ? 2 : window.innerWidth <= 768 ? 3 : 5;   // 修改：電腦 4 → 5；窄手機（≤400px）2、手機 3 不變
+    const start = wide ? Math.max(1, Math.min(currentPage - 2, totalPages - maxVisible + 1))   // 修改：電腦版目前頁置中（前後各 2 個）
+                       : Math.max(1, Math.min(currentPage - 1, totalPages - maxVisible + 1));
     const end = Math.min(totalPages, start + maxVisible - 1);
+    // 新增：電腦版保留「1」當首頁；與後面的頁碼之間隔著頁數時，在 1 後面加「…」（1…）
+    if (wide && start > 1) box.appendChild(mk('1' + (start > 2 ? '…' : ''), '第一頁', false, () => changePage(1), 'pm-text'));
     for (let i = start; i <= end; i++) {
         const b = mk(String(i), `第${i}頁`, false, () => changePage(i), i === currentPage ? 'active' : '');
         if (i === currentPage) b.setAttribute('aria-current', 'page');
@@ -2399,6 +2431,24 @@ function generateMobilePagination(totalItems, currentPage, totalPages) {
     const firstBtn = mk('首頁', '回到第一頁', currentPage === 1, () => changePage(1), 'pm-first');
     info.append(infoText);   // 修改：「首頁」按鈕移到下面的跳頁列（跳到第幾頁的左邊）
     pop.appendChild(info);
+
+    // 新增：符合程度（完全符合／部分符合…）有分層時，列出各層與筆數；點選後跳到該層第一筆所在頁並標示
+    const TI = tierInfo();
+    const tierList = (TI.grouped && totalPages > 1) ? TIER_ORDER.filter(t => TI.counts[t] > 0) : [];
+    if (tierList.length >= 2) {
+        const tRow = document.createElement('div');
+        tRow.className = 'pm-row pm-tier-row';
+        const tBox = document.createElement('div');
+        tBox.className = 'pm-tier';
+        const curT = TI.tiers[Math.min((currentPage - 1) * ITEMS_PER_PAGE, filteredData.length - 1)];   // 目前頁第一筆所在的層，標示「現在在哪一層」
+        tierList.forEach(t => {
+            const idx = TI.start[t];
+            tBox.appendChild(mk(`${TIER_LABELS[t]} ${TI.counts[t]}`, `跳到「${TIER_LABELS[t]}」（共 ${TI.counts[t]} 筆）`, false,
+                () => changePage(Math.floor(idx / ITEMS_PER_PAGE) + 1, idx), 'pm-tier-chip' + (t === curT ? ' on' : '')));
+        });
+        tRow.append(tBox);   // 修改：不放「符合程度」標題文字，只留按鈕
+        pop.appendChild(tRow);
+    }
 
     // 新增：聲母索引（只有「音>詞」排序且有 2 頁以上才出現；點選後跳到該字母第一筆所在頁）
     const idxInfo = totalPages > 1 ? buildInitialIndex(currentPage) : { list: [], tier: '' };
@@ -2493,7 +2543,7 @@ function changeItemsPerPage(newItemsPerPage) {
 function changePage(newPage, targetIdx) {   // 修改：新增 targetIdx（選填）：換頁後直接捲到這一筆並閃一下標示
     // 不需要重新過濾數據，只需要重新排序和顯示
     
-    const searchTerm = searchInput.value.trim();
+    const searchTerm = searchTermReplace(searchInput.value.trim());   // 修改：要先轉成正則字串（與 performSearch 相同），否則「AA」「ABB」等簡易語法會被當成一般文字，分層排序就亂掉
     
     // 重新排序 filteredData
     filteredData.sort((a, b) => compareSearchResults(a, b, searchTerm, currentSearchType));
@@ -2829,7 +2879,7 @@ function renderSuggest() {
   if ((kb && kb.style.display === 'block') || _rawRx) { hideSearchHistory(); return; }   // 虛擬鍵盤開著、或正則模式：不提示
   sgLoadFreq();
   const hits = sgFind(q);
-  if (!hits.length) { hideSearchHistory(); return; }
+  // 修改：沒有符合的提示時也照樣顯示第一列「輸入的字 - 查詢」（原本是整個面板收起來，放大鏡就一直露在外面）；有這一列時，styles.css 會自動隱藏放大鏡
   ensureHistEl(); _histMode = 'sg'; _sgSel = 0; _sgBase = q;
   const qRow = '<div class="hist-item sg-item sg-q sg-sel" data-q="' + escHtml(q) + '" role="button" tabindex="-1"><span class="hist-q">' + escHtml(q) + '<span class="sg-rom sg-qlab"> - 查詢</span></span></div>';   // 第一列＝照輸入的字查詢（Enter 預設就是它）
   _histEl.innerHTML = qRow + hits.map(({ e }) => {
@@ -2897,6 +2947,8 @@ searchClear.addEventListener('click', () => {
     updateActiveSearchType();
     searchClear.style.display = 'none';
     showRxError('');   // 新增
+    searchInput.focus();          // 新增：按 X 後游標留在搜尋框（手機維持鍵盤開著，可直接重打）
+    renderSearchHistory();        // 新增：重新整理下方面板——框內已空，所以換成「最近查詢」（沒有紀錄就收起舊的輸入提示）
 });
 
 // 初始顯示空結果
@@ -3165,11 +3217,7 @@ function catPredicate(term) {
 }
 
 const catTrigger = document.getElementById('catTrigger');
-const catPanel = document.getElementById('catPanel');
-const catGrid = document.getElementById('catGrid');
-const catFilter = document.getElementById('catFilter');
-const catBack = document.getElementById('catBack');
-let _catStats = null, _catMajor = null;                    // _catMajor：目前展開的大類（null＝顯示大類總覽）
+let _catStats = null;
 
 // 各小類、大類的詞條數（第一次開啟時才計算，之後重複使用）
 function getCategoryStats() {
@@ -3186,102 +3234,551 @@ function getCategoryStats() {
   });
   return (_catStats = cnt);
 }
-function renderCategoryGrid() {
-  const kw = catFilter.value.trim(), cnt = getCategoryStats(), E = escHtml;
-  const sub = s => `<button type="button" class="cat-item" data-cat="${E(s)}">${E(s)}<small>${cnt.get(s)}</small></button>`;
-  const sec = (m, subs, label) => `<div class="cat-sec"><button type="button" class="cat-major-link" data-cat="${E(m.name)}">${label || E(m.name)}<small>${cnt.get(m.name)}</small></button><div class="cat-chips">${subs.map(sub).join('')}</div></div>`;
-  catBack.hidden = !(_catMajor && !kw);
-  let html = '';
-  if (kw) {                                                // 篩選：跨大類找小類
-    CAT_TREE.forEach(m => {
-      const subs = m.name.includes(kw) ? m.subs : m.subs.filter(s => s.includes(kw));
-      if (subs.length) html += sec(m, subs);
-    });
-    if (!html) html = '<div class="cat-empty">找無符合的分類</div>';
-  } else if (_catMajor) {                                  // 某個大類底下的小類
-    const m = CAT_TREE.find(x => x.name === _catMajor);
-    html = sec(m, m.subs, `${E(m.name)}　全部`);
-  } else {                                                 // 大類總覽
-    const major = m => `<button type="button" class="cat-major" data-major="${E(m.name)}">${E(m.name)}<svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>`;
-    html = `<div class="cat-majors">${CAT_TREE.filter(m => !m.extra).map(major).join('')}</div>` +
-      `<div class="cat-extra-title">其他分類</div><div class="cat-majors">${CAT_TREE.filter(m => m.extra).map(major).join('')}</div>`;
-  }
-  catGrid.innerHTML = html;
-  catGrid.scrollTop = 0;
-}
-function toggleCategoryPanel(force) {
-  const open = typeof force === 'boolean' ? force : !catPanel.classList.contains('open');
-  catPanel.classList.toggle('open', open);
-  catTrigger.setAttribute('aria-expanded', open);
-  if (open) {
-    catFilter.value = '';
-    renderCategoryGrid();
-    if (window.innerWidth > 768) catFilter.focus();        // 手機版不自動跳出鍵盤
-  }
-}
-catTrigger.addEventListener('click', () => toggleCategoryPanel());
-catFilter.addEventListener('input', renderCategoryGrid);
-catBack.addEventListener('click', () => { _catMajor = null; renderCategoryGrid(); });
-catFilter.addEventListener('keydown', e => {               // 篩選後按 Enter：直接進入第一個小類
-  if (e.key !== 'Enter' || e.isComposing) return;
-  const first = catGrid.querySelector('.cat-item') || catGrid.querySelector('.cat-major-link');
-  if (first) { toggleCategoryPanel(false); searchByCategory(first.dataset.cat); }
-});
-catGrid.addEventListener('click', e => {
-  const mj = e.target.closest('.cat-major[data-major]');   // 點大類 → 展開小類
-  if (mj) { _catMajor = mj.dataset.major; renderCategoryGrid(); return; }
-  const b = e.target.closest('[data-cat]'); if (!b) return;   // 點小類／「大類全部」→ 查詢
-  toggleCategoryPanel(false);
-  searchByCategory(b.dataset.cat);
-});
-document.addEventListener('mousedown', e => {              // 點面板外面就關閉
-  if (catPanel.classList.contains('open') && !e.target.closest('#catPanel, #catTrigger')) toggleCategoryPanel(false);
-});
+catTrigger.addEventListener('click', () => toggleCategoryFull(true));   // 修改：分類按鈕直接開大視窗（已取消小視窗）
 
 // ---- 全部檢視（大版面）：一次列出所有大類與小類，不必逐層返回 ----
 const catFull = document.getElementById('catFull');
 const catFullBody = document.getElementById('catFullBody');
 const catFullFilter = document.getElementById('catFullFilter');
+let _catRailOpen = true;   // 新增：分類模式的「大類」導覽列預設展開（使用者按收合鈕後，這次開啟期間維持收合）
 function renderCategoryFull() {
   const kw = catFullFilter.value.trim(), cnt = getCategoryStats(), E = escHtml;
   const item = s => `<button type="button" class="cat-full-item" data-cat="${E(s)}"><span>${E(s)}</span><small>${cnt.get(s)}</small></button>`;
   const pick = m => !kw ? m.subs : (m.name.includes(kw) ? m.subs : m.subs.filter(s => s.includes(kw)));
-  const sec = ([m, subs]) => `<section class="cat-full-sec"><button type="button" class="cat-full-major" data-cat="${E(m.name)}"><span>${E(m.name)}</span><small>${cnt.get(m.name)}</small></button><div class="cat-full-list${m.extra ? ' is-flow' : ''}">${subs.map(item).join('')}</div></section>`;
+  const sec = ([m, subs]) => `<section class="cat-full-sec" data-s="${E(m.name)}"><button type="button" class="cat-full-major" data-cat="${E(m.name)}"><i class="cat-full-no" data-tone="${m.tone || 0}">${CAT_TREE.indexOf(m) + 1}</i><span>${E(m.name)}</span><small>${cnt.get(m.name)}</small></button><div class="cat-full-list${m.extra ? ' is-flow' : ''}">${subs.map(item).join('')}</div></section>`;
   const rows = f => CAT_TREE.filter(f).map(m => [m, pick(m)]).filter(x => x[1].length);
   const main = rows(m => !m.extra), extra = rows(m => m.extra);
   let html = main.length ? `<div class="cat-full-cols">${main.map(sec).join('')}</div>` : '';
   if (extra.length) html += `<details class="cat-full-extra" open><summary>其他分類</summary><div class="cat-full-cols">${extra.map(sec).join('')}</div></details>`;
   catFullBody.innerHTML = html || '<div class="cat-empty">找無符合的分類</div>';
   catFullBody.scrollTop = 0;
+  const majors = [...main, ...extra];   // 新增：頂部導覽列＝大類別（含「其他分類」裡的），點了捲到該大類；篩選中不顯示
+  catFullRail.hidden = !!kw || !majors.length;
+  catFullRail.innerHTML = catFullRail.hidden ? '' : '<span class="rad-unit">大類</span>' + majors.map(([m]) => `<button type="button" data-s="${E(m.name)}" data-tone="${m.tone || 0}">${E(m.name)}</button>`).join('');
+  catFullRail.classList.toggle('is-open', !catFullRail.hidden && _catRailOpen);   // 新增：大類預設展開（多排顯示）
 }
-function toggleCategoryFull(open) {
+// 新增：分類模式——捲到指定大類別（「其他分類」被收合時先展開），並閃一下標題
+function catScrollTo(name, smooth) {
+  const sec = [...catFullBody.querySelectorAll('.cat-full-sec')].find(x => x.dataset.s === name); if (!sec) return;
+  const d = sec.closest('details'); if (d) d.open = true;
+  catFullBody.scrollTo({ top: sec.getBoundingClientRect().top - catFullBody.getBoundingClientRect().top + catFullBody.scrollTop - 8, behavior: smooth ? 'smooth' : 'auto' });
+  sec.classList.remove('is-pulse'); void sec.offsetWidth; sec.classList.add('is-pulse');
+}
+// 修改：只剩大視窗。開關會同步網址參數 b=cat／rad／py（py 另有 bp=選中的音節），並新增一筆歷史，讓「上一頁」能回到瀏覽畫面
+// opt.fromUrl：依網址還原（不動歷史）；opt.keep：因為「選了項目、要去查詢」而離開——不退歷史，讓查詢接在這一筆後面，之後按上一頁就回到瀏覽畫面
+function toggleCategoryFull(open, mode, opt) {
+  { // 重新整理還原（畫面還藏著、html 帶有 restoring）時，直接用行內樣式關掉開啟動畫，避免顯示瞬間又播一次淡入＋放大而閃一下；之後任何開關都會清掉，恢復正常動畫
+    const card = catFull.querySelector('.cat-full-card');
+    if (card) card.style.animation = document.documentElement.classList.contains('restoring') ? 'none' : '';
+  }
+  const was = catFull.classList.contains('open');
   catFull.classList.toggle('open', open);
   document.documentElement.classList.toggle('cat-full-open', open);   // 開啟時鎖住背後頁面的捲動
-  if (open) {
-    toggleCategoryPanel(false);
-    catFullFilter.value = '';
-    renderCategoryFull();
-    if (window.innerWidth > 768) catFullFilter.focus();
+  catTrigger.setAttribute('aria-expanded', open);
+  _browseOpen = open;
+  if (open) setBrowseMode(mode || 'cat');   // 原本的 catFullFilter.value = ''; renderCategoryFull(); catFullFilter.focus() 都搬進 setBrowseMode
+  if (opt && opt.fromUrl) return;
+  if (open && !was) history.pushState({ detail: !!currentDetailId, browse: true }, '', buildUrl());
+  else if (!open && was) {
+    if (opt && opt.keep) _urlQ = '\u0000';   // 讓接著的查詢一定「新增」歷史（不要取代掉瀏覽那一筆）
+    else if (history.state && history.state.browse) history.back();
+    else syncUrl('replace');
   }
 }
-document.getElementById('catExpand').addEventListener('click', () => toggleCategoryFull(true));
+const closeBrowseForPick = () => toggleCategoryFull(false, null, { keep: true });   // 新增：選了分類／部首／字，離開瀏覽畫面去查詢
 document.getElementById('catFullClose').addEventListener('click', () => toggleCategoryFull(false));
-catFull.addEventListener('click', e => { if (e.target === catFull) toggleCategoryFull(false); });   // 點背景關閉
-catFullFilter.addEventListener('input', renderCategoryFull);
+// 修改：不再「點背景關閉」——瀏覽畫面有獨立的網址參數（b=cat／rad／py），點到外面不該離開；仍可用右上角 ✕、Esc 或瀏覽器上一頁關閉
+catFullFilter.addEventListener('input', renderBrowse);   // 修改：renderCategoryFull → renderBrowse（依目前模式渲染）
 catFullFilter.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
+  if (_browseMode === 'rad') {   // 新增：部首模式，Enter＝進入第一個部首
+    const t = catFullBody.querySelector('.rad-tile:not(:disabled)');
+    if (t) { closeBrowseForPick(); searchByRadical(t.dataset.rad); }
+    return;
+  }
+  if (_browseMode === 'py') {   // 新增：拼音模式，Enter＝開啟輸入的字的詞條；沒輸入字就選第一個音節
+    const hz = catFullBody.querySelector('.py-han.is-hit');
+    if (hz) openEntryById(hz.dataset.id);
+    else { const sb = catFullBody.querySelector('.py-syl, .py-cell'); if (sb) sb.click(); }
+    return;
+  }
   const first = catFullBody.querySelector('.cat-full-item') || catFullBody.querySelector('.cat-full-major');
-  if (first) { toggleCategoryFull(false); searchByCategory(first.dataset.cat); }
+  if (first) { closeBrowseForPick(); searchByCategory(first.dataset.cat); }
 });
 catFullBody.addEventListener('click', e => {
+  const rt = e.target.closest('.rad-tile[data-rad]');   // 新增：點部首 → 關閉大版面，以該部首查詢
+  if (rt) { closeBrowseForPick(); searchByRadical(rt.dataset.rad); return; }
   const b = e.target.closest('[data-cat]'); if (!b) return;
-  toggleCategoryFull(false);
+  closeBrowseForPick();
   searchByCategory(b.dataset.cat);
 });
+// ======== 新增：「部首」瀏覽模式（與「分類」共用同一個大版面，標題列用「分類｜部首」切換）========
+// 版面：上方筆畫導覽列（1 2 3 … 畫，點了跳到該筆畫；捲動時自動標示目前位置）；
+//       內容依部首筆畫分段，左邊是筆畫（捲動時黏在左側），右邊是部首方格（右下角小字＝辭典裡該部首的單字數）。
+// 篩選框：輸入「字」→ 標示該字所屬部首；輸入「部首」→ 標示該部首；輸入數字（如 5 或 5畫）→ 只看該筆畫。
+// 點部首 → 關閉大版面，切到「部首」分頁列出該部首的字（沿用 searchByRadical）。
+const catFullRail = document.getElementById('radRail');
+const HAS_RADICAL = typeof myRadicalData !== 'undefined' && typeof myRadicalGroupByStrokes === 'function';
+let _browseMode = 'cat', _radStats = null;
+if (!HAS_RADICAL) {   // radical.js 沒載入：藏起部首入口
+  const sw = catFull.querySelector('.cat-full-switch button[data-mode="rad"]'); if (sw) sw.hidden = true;
+  const rb = document.getElementById('catRadical'); if (rb) rb.hidden = true;
+}
+let _radCur = '', _radUrlTimer = 0;   // 新增：部首目前捲到的筆畫（''＝第一組，不寫進網址）
+function radScrollTo(s, smooth) {   // 新增：捲到指定筆畫（導覽列點擊、網址還原共用）
+  const sec = catFullBody.querySelector(`.rad-sec[data-s="${s}"]`); if (!sec) return;
+  catFullBody.scrollTo({ top: sec.getBoundingClientRect().top - catFullBody.getBoundingClientRect().top + catFullBody.scrollTop - 4, behavior: smooth ? 'smooth' : 'auto' });
+}
+function getRadicalStats() {   // 各部首在辭典裡的單字數（第一次用到才計算）
+  if (_radStats) return _radStats;
+  _radStats = new Map();
+  dictionary.forEach(it => {
+    const v = it[RADICAL_TAB]; if (!v) return;
+    v.split('、').forEach(n => _radStats.set(n, (_radStats.get(n) || 0) + 1));
+  });
+  return _radStats;
+}
+function renderRadicalFull() {
+  const kw = catFullFilter.value.trim(), cnt = getRadicalStats(), E = escHtml;
+  let only = null, hit = null;
+  const num = kw.match(/^(\d+)\s*畫?$/);
+  if (num) only = +num[1];
+  else if (kw) {
+    hit = new Set();
+    [...kw].forEach(ch => {
+      if (myRadicalData.some(r => r.name === ch)) hit.add(ch);
+      myRadicalOf(ch).forEach(r => hit.add(r.name));
+    });
+  }
+  let html = '', strokes = [];
+  myRadicalGroupByStrokes().forEach(([s, list]) => {
+    if (only !== null && s !== only) return;
+    list = list.filter(r => hit ? hit.has(r.name) : (cnt.get(r.name) || 0) > 0);   // 沒篩選時，辭典裡沒有字的部首不列
+    if (!list.length) return;
+    strokes.push(s);
+    html += `<section class="rad-sec" data-s="${s}"><h3 class="rad-sec-h">${s}<small>畫</small></h3><div class="rad-grid">` +
+      list.map(r => {
+        const n = cnt.get(r.name) || 0, lv = n >= 100 ? 4 : n >= 40 ? 3 : n >= 15 ? 2 : n >= 5 ? 1 : 0;   // 新增：依字數分 0～4 級，決定方格底色深淺
+        return `<button type="button" class="rad-tile${hit ? ' is-hit' : ''}" data-h="${lv}" data-rad="${E(r.name)}" title="${E(r.name)}部・${r.strokes} 畫・${n} 字"${n ? '' : ' disabled'}><b>${E(r.name)}</b><small>${n || ''}</small></button>`;
+      }).join('') + '</div></section>';
+  });
+  if (html && !kw) html += '<p class="rad-note">方格下方數字＝辭典收錄的單字數；底色越深，字越多</p>';   // 新增：圖例說明
+  catFullBody.innerHTML = html || '<div class="cat-empty">找無符合的部首</div>';
+  catFullBody.scrollTop = 0;
+  if (_radCur) { _radCur = ''; clearTimeout(_radUrlTimer); _radUrlTimer = setTimeout(() => { if (_browseOpen) syncUrl('replace'); }, 300); }   // 新增：重畫（篩選）後捲回頂端，網址的 bs 跟著拿掉
+  catFullRail.hidden = !!kw || !strokes.length;   // 篩選中不顯示導覽列
+  catFullRail.innerHTML = catFullRail.hidden ? '' : '<span class="rad-unit">畫數</span>' + strokes.map(s => `<button type="button" data-s="${s}">${s}</button>`).join('');
+  updateRadicalSpy();
+}
+function updateRadicalSpy() {   // 依捲動位置，標示導覽列目前的筆畫
+  if (_browseMode === 'cat' || catFullRail.hidden) return;   // 修改：原本只有部首模式，拼音模式共用
+  const top = catFullBody.getBoundingClientRect().top + 24;
+  let cur = null;
+  catFullBody.querySelectorAll('.rad-sec').forEach(s => { if (s.getBoundingClientRect().top <= top) cur = s.dataset.s; });
+  const f0 = catFullBody.querySelector('.rad-sec');
+  if (!cur) cur = f0 && f0.dataset.s;
+  if (_browseMode === 'rad') {   // 新增：捲動停下 300ms 後，把目前筆畫寫進網址 bs（replace，不增加歷史）
+    const v = cur && f0 && cur !== f0.dataset.s ? cur : '';
+    if (v !== _radCur) { _radCur = v; clearTimeout(_radUrlTimer); _radUrlTimer = setTimeout(() => { if (_browseOpen) syncUrl('replace'); }, 300); }
+  }
+  catFullRail.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.s === cur;
+    if (on === b.classList.contains('on')) return;
+    b.classList.toggle('on', on);
+    if (on) { const r = catFullRail.getBoundingClientRect(), br = b.getBoundingClientRect(); catFullRail.scrollLeft += br.left - r.left - (r.width - br.width) / 2; }   // 讓目前筆畫留在導覽列中間
+  });
+}
+function renderBrowse() {
+  const _pd = document.getElementById('pyDetail'); if (_pd && _browseMode !== 'py') _pd.hidden = true;   // 新增：離開拼音模式就藏起例字面板
+  _pyBar.hidden = _browseMode !== 'py'; if (_browseMode !== 'py') catFullBody.classList.remove('is-mx');   // 新增：排版切換列只在拼音模式出現
+  if (_browseMode === 'rad') renderRadicalFull();
+  else if (_browseMode === 'py') renderPinyinFull();   // 新增：拼音模式
+  else renderCategoryFull();   // 修改：導覽列改由 renderCategoryFull 自己處理（原本這裡先藏起並清空）
+}
+function setBrowseMode(mode) {
+  if (mode === 'rad' && !HAS_RADICAL) mode = 'cat';
+  catFullRail.classList.toggle('is-cat', mode === 'cat');   // 新增：分類模式的大類按鈕用灰底
+  if (mode === 'cat') _catRailOpen = true; else catFullRail.classList.remove('is-open');   // 新增：每次進分類模式都預設展開；其他模式維持原本的單排
+  _browseMode = mode; _radCur = '';   // 修改：多重設 _radCur（每次開啟／切換模式，部首都從第一組開始）
+  catFull.querySelectorAll('.cat-full-switch button').forEach(b => { const on = b.dataset.mode === mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  catFullFilter.value = '';
+  catFullFilter.placeholder = mode === 'rad' ? '字、部首、筆畫數' : mode === 'py' ? '音節或字，例：tsi、tsit8、貴' : '篩選分類⋯⋯';   // 修改：多了拼音
+  if (mode === 'py') { _pySel = ''; _pyTone = ''; _pyHits = new Set(); }   // 新增：每次進拼音模式都從頭開始
+  renderBrowse();
+  if (window.innerWidth > 768) catFullFilter.focus();
+}
+catFull.querySelector('.cat-full-switch').addEventListener('click', e => {
+  const b = e.target.closest('button[data-mode]'); if (b && b.dataset.mode !== _browseMode) { setBrowseMode(b.dataset.mode); syncUrl('replace'); }   // 修改：切換分類／部首／拼音，網址 b 跟著換
+});
+catFullRail.addEventListener('click', e => {   // 點筆畫 → 捲到該筆畫
+  const b = e.target.closest('button[data-s]'); if (!b) return;
+  if (_browseMode === 'cat') { const n = b.dataset.s; catFullRail.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); requestAnimationFrame(() => catScrollTo(n, true)); return; }   // 修改：大類列點了會自動收合（下面的導覽列處理），標示點選的大類（收合後導覽列會自動把它捲到中間），等收合後版面定了再捲到該大類   // 新增：分類模式，點大類別 → 捲到該大類
+  if (_browseMode === 'py' && _pyOne) { _pyCur = b.dataset.s; renderPinyinFull(); syncUrl('replace'); return; }   // 只看所選：換成那一組
+  radScrollTo(b.dataset.s, true);   // 修改：改用 radScrollTo
+});
+// 新增：導覽列（聲母／韻母／筆畫）可拖曳、可用滾輪橫捲、有細滾動條；放不下時，左邊標籤固定、右側出現圖示鈕，點了全部攤開成多排
+(function () {
+  const r = catFullRail; let down = false, moved = false, sx = 0, sl = 0;
+  const wrap = document.createElement('div'); wrap.className = 'rad-rail-wrap';
+  r.parentNode.insertBefore(wrap, r); wrap.appendChild(r);   // 外面包一層：左右兩端的遮罩層、展開鈕放在這裡，才不會跟著內容捲
+  const lab = document.createElement('div'); lab.className = 'rad-unit rail-lab'; lab.hidden = true; lab.setAttribute('aria-hidden', 'true');   // 左邊固定的標籤（複製自內容裡的「韻母」）
+  const end = document.createElement('div'); end.className = 'rail-end'; end.hidden = true;   // 右端：白色漸層遮住尾端＋展開鈕
+  const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'rail-more';
+  mb.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  end.appendChild(mb); wrap.appendChild(lab); wrap.appendChild(end);
+  const isOpen = () => r.classList.contains('is-open');
+  function label() { const o = isOpen(); mb.title = o ? '收合' : '展開全部'; mb.setAttribute('aria-label', mb.title); mb.setAttribute('aria-expanded', o); }
+  function fade() {   // 左邊標籤的寬度／是否已捲動（捲動後標籤右邊才有淡出）
+    const u = r.querySelector('.rad-unit');
+    lab.hidden = !u || !r.classList.contains('has-more') || isOpen();
+    if (u) { lab.textContent = u.textContent; lab.style.width = (u.offsetLeft + u.offsetWidth) + 'px'; }
+    lab.classList.toggle('is-scrolled', r.scrollLeft > 2);
+  }
+  function centerOn() { const b = r.querySelector('button.on'); if (!b || isOpen() || !r.clientWidth) return; const rr = r.getBoundingClientRect(), br = b.getBoundingClientRect(); r.scrollLeft += br.left - rr.left - (rr.width - br.width) / 2; }   // 把目前那一項捲到導覽列中間
+  function sync() {   // 內容重畫、視窗大小改變後：放得下就不顯示鈕，放不下才顯示
+    if (r.hidden || !r.firstElementChild) { r.classList.remove('is-open', 'has-more'); end.hidden = true; lab.hidden = true; return; }
+    if (!r.clientWidth) return;   // 大版面還沒顯示出來，量不到
+    const last = r.lastElementChild, need = isOpen() || last.offsetLeft + last.offsetWidth > r.clientWidth - 8;
+    r.classList.toggle('has-more', need); end.hidden = !need;
+    if (!need) r.classList.remove('is-open');
+    label(); fade();
+  }
+  new MutationObserver(sync).observe(r, { childList: true });
+  window.addEventListener('resize', sync);
+  r.addEventListener('scroll', fade, { passive: true });
+  mb.addEventListener('click', () => { r.classList.toggle('is-open'); r.scrollLeft = 0; if (_browseMode === 'cat') _catRailOpen = isOpen(); sync(); centerOn(); });
+  r.addEventListener('mousedown', e => {
+    if (e.button !== 0 || isOpen()) return;
+    if (e.clientY > r.getBoundingClientRect().top + r.clientHeight) return;   // 按在滾動條上：交給瀏覽器
+    down = true; moved = false; sx = e.clientX; sl = r.scrollLeft;
+  });
+  window.addEventListener('mousemove', e => { if (!down) return; const dx = e.clientX - sx; if (!moved && Math.abs(dx) < 5) return; moved = true; r.classList.add('is-drag'); r.scrollLeft = sl - dx; });
+  window.addEventListener('mouseup', () => { if (!down) return; down = false; r.classList.remove('is-drag'); if (moved) setTimeout(() => { moved = false; }, 0); });
+  r.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); } }, true);   // 拖曳結束不要當成點選
+  r.addEventListener('wheel', e => { if (isOpen() || r.scrollWidth <= r.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; r.scrollLeft += e.deltaY; e.preventDefault(); }, { passive: false });   // 滾輪＝左右捲
+  r.addEventListener('click', e => { if (isOpen() && e.target.closest('button[data-s]')) { r.classList.remove('is-open'); setTimeout(() => { sync(); centerOn(); }, 0); } });   // 選了一項就自動收合，並把選中的那一項捲到中間
+})();
+let _radSpyRaf = 0;
+catFullBody.addEventListener('scroll', () => { if (_browseMode === 'cat' || _radSpyRaf) return; _radSpyRaf = requestAnimationFrame(() => { _radSpyRaf = 0; updateRadicalSpy(); }); }, { passive: true });   // 修改：原本 !== 'rad'，拼音模式共用
+
+// ======== 新增：「拼音」瀏覽模式（與分類、部首共用同一個大版面）========
+// 以「拼音音節（不含聲調）」瀏覽單字：左邊聲母、右邊音節方塊（右邊小字＝單字數）；
+// 點音節 → 版面底部浮出面板，依聲調（1 陰平…8 陽入）分列該音節的字，字的顏色沿用聲調色彩；點字 → 開啟該字的詞條。
+// 資料不另建檔：第一次用到時，掃過辭典裡的單字詞目，用「台羅無調」欄位建立「音節 → 調 → 字」索引。
+// 篩選框：輸入音節（tsi，包含即符合）、數字調（tsit8、gu5）、帶調符的台羅（tsi̍t）、或漢字（貴；列出它所有的音節）。
+const PY_ORDER = ['', 'p', 'ph', 'm', 'b', 't', 'th', 'n', 'l', 'k', 'kh', 'ng', 'h', 'g', 'ts', 'tsh', 's', 'j'];   // 空字串＝零聲母
+const PY_INI = ['tsh', 'ts', 'ph', 'th', 'kh', 'ng', 'p', 'b', 'm', 't', 'n', 'l', 'k', 'g', 'h', 's', 'j'];   // 比對用：長的在前
+let _pyIdx = null, _pySel = '', _pyTone = '', _pyHits = new Set();
+let _pyView = 'fam', _pyRev = false, _pyOne = true, _pyCur = '', _pyMxPair = false;   // 修改：_pyOne 預設 false → true（預設啟用「只看所選」）   // 新增：排版 list 清單／fam 家族／mx 矩陣；_pyRev 反向（韻母→聲母）；_pyOne 只看所選的一組（_pyCur＝目前那一組）
+// 修改：「只看所選」預設啟用——沒存過（null）也算啟用，只有明確存了 '0'（使用者自己關掉）才是關
+try { const v = localStorage.getItem('holoPyView'); if (v === 'list' || v === 'mx') _pyView = v; _pyRev = localStorage.getItem('holoPyRev') === '1'; _pyOne = localStorage.getItem('holoPyOne') !== '0'; _pyMxPair = localStorage.getItem('holoPyMx') === 'pair'; } catch (err) {}
+function pyStateFromUrl(sp) {
+  const v = sp.get('bv'), view = (v === 'list' || v === 'mx') ? v : 'fam';
+  const rev = sp.get('br') === '1', one = sp.get('bo') !== '0', pair = sp.get('bm') === 'pair', cur = sp.get('bc') || '';
+  const changed = view !== _pyView || rev !== _pyRev || one !== _pyOne || pair !== _pyMxPair || (!!cur && cur !== _pyCur);
+  if (rev !== _pyRev) _pyCur = '';
+  _pyView = view; _pyRev = rev; _pyOne = one; _pyMxPair = pair;
+  if (cur) _pyCur = cur;
+  return changed;
+}
+function pySavePrefs() { try { localStorage.setItem('holoPyView', _pyView); localStorage.setItem('holoPyRev', _pyRev ? '1' : '0'); localStorage.setItem('holoPyOne', _pyOne ? '1' : '0'); localStorage.setItem('holoPyMx', _pyMxPair ? 'pair' : 'fam'); } catch (err) {} }
+// 新增：韻母家族（每個韻母只歸一類，依序判斷）
+const PY_FAM = [{ k: 1, name: '開韻', note: 'a i u e o' }, { k: 2, name: '鼻韻尾', note: '-m -n -ng' }, { k: 3, name: '入聲', note: '-p -t -k -h' }, { k: 4, name: '鼻化', note: '-nn' }, { k: 5, name: '鼻音', note: 'm ng' }];
+function pyFamOf(f) {
+  if (/^(?:m|ng|mh|ngh)$/.test(f)) return 5;   // 自成音節的鼻音
+  if (/nnh?$/.test(f)) return 4;               // 鼻化（ann、iunn、annh）
+  if (/[ptkh]$/.test(f)) return 3;             // 入聲
+  if (/(?:m|n|ng)$/.test(f)) return 2;         // 鼻韻尾（am、an、ang）
+  return 1;                                    // 開韻（只有母音）
+}
+const PY_RK = 'aiueomngptkh';   // 家族內排序：a i u e o，其後 m n g、p t k h
+function pyFinCmp(a, b) {   // 修改：家族內的排序——開韻、鼻化：單元音 → 複元音；鼻韻尾：依 -m -n -ng 再依韻腹；入聲：依 -p -t -k -h 再依韻腹
+  const fa = pyFamOf(a), fb = pyFamOf(b); if (fa !== fb) return fa - fb;
+  if (fa === 5) return a < b ? -1 : a > b ? 1 : 0;   // 自成音節的鼻音：m、mh、ng、ngh
+  const A = pyPairParse(a), B = pyPairParse(b);
+  if ((fa === 2 || fa === 3) && A.g !== B.g) return A.g - B.g;   // 鼻韻尾 m→n→ng；入聲 p→t→k→h（pyPairParse 的組別 2、3、4、6 剛好是這個先後）
+  const d = pyStemCmp(A.stem, B.stem); if (d) return d;
+  return A.t - B.t;   // 同一韻腹：ann 在 annh 前
+}
+function pyStemCmp(x, y) {   // 新增：韻腹比較：單元音（a i u e o）→ 複元音 → 三元音；同長度依母音順序
+  const ua = x.match(/oo|ee|er|ir|ur|[aiueo]/g) || [], ub = y.match(/oo|ee|er|ir|ur|[aiueo]/g) || [];
+  if (ua.length !== ub.length) return ua.length - ub.length;
+  const rk = u => { const i = PY_VOW.indexOf(u); return i < 0 ? 99 : i; };
+  for (let i = 0; i < ua.length; i++) { const d = rk(ua[i]) - rk(ub[i]); if (d) return d; }
+  return x === y ? 0 : x < y ? -1 : 1;
+}
+// 新增：矩陣「依韻尾配對」——開韻在前；其後依韻尾分成 -m‧-p、-n‧-t、-ng‧-k 三組（舒聲與入聲相鄰：am→ap、an→at、ang→ak），再接 -nn（鼻化）、-h（喉塞）各自一組；
+// 每組內先依「韻腹」排：單元音（a i u e o）優先、二元音其次、三元音再後；同一個韻腹則舒聲在前、入聲在後。
+const PY_PAIR = [{ k: 1, name: '開韻', note: 'a i u e o' }, { k: 2, name: '-m ‧ -p', note: '雙唇' }, { k: 3, name: '-n ‧ -t', note: '舌尖' }, { k: 4, name: '-ng ‧ -k', note: '舌根' }, { k: 5, name: '-nn', note: '鼻化' }, { k: 6, name: '-h', note: '喉塞' }, { k: 7, name: '鼻音', note: 'm ng' }];   // 修改：-nn 與 -h 沒有舒入對應，拆成兩組；鼻音由 6 改成 7
+const PY_VOW = ['a', 'i', 'u', 'e', 'o', 'oo', 'ee', 'er', 'ir', 'ur'];   // 母音單位的先後
+function pyPairParse(f) {   // 韻母 → { g 組別, stem 韻腹, t 組內先後（0 開韻、1 舒聲、2 入聲…） }
+  if (/^(?:m|ng|mh|ngh)$/.test(f)) return { g: 7, stem: f, t: 0 };   // 修改：6 → 7
+  let m;
+  if ((m = /^(.*?)(nnh|nn)$/.exec(f))) return { g: 5, stem: m[1], t: m[2] === 'nn' ? 1 : 2 };   // 鼻化：ann、annh（annh 跟在 ann 後面）
+  if ((m = /^(.*)h$/.exec(f))) return { g: 6, stem: m[1], t: 1 };    // 修改：喉塞 -h 自成一組（ah、ih、eh…）
+  if ((m = /^(.*)ng$/.exec(f))) return { g: 4, stem: m[1], t: 1 };
+  if ((m = /^(.*)k$/.exec(f))) return { g: 4, stem: m[1], t: 2 };
+  if ((m = /^(.*)n$/.exec(f))) return { g: 3, stem: m[1], t: 1 };
+  if ((m = /^(.*)t$/.exec(f))) return { g: 3, stem: m[1], t: 2 };
+  if ((m = /^(.*)m$/.exec(f))) return { g: 2, stem: m[1], t: 1 };
+  if ((m = /^(.*)p$/.exec(f))) return { g: 2, stem: m[1], t: 2 };
+  return { g: 1, stem: f, t: 0 };
+}
+function pyPairCmp(a, b) {
+  const A = pyPairParse(a), B = pyPairParse(b);
+  if (A.g !== B.g) return A.g - B.g;
+  if (A.g === 7) return a < b ? -1 : a > b ? 1 : 0;   // 修改：6 → 7
+  const d = pyStemCmp(A.stem, B.stem); if (d) return d;   // 修改：韻腹比較抽成 pyStemCmp，與家族排序共用（單元音 → 二元音 → 三元音）
+  return A.t - B.t;   // 同一個韻腹：舒聲在前、入聲在後
+}
+function pySplit(syl) {   // 音節 → 聲母（m、ng 單獨成音節時視為零聲母）
+  if (/^(?:m|mh|ng|ngh)$/.test(syl)) return '';
+  for (const i of PY_INI) if (syl.length > i.length && syl.startsWith(i)) return i;
+  return '';
+}
+function getPinyinIndex() {
+  if (_pyIdx) return _pyIdx;
+  const syl = new Map(), chars = new Map(), re = /^([a-z]+)([1-9])$/;
+  dictionary.forEach(it => {
+    const han = String(it['台語'] || '').replace(/【[^】]*】/g, '').trim();
+    if ([...han].length !== 1 || !_HAN_CHAR.test(han)) return;   // 只要單字詞目
+    const raw = String(it['台羅無調'] || ''), mk = (raw.match(/^【([白文])】/) || [])[1] || '';   // 【白】【文】標記
+    raw.replace(/【[^】]*】/g, '').split(/[\/\s]+/).forEach(p => {
+      const m = re.exec(p.trim().toLowerCase()); if (!m) return;
+      let e = syl.get(m[1]); if (!e) syl.set(m[1], e = { s: m[1], ini: pySplit(m[1]), tones: new Map(), n: 0, set: new Set() });
+      let arr = e.tones.get(m[2]); if (!arr) e.tones.set(m[2], arr = []);
+      if (arr.some(x => x.han === han)) return;
+      arr.push({ han, id: String(it['詞目id'] || ''), mk });
+      if (!e.set.has(han)) { e.set.add(han); e.n++; }
+      let cs = chars.get(han); if (!cs) chars.set(han, cs = new Set()); cs.add(m[1]);
+    });
+  });
+  const by = new Map(PY_ORDER.map(i => [i, []])), finSet = new Set();
+  syl.forEach(e => { e.fin = e.ini ? e.s.slice(e.ini.length) : e.s; finSet.add(e.fin); by.get(e.ini).push(e); });   // 新增：fin＝韻母（零聲母的就是整個音節）
+  by.forEach(l => l.sort((a, b) => a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
+  const fins = [...finSet].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);   // 新增：全部韻母（對齊、矩陣用）
+  return (_pyIdx = { syl, chars, by, fins, finsFam: [...fins].sort(pyFinCmp), finsPair: [...fins].sort(pyPairCmp) });   // fins＝字母序、finsFam＝家族序、finsPair＝韻尾配對序
+}
+function pyLevel(n) { return n >= 40 ? 4 : n >= 25 ? 3 : n >= 12 ? 2 : n >= 5 ? 1 : 0; }   // 依單字數分 0～4 級，決定底色深淺
+function pyChip(e, rev, full) {   // 清單／家族用的音節方塊（等寬）；rev＝反向時顯示聲母；修改：full＝「只看所選」時，自動補上另一半（聲母或韻母），顯示完整音節
+  const E = escHtml, n = e.n;
+  let lab = rev ? (e.ini ? E(e.ini) : '零') : E(e.fin);   // 有聲母的只顯示韻母（-ann），聲母已在左邊標題
+  if (full) lab = rev ? `${E(e.ini || '零')}<span class="py-p">${E(e.fin)}</span>` : `<span class="py-p">${E(e.ini)}</span>${E(e.fin)}`;   // 新增：只看所選＝完整音節；補上的那一半用淡灰色（一般：補聲母；韻母→聲母：補韻母）
+  return `<button type="button" class="py-syl" data-h="${pyLevel(n)}" data-syl="${E(e.s)}" title="${E(e.s)}" aria-label="${E(e.s)}，${n} 字"><b>${lab}</b><small>${n}</small></button>`;
+}
+function pyFamBanner(F) { return `<div class="py-fam-bn">${F.name}<small>${F.note}</small></div>`; }
+function pyMatrixHtml(ix, want) {   // 矩陣：直列＝韻母（依家族排序）、橫欄＝聲母，格內＝單字數；沒有的音節留白
+  const E = escHtml, cell = new Map(), fins = new Set(), inis = new Set();
+  let first = '';
+  ix.by.forEach((list, ini) => list.forEach(e => {
+    if (want && !want.has(e.s)) return;
+    if (!first) first = e.s;
+    cell.set(ini + '|' + e.fin, e); fins.add(e.fin); inis.add(ini);
+  }));
+  if (!cell.size) return { html: '', first: '' };
+  const cols = PY_ORDER.filter(i => inis.has(i)), rows = (_pyMxPair ? ix.finsPair : ix.finsFam).filter(f => fins.has(f));   // 修改：依目前的排序方式取列
+  let h = '<table class="py-mx"><thead><tr><th class="py-mx-corner" scope="col"></th>' +
+    cols.map(i => `<th scope="col" title="${i ? E(i) + ' 聲母' : '零聲母'}">${E(i || '零')}</th>`).join('') + '</tr></thead><tbody>';
+  let lastF = 0;
+  rows.forEach(f => {
+    const k = _pyMxPair ? pyPairParse(f).g : pyFamOf(f);   // 修改：配對模式用配對組別
+    if (k !== lastF) { lastF = k; const F = (_pyMxPair ? PY_PAIR : PY_FAM)[k - 1]; h += `<tr class="py-mx-fam"><td colspan="${cols.length + 1}">${F.name}<small>${F.note}</small></td></tr>`; }
+    h += `<tr><th scope="row"><i>-</i>${E(f)}</th>`;
+    cols.forEach(i => {
+      const e = cell.get(i + '|' + f);
+      h += e ? `<td><button type="button" class="py-cell" data-h="${pyLevel(e.n)}" data-syl="${E(e.s)}" title="${E(e.s)}・${e.n} 字" aria-label="${E(e.s)}，${e.n} 字">${e.n}</button></td>` : '<td></td>';
+    });
+    h += '</tr>';
+  });
+  return { html: h + '</tbody></table>', first };
+}
+// 排版列：清單｜家族｜矩陣，右邊兩個開關（韻母→聲母、只看所選）；只在拼音模式出現，並記住上次的選擇
+const _pyBar = document.createElement('div');
+_pyBar.className = 'py-view'; _pyBar.hidden = true; _pyBar.setAttribute('aria-label', '拼音排版');
+_pyBar.innerHTML = '<span class="rad-unit">排版</span>' + [['fam', '家族'], ['list', '清單'], ['mx', '矩陣']].map(([k, t]) => `<button type="button" data-v="${k}">${t}</button>`).join('') +
+  '<span class="py-view-sp"></span><button type="button" class="py-tg" data-o="rev" title="先選韻母，再看有哪些聲母">韻母 → 聲母</button><button type="button" class="py-tg" data-o="one" title="上方導覽列選哪一組，只顯示那一組">只看所選</button>' +
+  '<span class="py-mxo"><span class="rad-unit">排序</span><button type="button" data-m="fam" title="開韻、鼻韻尾、入聲、鼻化、鼻音分區">依韻類</button><button type="button" data-m="pair" title="-m/-p、-n/-t、-ng/-k、-nn/-h 舒聲與入聲相鄰；單元音優先、二元音其次">依韻尾配對</button></span>';   // 新增：矩陣的排序切換（只在矩陣出現）
+(catFullRail.closest('.rad-rail-wrap') || catFullRail).before(_pyBar);   // 放在導覽列（含外層）上面
+_pyBar.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.v) { if (b.dataset.v === _pyView) return; _pyView = b.dataset.v; }
+  else if (b.dataset.o === 'rev') { _pyRev = !_pyRev; _pyCur = ''; }   // 換方向：分組不同，目前那一組作廢
+  else if (b.dataset.m) { const p = b.dataset.m === 'pair'; if (p === _pyMxPair) return; _pyMxPair = p; }   // 新增：矩陣排序方式
+  else if (b.dataset.o === 'one') { _pyOne = !_pyOne; if (_pyOne) { const on = catFullRail.querySelector('button.on'); if (on) _pyCur = on.dataset.s; } }   // 開啟時，就看目前捲到的那一組
+  else return;
+  pySavePrefs();
+  renderPinyinFull();
+  syncUrl('replace');
+});
+// 新增：矩陣十字準線——游標移到格子（或表頭）時，標出所在的「列」與「欄」，並在左上角顯示音節（如 ts + -ia → tsia）；點選後的格子，它的列欄表頭會持續標示（手機也看得到）
+let _mxT = null;
+function mxPaint(cls, t) {   // cls：'hot'＝游標所在、'sel'＝已點選；t＝格子或表頭（null＝清除）
+  const tb = catFullBody.querySelector('.py-mx'); if (!tb) return;
+  tb.querySelectorAll(`.${cls}-r, .${cls}-c, .${cls}-x`).forEach(x => x.classList.remove(`${cls}-r`, `${cls}-c`, `${cls}-x`));
+  const cn = tb.querySelector('.py-mx-corner');
+  if (cls === 'hot' && cn) cn.removeAttribute('data-r');   // 修改：音節改放在 data-r（用 ::after 顯示），不再改文字，避免撐寬第一欄造成版面位移
+  if (!t) return;
+  const tr = t.parentElement, ci = [...tr.children].indexOf(t), body = tr.parentElement.tagName === 'TBODY';
+  if (body) tr.classList.add(cls + '-r');
+  if (ci > 0) tb.querySelectorAll(`tr:not(.py-mx-fam) > :nth-child(${ci + 1})`).forEach(x => x.classList.add(cls + '-c'));
+  if (body && ci > 0) {
+    t.classList.add(cls + '-x');   // 修改：下一行只有「真的有這個音節」（格子裡有按鈕）才在左上角拼出音節，空白格不顯示
+    if (cls === 'hot' && cn && t.querySelector('.py-cell')) { const ini = tb.querySelector('thead tr').children[ci].textContent.trim(); cn.dataset.r = (ini === '零' ? '' : ini) + tr.children[0].textContent.replace(/^-/, ''); }
+  }
+}
+const _mxHover = window.matchMedia ? matchMedia('(hover: hover)') : { matches: true };
+catFullBody.addEventListener('mouseover', e => {
+  if (!_mxHover.matches) return;
+  if (!e.target.closest('.py-mx')) { if (_mxT) { _mxT = null; mxPaint('hot', null); } return; }   // 移到表格外：清除
+  const t = e.target.closest('td, th');
+  if (!t || t.parentElement.classList.contains('py-mx-fam') || t.classList.contains('py-mx-corner')) return;   // 修改：格子間的縫隙、分組標題、左上角：維持原標示，不清除（原本一過縫隙就清掉再重畫，才會閃）
+  if (t === _mxT) return; _mxT = t; mxPaint('hot', t);
+});
+catFullBody.addEventListener('mouseleave', () => { _mxT = null; mxPaint('hot', null); });
+function renderPinyinFull() {
+  const kw = catFullFilter.value.trim(), ix = getPinyinIndex(), E = escHtml;
+  let want = null, exact = '';
+  _pyTone = ''; _pyHits = new Set();
+  if (kw) {
+    want = new Set();
+    const hans = [...kw].filter(c => _HAN_CHAR.test(c));
+    if (hans.length) hans.forEach(c => { _pyHits.add(c); (ix.chars.get(c) || []).forEach(s => want.add(s)); });
+    else {
+      const q = stripToneJS(kw.replace(/(o)\u0358/gi, '$1$1')).replace(/[\s\-]+/g, ''), m = /^([a-z]+)([1-9])?$/.exec(q);
+      if (m) {
+        ix.syl.forEach((e, s) => { if (s.includes(m[1])) want.add(s); });
+        if (want.has(m[1])) { exact = m[1]; _pyTone = m[2] || ''; }   // 輸入的剛好是一個音節：直接打開它（有打調就標出該調）
+      }
+    }
+  }
+  let html = '', heads = [], first = '';
+  const view = _pyView, rev = _pyRev && view !== 'mx', one = _pyOne && !kw && view !== 'mx';   // 篩選中顯示全部符合的；矩陣沒有分組
+  if (view === 'mx') { const r = pyMatrixHtml(ix, want); html = r.html; first = r.first; }
+  else {
+    let groups = [];   // 每組＝一個聲母（反向時為一個韻母）
+    if (rev) {
+      const by = new Map();
+      ix.by.forEach(list => list.forEach(e => {
+        if (want && !want.has(e.s)) return;
+        let g = by.get(e.fin); if (!g) by.set(e.fin, g = { key: e.fin, es: [] });
+        g.es.push(e);
+      }));
+      groups = [...by.values()].sort(view === 'fam' ? (a, b) => pyFinCmp(a.key, b.key) : (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+    } else {
+      ix.by.forEach((list, ini) => {
+        if (want) list = list.filter(e => want.has(e.s));
+        if (list.length) groups.push({ key: ini || '零', ini, es: list });
+      });
+    }
+    heads = groups.map(g => g.key);
+    if (groups.length) first = groups[0].es[0].s;
+    if (one) { if (!heads.includes(_pyCur)) _pyCur = heads[0] || ''; groups = groups.filter(g => g.key === _pyCur); }
+    let lastK = 0;
+    groups.forEach(g => {
+      let inner;
+      if (view === 'fam' && !rev) {   // 家族：同一個聲母裡，韻母依家族分行，每行前面有小標題
+        const es = g.es.slice().sort((a, b) => pyFinCmp(a.fin, b.fin));
+        inner = '<div class="py-fams">' + PY_FAM.map(F => {
+          const l = es.filter(e => pyFamOf(e.fin) === F.k); if (!l.length) return '';
+          return `<div class="py-fam"><div class="py-fam-h">${F.name}<small>${F.note}</small></div><div class="py-grid">${l.map(e => pyChip(e, false)).join('')}</div></div>`;
+        }).join('') + '</div>';
+      } else if (rev) {   // 反向：18 個聲母固定位置（兩排各 9 個），這個韻母沒有的聲母留成灰色、不能點
+        const have = new Map(g.es.map(e => [e.ini, e]));
+        inner = `<div class="py-grid py-rv">${PY_ORDER.map(i => have.has(i) ? pyChip(have.get(i), true, one) : `<span class="py-syl py-no" aria-hidden="true"><b>${i ? E(i) : '零'}</b></span>`).join('')}</div>`;
+      } else inner = `<div class="py-grid">${g.es.map(e => pyChip(e, false)).join('')}</div>`;
+      if (rev && view === 'fam') { const k = pyFamOf(g.key); if (k !== lastK && !one) { lastK = k; html += pyFamBanner(PY_FAM[k - 1]); } }   // 反向＋家族：各家族之間放一條標題
+      const lb = E(g.key), ttl = rev ? '-' + g.key + ' 韻母' : (g.ini ? g.ini + ' 聲母' : '零聲母');
+      html += `<section class="rad-sec py-sec${rev ? ' py-rvs' : ''}${rev && one ? ' py-one' : ''}" data-s="${E(g.key)}"><h3 class="rad-sec-h" title="${E(ttl)}">${lb}<small>${g.es.length}</small></h3>${inner}</section>`;
+    });
+  }
+  if (want) {   // 篩選中：自動打開最符合的音節；沒有符合的就收起面板
+    if (exact) _pySel = exact; else if (_pyHits.size && first) _pySel = first; else if (!want.has(_pySel)) _pySel = '';
+  }
+  catFullBody.innerHTML = html || '<div class="cat-empty">找無符合的音節</div>';
+  catFullBody.scrollTop = 0; catFullBody.scrollLeft = 0;
+  catFullBody.classList.toggle('is-mx', view === 'mx');
+  _pyBar.classList.toggle('is-mx', view === 'mx');
+  _pyBar.querySelectorAll('button').forEach(b => { const on = b.dataset.v ? b.dataset.v === view : b.dataset.m ? (b.dataset.m === 'pair') === _pyMxPair : b.dataset.o === 'rev' ? _pyRev : _pyOne; b.classList.toggle('on', on); b.setAttribute(b.dataset.v || b.dataset.m ? 'aria-selected' : 'aria-pressed', on); });
+  catFullBody.querySelectorAll('.py-syl, .py-cell').forEach(b => b.classList.toggle('on', b.dataset.syl === _pySel));
+  { const sc = catFullBody.querySelector('.py-cell.on'); mxPaint('sel', sc ? sc.parentElement : null); }   // 新增：矩陣重畫後，標出已選格子的列欄
+  catFullRail.hidden = !!kw || !heads.length;   // 篩選中、矩陣都不顯示導覽列
+  catFullRail.innerHTML = catFullRail.hidden ? '' : `<span class="rad-unit">${rev ? '韻母' : '聲母'}</span>` + heads.map(s => `<button type="button" data-s="${E(s)}">${E(s)}</button>`).join('');
+  pyDrawDetail();
+  pyReveal(catFullBody.querySelector('.py-syl.on, .py-cell.on'), false);   // 篩選後自動展開的音節也要看得到
+  updateRadicalSpy();
+}
+function pyDrawDetail() {   // 底部面板：被選中音節的各調單字
+  const box = document.getElementById('pyDetail'); if (!box) return;
+  const e = _pySel && getPinyinIndex().syl.get(_pySel);
+  if (!e) { box.hidden = true; box.innerHTML = ''; return; }
+  const E = escHtml;
+  // 電腦版：字少的調兩兩並排成左右兩欄，字多的調（超過 8 字）或落單的調獨佔一整列（.py-w）
+  const ks = [...e.tones.keys()].sort(), wide = new Set();
+  for (let i = 0; i < ks.length;) {
+    const a = e.tones.get(ks[i]).length <= 8, b = i + 1 < ks.length && e.tones.get(ks[i + 1]).length <= 8;
+    if (a && b) i += 2; else { wide.add(ks[i]); i++; }
+  }
+  const two = ks.length >= 2;
+  const tl = ['1', '2', '3', '4', '5', '7', '8', '9']; if (e.tones.has('6')) tl.splice(5, 0, '6');   // 新增：聲調列（各調字數，沒有的調淡化；點了捲到該調）
+  const strip = '<div class="py-ts" role="group" aria-label="聲調">' + tl.map(t => { const n = (e.tones.get(t) || []).length; return `<button type="button" class="py-tp${n ? '' : ' is-no'}${t === _pyTone ? ' on' : ''}" data-t="${t}" style="--tn:var(--tn${t})" title="${t} ${TONE_NAME[t] || ''}${n ? '・' + n + ' 字' : '・無'}"${n ? '' : ' disabled'}><b>${t}</b></button>`; }).join('') + '</div>';
+  box.innerHTML = `<div class="py-dh"><b>${E(e.s)}</b><small>${e.n} 字</small>${strip}<button type="button" class="py-x" aria-label="收起" title="收起"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="py-rows${two ? ' py-2c' : ''}">` +   // 修改：標題列（含 X）固定；下面的各調列包進 .py-rows 才會捲動
+    ks.map(t => {
+      let r; try { r = holoNumberToTone(e.s + t); } catch (err) { r = e.s + t; }   // 數字調 → 字中調：tsi2 → tsí
+      return `<div class="py-tr${t === _pyTone ? ' is-hit' : ''}${wide.has(t) ? ' py-w' : ''}" data-t="${t}" style="--tn:var(--tn${t})"><div class="py-tn" title="${t} ${TONE_NAME[t] || ''}"><b>${E(r)}</b></div><div class="py-hz">` +
+        e.tones.get(t).map(x => `<button type="button" class="py-han${_pyHits.has(x.han) ? ' is-hit' : ''}" data-id="${E(x.id)}" title="開啟「${E(x.han)}」的詞條">${E(x.han)}${x.mk ? `<sup>${x.mk}</sup>` : ''}</button>`).join('') + '</div></div>';
+    }).join('') + '</div>';
+  box.hidden = false;
+}
+function pyReveal(btn, smooth) {   // 新增：面板展開後清單變矮，若選中的音節被遮住（或太靠邊），就把它捲到可見區中間
+  if (!btn) return;
+  const mx = btn.classList.contains('py-cell'), r = catFullBody.getBoundingClientRect(), b = btn.getBoundingClientRect();
+  const needV = !(b.top >= r.top + (mx ? 48 : 8) && b.bottom <= r.bottom - 8);   // 矩陣：上方有黏住的聲母列
+  const needH = mx && (b.left < r.left + 72 || b.right > r.right - 8);           // 矩陣：左邊有黏住的韻母欄
+  if (!needV && !needH) return;   // 本來就看得到：不動
+  const o = { behavior: smooth ? 'smooth' : 'auto' };
+  if (needV) o.top = Math.max(0, catFullBody.scrollTop + (b.top - r.top) - (r.height - b.height) / 2);
+  if (needH) o.left = Math.max(0, catFullBody.scrollLeft + (b.left - r.left) - (r.width - b.width) / 2);
+  catFullBody.scrollTo(o);
+}
+function openEntryById(id) {   // 關閉大版面，直接開啟該詞目的詳細頁（做法同 applyUrlState 的 d=詞目id）
+  const item = dictionary.find(x => String(x['詞目id']) === String(id)); if (!item) return;
+  closeBrowseForPick();
+  hideDetailUI(); currentDetailId = null; setRawRx(false);
+  searchInput.value = String(item['台語'] || '').trim(); searchClear.style.display = 'block';
+  currentSearchType = defaultType();
+  performSearch(); updateActiveSearchType();
+  let idx = filteredData.indexOf(item);
+  if (idx < 0) { filteredData = [item]; hasSearchResults = true; displayResults(filteredData, 1); idx = 0; }
+  showFullData(idx);
+}
+catFull.addEventListener('click', e => {   // 修改：原本掛在 catFullBody，面板移出後改掛 catFull
+  if (_browseMode !== 'py') return;
+  const tp = e.target.closest('.py-tp[data-t]');   // 點聲調：捲到該調那一列並閃一下
+  if (tp && !tp.disabled) {
+    const row = document.getElementById('pyDetail').querySelector(`.py-tr[data-t="${tp.dataset.t}"]`);
+    if (row) { row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); row.classList.remove('is-pulse'); void row.offsetWidth; row.classList.add('is-pulse'); }
+    return;
+  }
+  const sb = e.target.closest('.py-syl[data-syl], .py-cell[data-syl]');
+  if (sb) {   // 點音節：展開／收起底部面板
+    _pySel = _pySel === sb.dataset.syl ? '' : sb.dataset.syl; _pyTone = ''; syncUrl('replace');   // 修改：選中的音節記在網址 bp
+    catFullBody.querySelectorAll('.py-syl.on, .py-cell.on').forEach(b => b.classList.remove('on'));
+    if (_pySel) sb.classList.add('on');
+    mxPaint('sel', _pySel ? sb.closest('td') : null);   // 新增：標出（或清除）已選格子的列欄表頭
+    pyDrawDetail();
+    if (_pySel) pyReveal(sb, true);   // 新增：展開面板後，把被點的音節捲到上方可見處，不被面板遮住
+    return;
+  }
+  if (e.target.closest('.py-x')) {
+    _pySel = ''; syncUrl('replace'); catFullBody.querySelectorAll('.py-syl.on, .py-cell.on').forEach(b => b.classList.remove('on')); mxPaint('sel', null); pyDrawDetail(); return;
+  }
+  const hz = e.target.closest('.py-han[data-id]');
+  if (hz) openEntryById(hz.dataset.id);   // 點字：開詞條
+});
+
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (catFull.classList.contains('open')) toggleCategoryFull(false);        // 先關大版面，再關小視窗
-  else if (catPanel.classList.contains('open')) toggleCategoryPanel(false);
+  if (catFull.classList.contains('open')) toggleCategoryFull(false);
 });
 
 const settingsTriggerDetail = document.getElementById('settingsTriggerDetail');   // 詳細檢視頂端列的設定按鈕
@@ -3614,7 +4111,7 @@ function zxvToTone(t) {
   let mounted = false, prevOverflow = '';
   function openArticle(opt) {
     if (!page.hidden) return;
-    if (typeof toggleCategoryPanel === 'function') toggleCategoryPanel(false);   // 先收起分類小視窗
+    if (catFull.classList.contains('open')) toggleCategoryFull(false, null, { keep: true });   // 先收起分類瀏覽大視窗
     const f = document.getElementById('logo').style.fontFamily;                   // 沿用首頁 LOGO 當下的字體
     if (f) logo.style.fontFamily = f;
     prevOverflow = document.body.style.overflow;
@@ -4634,8 +5131,6 @@ ABAC	如「想空想縫」
     const t = c.dataset.t;
     setTones(a.tns.includes(t) ? a.tns.replace(t, '') : [...a.tns, t].sort().join(''));
   }));
-  $('tnAll').addEventListener('click', () => setTones('12345789'));
-  $('tnNone').addEventListener('click', () => setTones(''));
   window.setVowelOn = v => { a.vw = v ? 'on' : 'off'; sync(); save(); refreshColorUI(); };   // 詳細頁的「音色」開關：與設定同步
   window.setRqOn = v => { a.rq = v ? 'on' : 'off'; sync(); save(); hideRelPop(); refreshColorUI(); };   // 詳細頁的「例句語詞查詢」開關：與設定同步
   window.setRwOn = v => { a.rw = v ? 'on' : 'off'; sync(); save(); hideRelPop(); refreshColorUI(); };   // 詳細頁的「近反義顯示」開關：與設定同步
@@ -4655,7 +5150,7 @@ ABAC	如「想空想縫」
   }
   function resortList() {   // 新增：排序設定改變後，重新排序並回到第 1 頁
     if (!filteredData.length || currentSearchType === COMPARE_TAB) return;
-    sortFilteredData(searchInput.value.trim());
+    sortFilteredData(searchTermReplace(searchInput.value.trim()));   // 修改：同上，先轉成正則字串再排序
     displayResults(filteredData, 1);
     if (window._sbRefresh) window._sbRefresh();   // 新增：詳細頁開著時，側邊清單也跟著重排
   }
@@ -4689,7 +5184,7 @@ else restoreFromUrl();
 (function () {
   const box = document.getElementById('searchInput');
   if (!box) return;
-  const HINT = '揣漢字、台羅、華語釋義⋯⋯', DELAY = 4000;
+  const HINT = '揣漢字、音讀、華語釋義...', DELAY = 4000;   // 修改：台羅→音讀、⋯⋯→三個點
   let done = false, timer = 0;
   const setPh = v => { if (box._phKb) box._phNormal = v; else box.placeholder = v; };   // 新增：特殊代號面板開著時，只記下來，等面板關閉再換上
   const swap = animate => {
