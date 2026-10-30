@@ -4167,11 +4167,12 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
     color: #1a73e8; font-size: calc(15px * var(--fs, 1)); box-shadow: 0 1px 0 #e1e4e8;
 }
 .py-mx tbody th {
-    position: sticky; left: 0; z-index: 1; padding: 0 10px 0 4px; text-align: right; white-space: nowrap;
-    color: #202124; font-size: calc(15px * var(--fs, 1)); box-shadow: 1px 0 0 #f1f3f4;
+    position: sticky; left: 4px; z-index: 1; min-width: 3.4em; padding: 0 12px; text-align: right; white-space: nowrap;   /* 修改：left 0 → 4px（橫向捲動時不貼齊螢幕左緣）；padding 0 10px 0 4px → 0 12px；新增 min-width（每個韻母膠囊等寬） */
+    background: #f3f5f8; border-radius: 10px;   /* 新增：淡灰藍膠囊底色，和右邊格子同高，左側才有「區塊」感 */
+    color: #202124; font-size: calc(15px * var(--fs, 1)); box-shadow: -4px 0 0 #fff, 4px 0 0 #fff;   /* 修改：原本右側 1px 分隔線 → 左右各 4px 白邊，捲動時蓋住底下的格子 */
 }
 .py-mx th i { font-style: normal; color: #bdc1c6; }
-.py-mx .py-mx-corner { left: 0; z-index: 3; }
+.py-mx .py-mx-corner { left: 4px; z-index: 3; }   /* 修改：left 0 → 4px，與韻母膠囊對齊 */
 .py-mx tbody tr:hover > th { color: #1a73e8; }
 .py-mx td { padding: 0; text-align: center; }
 .py-cell {
@@ -4192,7 +4193,7 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
     .py-view { padding: 6px 12px 0; }
     .py-cell { width: 36px; height: 30px; }
     .py-mx thead th { min-width: 36px; }
-    .py-mx tbody th { padding-right: 6px; font-size: calc(14px * var(--fs, 1)); }
+    .py-mx tbody th { padding: 0 8px; min-width: 3.2em; font-size: calc(14px * var(--fs, 1)); }   /* 修改：padding-right 6px → 左右各 8px，加 min-width */
 }
 
 /* ===== 拼音瀏覽：等寬方塊、家族分行、反向、聲調列、排版列開關 ===== */
@@ -4406,16 +4407,16 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
 
 /* 頂部大類：底色再淡一點、字級略小，讓「分類／部首／拼音」維持最上層 */
 .rad-rail.is-cat button { background: #f6f7f8; color: #5f6368; font-size: calc(14px * var(--fs, 1)); }
-.rad-rail.is-cat button[data-tone="1"] { background: #f2f9f4; color: #2b7a44; }
-.rad-rail.is-cat button[data-tone="2"] { background: #fdf4f8; color: #a8486f; }
-.rad-rail.is-cat button[data-tone="3"] { background: #fef9ec; color: #946512; }
-.rad-rail.is-cat button[data-tone="4"] { background: #f8f4fe; color: #7550b2; }
-.rad-rail.is-cat button[data-tone="5"] { background: #eff8f7; color: #25716a; }
-.rad-rail.is-cat button[data-tone="1"]:hover { background: #e3f2e8; }
-.rad-rail.is-cat button[data-tone="2"]:hover { background: #fae4ee; }
-.rad-rail.is-cat button[data-tone="3"]:hover { background: #fcf0cf; }
-.rad-rail.is-cat button[data-tone="4"]:hover { background: #eee3fb; }
-.rad-rail.is-cat button[data-tone="5"]:hover { background: #dcf0ed; }
+.rad-rail.is-cat button[data-tone="1"] { background: #f1f3f4; color: #2b7a44; }
+.rad-rail.is-cat button[data-tone="2"] { background: #f1f3f4; color: #a8486f; }
+.rad-rail.is-cat button[data-tone="3"] { background: #f1f3f4; color: #946512; }
+.rad-rail.is-cat button[data-tone="4"] { background: #f1f3f4; color: #7550b2; }
+.rad-rail.is-cat button[data-tone="5"] { background: #f1f3f4; color: #25716a; }
+.rad-rail.is-cat button[data-tone="1"]:hover { background: #e8eaed; }
+.rad-rail.is-cat button[data-tone="2"]:hover { background: #e8eaed; }
+.rad-rail.is-cat button[data-tone="3"]:hover { background: #e8eaed; }
+.rad-rail.is-cat button[data-tone="4"]:hover { background: #e8eaed; }
+.rad-rail.is-cat button[data-tone="5"]:hover { background: #e8eaed; }
 .rad-rail.is-cat button:hover { color: #1a73e8; }
 .rad-rail.is-cat button.on { background: #1a73e8 !important; color: #fff !important; font-weight: 600; }
 
@@ -4533,10 +4534,11 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
         border-top: 0; border-left: 1px solid #e3e6ea; box-shadow: none; background: #fcfcfd;
     }
     /* 右側面板：窄欄裡各調單欄排列；標題列放不下聲調鈕時，聲調鈕換到第二行 */
-    #pyDetail .py-dh { flex-wrap: wrap; padding: 14px 20px 8px; }
-    #pyDetail .py-ts { order: 3; flex: 1 0 100%; margin: 6px 0 0; }
-    #pyDetail .py-rows.py-2c { grid-template-columns: minmax(0, 1fr); }
-    #pyDetail .py-tn { flex-basis: 56px; }
+    /* 修改：以下四條只套用在「家族／清單」的右側窄欄；矩陣（.is-mx）的底部面板是整排寬度，聲調鈕維持在標題同一行 */
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-dh { flex-wrap: wrap; padding: 14px 20px 8px; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-ts { order: 3; flex: 1 0 100%; margin: 6px 0 0; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-rows.py-2c { grid-template-columns: minmax(0, 1fr); }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tn { flex-basis: 56px; }
     /* 左側清單變窄：韻母→聲母的 18 個聲母由「2 排 9 個」改成「3 排 6 個」，方塊才放得下完整音節 */
     .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) .py-grid.py-rv { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
@@ -4544,16 +4546,86 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
 /* ===== 新增：拼音右側字面板（家族／清單）改用「斑馬間隔色」=====
    字與音節已依聲調上色，每列再加一塊同色底色就太重（色彩重複、也佔去留白）。
    改成：奇數列淡灰底、偶數列無底色（第一列先灰），列之間不留縫；字仍保留聲調顏色。
-   被篩選命中的調維持「淡色底＋細框」；字滑過改淡灰底、無陰影。矩陣的底部面板、手機版維持原樣。 */
+   被篩選命中的調維持「淡色底＋細框」；字滑過改淡灰底、無陰影。電腦版的矩陣底部面板也套用同樣樣式；手機版維持原樣。 */
 @media (min-width: 769px) {
-    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-rows { gap: 0; }
-    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tr { background: transparent; border-radius: 10px; }
-    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tr:nth-child(odd) { background: #f4f5f7; }
-    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-tr.is-hit { background: #f1f3f4; background: color-mix(in srgb, var(--tn) 12%, #fff); box-shadow: inset 0 0 0 1px #dadce0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tn) 35%, #fff); }
-    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-han:hover { background: #e8eaed; box-shadow: none; }
-    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body:not(.is-mx)) #pyDetail .py-han.is-hit:hover { background: #fde68a; }
+    .cat-full-card:has(> #pyDetail:not([hidden])) #pyDetail .py-rows { gap: 0; }
+    .cat-full-card:has(> #pyDetail:not([hidden])) #pyDetail .py-tr { background: transparent; border-radius: 10px; }
+    .cat-full-card:has(> #pyDetail:not([hidden])) #pyDetail .py-tr:nth-child(odd) { background: #f4f5f7; }
+    .cat-full-card:has(> #pyDetail:not([hidden])) #pyDetail .py-tr.is-hit { background: #f1f3f4; background: color-mix(in srgb, var(--tn) 12%, #fff); box-shadow: inset 0 0 0 1px #dadce0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tn) 35%, #fff); }
+    .cat-full-card:has(> #pyDetail:not([hidden])) #pyDetail .py-han:hover { background: #e8eaed; box-shadow: none; }
+    .cat-full-card:has(> #pyDetail:not([hidden])) #pyDetail .py-han.is-hit:hover { background: #fde68a; }
 }
 
 /* 新增：拼音面板「查此音讀」鈕（沿用 .rad-go 外觀），貼在 ✕ 左邊 */
 .py-dh .py-go { margin-left: auto; flex: 0 0 auto; }
 .py-dh .py-go + .py-x { margin-left: 4px; }
+
+/* ===== 新增：手機版——點查詢框時查詢框最大化（隱藏分類／部首／拼音與右側 ✕），框內右側出現 ✕ ===== */
+.cat-full-fwrap { position: relative; flex: 1; min-width: 0; max-width: 420px; }   /* 新增：原本 input 自己的 flex／max-width 改由外層負責 */
+.cat-full-fwrap #catFullFilter { width: 100%; max-width: none; flex: none; }
+.cat-full-fclear { display: none; }   /* 桌機版不顯示 */
+@media (max-width: 768px) {
+    .cat-full-head.is-searching .cat-full-switch,
+    .cat-full-head.is-searching .cat-full-close { display: none; }   /* 暫時隱藏左邊三個分頁與右邊 ✕ */
+    .cat-full-head.is-searching .cat-full-fwrap { max-width: none; }   /* 查詢框撐滿整列 */
+    .cat-full-head.is-searching #catFullFilter { padding-right: 44px; }   /* 右側留位置給框內 ✕ */
+    .cat-full-head.is-searching .cat-full-fclear {
+        display: flex; align-items: center; justify-content: center;
+        position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+        width: 28px; height: 28px; padding: 0; border: none; border-radius: 50%;
+        background: #e6e9ed; color: #5f6368; cursor: pointer;
+    }
+    .cat-full-fclear .icon { width: 16px; height: 16px; }
+}
+
+/* ===== 新增：拼音排版列整理——右側改成一顆「選項」按鈕，展開面板放「韻母 → 聲母」「只看所選」（矩陣時放「排序」） ===== */
+.py-view { position: relative; z-index: 20; }   /* 面板要蓋在下方導覽列／內容上 */
+.py-view .py-more { margin-left: auto; width: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; position: relative; border: 1px solid #e1e4e8; }
+.py-view .py-more .icon { width: 18px; height: 18px; }
+.py-view .py-more[aria-expanded="true"] { background: #e8f0fe; border-color: #aecbfa; color: #1a73e8; }
+.py-view .py-more.has-opt::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #1a73e8; }   /* 有開啟非預設選項的提示點 */
+.py-pop { display: none; position: absolute; top: calc(100% + 4px); right: 12px; z-index: 30; box-sizing: border-box; min-width: 250px; max-width: calc(100% - 24px); padding: 6px; background: #fff; border: 1px solid #e1e4e8; border-radius: 14px; box-shadow: 0 6px 20px rgba(60, 64, 67, .22); }
+.py-view.is-pop .py-pop { display: block; }
+.py-pop-tg { display: block; }
+.py-view.is-mx .py-pop-tg { display: none; }   /* 矩陣沒有分組，這兩個開關不適用 */
+.py-view .py-pop .py-tg {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    width: 100%; height: auto; padding: 9px 10px; border: 0; border-radius: 10px; text-align: left; color: #3c4043;
+}
+.py-view.is-mx .py-pop .py-tg { display: none; }
+.py-view .py-pop .py-tg:hover { background: #f1f3f4; }
+.py-view .py-pop .py-tg.on { background: none; border: 0; color: #3c4043; font-weight: normal; }
+.py-pop .py-tg b { display: block; font-size: calc(14px * var(--fs, 1)); font-weight: 600; }
+.py-pop .py-tg small { display: block; margin-top: 2px; color: #80868b; font-size: calc(12px * var(--fs, 1)); }
+.py-pop .py-tg::after {   /* 小開關 */
+    content: ''; flex: 0 0 auto; width: 34px; height: 20px; border-radius: 10px;
+    background: radial-gradient(circle at 10px 50%, #fff 8px, transparent 8.5px), #c4c7cc; transition: background .15s;
+}
+.py-pop .py-tg.on::after { background: radial-gradient(circle at 24px 50%, #fff 8px, transparent 8.5px), #1a73e8; }
+.py-view .py-pop .py-mxo { margin-left: 0; flex-wrap: wrap; row-gap: 4px; padding: 6px 4px; }
+
+/* ===== 新增：部首／拼音字面板標題列——標題本身是「查詢」按鈕，旁邊一顆小圖示＝新視窗查詢 ===== */
+.py-ttl { display: inline-flex; align-items: baseline; flex: 0 1 auto; min-width: 0; padding: 0 10px; border: 0; border-radius: 10px; background: #e8edf5; color: #1a73e8; font: inherit; cursor: pointer; }   /* 修改：藍字＋灰藍底（取代虛線底線） */
+.py-ttl b { color: #1a73e8; }
+.py-ttl:hover { background: #d9e3f3; }
+.py-nw { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 28px; height: 28px; padding: 0; margin-left: -2px; border: 0; border-radius: 50%; background: none; color: #80868b; cursor: pointer; }
+.py-nw .icon { width: 18px; height: 18px; }
+.py-nw:hover { background: #e8f0fe; color: #1a73e8; }
+.py-dh .py-x, .rad-detail .py-dh .py-x { margin-left: auto; }   /* ✕ 靠右（原本由「查此…」鈕撐開） */
+
+/* ===== 新增：矩陣底部面板（左右兩欄）改回「依聲調字色的極淡底色」=====
+   兩欄時 :nth-child(odd) 斑馬紋會變成左欄全灰、右欄全白的直條紋，所以矩陣的兩欄面板不用斑馬紋，
+   每個調各自用該調字色混 6% 的淡底（沒有 color-mix 的舊瀏覽器用 #f8f9fa）；被篩選命中的調維持原本較深的底色＋細框（上面 .is-hit 的規則）。
+   家族／清單的右側單欄面板仍用上面的斑馬紋。選擇器刻意寫得比 nth-child(odd) 那條更具體，才蓋得過去。 */
+@media (min-width: 769px) {
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body.is-mx) #pyDetail .py-rows.py-2c { gap: 6px 10px; }
+    .cat-full-card:has(> #pyDetail:not([hidden])):has(> .cat-full-body.is-mx) #pyDetail .py-rows.py-2c .py-tr:not(.is-hit) {
+        background: #f8f9fa; background: color-mix(in srgb, var(--tn) 6%, #fff); border-radius: 12px;
+    }
+}
+
+/* ===== 新增：「在新視窗開啟」改成開關鈕，放在 ✕ 左邊（靠右）；開啟時藍色底，關閉時灰色 ===== */
+.py-dh .py-nw { margin-left: auto; }
+.py-dh .py-nw + .py-x { margin-left: 4px; }
+.py-nw.is-on { background: #e8f0fe; color: #1a73e8; box-shadow: inset 0 0 0 1px #c6d7f5; }
+.py-nw.is-on:hover { background: #d2e3fc; }

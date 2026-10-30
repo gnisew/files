@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>教典資料轉換器</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
@@ -53,7 +52,7 @@
   <div class="card">
     <div id="drop" tabindex="0" role="button" aria-label="選擇資料檔">
       <b>點這裡選擇檔案</b>，或把檔案拖進來
-      <small>支援 .ods（建議）、.xlsx、.xls；檔案較大，轉換約需 10–60 秒</small>
+      <small>支援 .ods（建議）、.xlsx、.xls；檔案較大，轉換約需 10–60 秒（.xlsx／.xls 第一次使用時才會載入 SheetJS）</small>
     </div>
     <input type="file" id="file" accept=".ods,.xlsx,.xls" hidden>
     <progress id="bar"></progress>
@@ -70,7 +69,7 @@
   <div class="card">
     <strong>使用方式</strong>
     <ol>
-      <li>選擇 kautian.ods 或 kautian.xlsx，等待轉換完成。</li>
+      <li>選擇 kautian.ods 或 kautian.xlsx，等待轉換完成；看一下「資料檢查」有沒有提醒（例如 id 對不上、近反義被略過）。</li>
       <li>下載 <code>data.js</code>、<code>variants.js</code>、<code>compare.js</code>、<code>name.js</code>、<code>alt.js</code>、<code>radical.js</code>、<code>freq.js</code>、<code>suggest.js</code>（或打包的 zip）。</li>
       <li>放進網站資料夾，覆蓋舊檔，和 <code>index.html</code> 放在同一層即可。</li>
       <li><code>radical.js</code> 來自工作表「<b>部首</b>」（選用，沒有就不產生，網站沿用舊的 radical.js；也接受「字表」（字、部首、部首外筆畫、總筆畫）＋「部首總覽」（部首、部首筆畫）兩張工作表的格式；若檔案<b>只有</b>「部首」工作表，則只輸出 radical.js）。欄位：<code>漢字</code>、<code>部首</code>、<code>部首筆畫</code>、<code>部首外筆畫</code>；總筆畫自動＝部首筆畫＋部首外筆畫。一個字可有多列（屬多個部首）。</li>
@@ -83,6 +82,29 @@
 <script>
 const REQUIRED = ['詞目','義項','例句','又唸作','合音唸作','俗唸作','語音差異','詞彙比較',
   '義項tuì義項近義','義項tuì義項反義','義項tuì詞目近義','義項tuì詞目反義','詞目tuì詞目近義','詞目tuì詞目反義'];
+// 新增：轉換時實際會讀的欄位。欄名被改掉或刪掉時，直接說明哪一張表缺哪一欄（原本會悄悄產生空白資料）
+const REQUIRED_COLS = {
+  '詞目': ['詞目id', '漢字', '羅馬字', '分類'],
+  '義項': ['詞目id', '義項id', '詞性', '解說'],
+  '例句': ['詞目id', '義項id', '漢字', '羅馬字', '華語'],
+  '又唸作': ['詞目id', '漢字', '羅馬字'], '合音唸作': ['詞目id', '漢字', '羅馬字'], '俗唸作': ['詞目id', '漢字', '羅馬字'],
+  '語音差異': ['詞目id', '漢字'],
+  '詞彙比較': ['華語詞目id', '華語詞目', '腔', '漢字', '羅馬字'],
+  '義項tuì義項近義': ['義項id', '對應詞目漢字'], '義項tuì義項反義': ['義項id', '對應詞目漢字'],
+  '義項tuì詞目近義': ['義項id', '對應詞目漢字'], '義項tuì詞目反義': ['義項id', '對應詞目漢字'],
+  '詞目tuì詞目近義': ['詞目id', '對應詞目漢字'], '詞目tuì詞目反義': ['詞目id', '對應詞目漢字'],
+};
+const OPTIONAL_COLS = { '姓': ['漢字', '羅馬字'], '名': ['漢字', '羅馬字'], '異用字': ['漢字', '異用字'] };   // 有這些表才檢查
+function checkColumns(S) {
+  const miss = [];
+  for (const [sh, cols] of Object.entries({ ...REQUIRED_COLS, ...Object.fromEntries(Object.entries(OPTIONAL_COLS).filter(([k]) => S[k])) })) {
+    if (!S[sh]) continue;   // 缺整張表的情況由 handleFile 另外處理
+    const lack = cols.filter(c => !S[sh].cols.includes(c));
+    if (lack.length) miss.push(`「${sh}」缺少欄位：${lack.join('、')}`);
+  }
+  return miss;
+}
+
 const HEAD = ['台語','台羅','又唸作','分類','釋義','例句','近義詞','反義詞','台羅無調','詞目id'];   // 「台羅無調」欄現在存的是「數字調」（欄名暫不改，以免 script.js 失效）
 const TAG = { '又唸作': '', '合音唸作': '〔合音〕', '俗唸作': '〔俗唸〕' };
 
@@ -156,141 +178,21 @@ const holoZvsToNumber = (function() {
     };
 })();
 
+// 修改：原本約 150 行逐字母逐聲調的 replace，改成由表格自動產生（輸出經全部詞目、例句與窮舉測試，與舊版完全相同）
+// 聲調符號（組合用附加符號）→ 字母調：̍=l  ́=z  ̀=s  ̂=x  ̌=v  ̄=f  ̋=zz
+const ZVS_MARKS = [['\u030D', 'l'], ['\u0301', 'z'], ['\u0300', 's'], ['\u0302', 'x'], ['\u030C', 'v'], ['\u0304', 'f'], ['\u030B', 'zz']];
+// 母音／鼻音字母分兩組，各組允許接在後面的字母不同（a、e、o 後面可接 y）
+const ZVS_GROUPS = [['aAeEoO', 'aeioumngptkhry'], ['iIuUmMnNyY', 'aeioumngptkhr']];
+const ZVS_RULES = ZVS_GROUPS.map(([letters, tail]) => {
+  const map = new Map();
+  for (const ch of letters) for (const [mark, tone] of ZVS_MARKS) map.set((ch + mark).normalize('NFC'), [ch, tone]);   // 輸入一律先轉 NFC（toNumberTone 會做）：有預組字就用預組字（á），沒有就用 字母＋符號（a̍）
+  const alts = [...map.keys()].sort((x, y) => y.length - x.length).join('|');
+  return { map, re: new RegExp('(' + alts + ')([' + tail + ']{0,5})(?!\\w)', 'g') };
+});
 function letterToZvs(t) {
-	t = t.replace(/űn(?!\w)/g, 'unzz');
-	t = t.replace(/Űn(?!\w)/g, 'Unzz');
-	t = t.replace(/ű(?!\w)/g, 'uzz');
-	t = t.replace(/Ű(?!\w)/g, 'Uzz');
-
-	t = t.replace(/(A̍)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2l');
-	t = t.replace(/(a̍)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2l');
-	t = t.replace(/(Á)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2z');
-	t = t.replace(/(á)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2z');
-	t = t.replace(/(À)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2s');
-	t = t.replace(/(à)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2s');
-	t = t.replace(/(Â)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2x');
-	t = t.replace(/(â)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2x');
-	t = t.replace(/(Ǎ)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2v');
-	t = t.replace(/(ǎ)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2v');
-	t = t.replace(/(Ā)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2f');
-	t = t.replace(/(ā)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2f');
-	t = t.replace(/(A̋)([aeioumngptkhry]{0,5})(?!\w)/g, 'A$2zz');
-	t = t.replace(/(a̋)([aeioumngptkhry]{0,5})(?!\w)/g, 'a$2zz');
-
-	t = t.replace(/(O̍)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2l');
-	t = t.replace(/(o̍)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2l');
-	t = t.replace(/(Ó)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2z');
-	t = t.replace(/(ó)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2z');
-	t = t.replace(/(Ò)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2s');
-	t = t.replace(/(ò)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2s');
-	t = t.replace(/(Ô)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2x');
-	t = t.replace(/(ô)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2x');
-	t = t.replace(/(Ǒ)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2v');
-	t = t.replace(/(ǒ)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2v');
-	t = t.replace(/(Ō)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2f');
-	t = t.replace(/(ō)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2f');
-	t = t.replace(/(Ő)([aeioumngptkhry]{0,5})(?!\w)/g, 'O$2zz');
-	t = t.replace(/(ő)([aeioumngptkhry]{0,5})(?!\w)/g, 'o$2zz');
-
-	t = t.replace(/(E̍)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2l');
-	t = t.replace(/(e̍)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2l');
-	t = t.replace(/(é)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2z');
-	t = t.replace(/(É)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2z');
-	t = t.replace(/(é)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2z');
-	t = t.replace(/(è)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2s');
-	t = t.replace(/(È)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2s');
-	t = t.replace(/(ê)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2x');
-	t = t.replace(/(Ê)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2x');
-	t = t.replace(/(ê)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2x');
-	t = t.replace(/(ě)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2v');
-	t = t.replace(/(Ě)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2v');
-	t = t.replace(/(ě)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2v');
-	t = t.replace(/(ē)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2f');
-	t = t.replace(/(Ē)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2f');
-	t = t.replace(/(ē)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2f');
-	t = t.replace(/(e̋)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2zz');
-	t = t.replace(/(E̋)([aeioumngptkhry]{0,5})(?!\w)/g, 'E$2zz');
-	t = t.replace(/(e̋)([aeioumngptkhry]{0,5})(?!\w)/g, 'e$2zz');
-
-	t = t.replace(/(U̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2l');
-	t = t.replace(/(u̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2l');
-	t = t.replace(/(Ú)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2z');
-	t = t.replace(/(ú)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2z');
-	t = t.replace(/(Ù)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2s');
-	t = t.replace(/(ù)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2s');
-	t = t.replace(/(Û)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2x');
-	t = t.replace(/(û)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2x');
-	t = t.replace(/(Ǔ)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2v');
-	t = t.replace(/(ǔ)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2v');
-	t = t.replace(/(Ū)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2f');
-	t = t.replace(/(ū)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2f');
-	t = t.replace(/(Ű)([aeioumngptkhr]{0,5})(?!\w)/g, 'U$2zz');
-	t = t.replace(/(ű)([aeioumngptkhr]{0,5})(?!\w)/g, 'u$2zz');
-
-	t = t.replace(/(I̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2l');
-	t = t.replace(/(i̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2l');
-	t = t.replace(/(Í)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2z');
-	t = t.replace(/(í)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2z');
-	t = t.replace(/(Ì)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2s');
-	t = t.replace(/(ì)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2s');
-	t = t.replace(/(Î)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2x');
-	t = t.replace(/(î)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2x');
-	t = t.replace(/(Ǐ)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2v');
-	t = t.replace(/(ǐ)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2v');
-	t = t.replace(/(Ī)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2f');
-	t = t.replace(/(ī)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2f');
-	t = t.replace(/(I̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'I$2zz');
-	t = t.replace(/(i̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'i$2zz');
-
-	t = t.replace(/(M̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2l');
-	t = t.replace(/(m̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2l');
-	t = t.replace(/(M̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2zz');
-	t = t.replace(/(m̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2zz');
-	t = t.replace(/(Ḿ)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2z');
-	t = t.replace(/(ḿ)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2z');
-	t = t.replace(/(M̀)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2s');
-	t = t.replace(/(m̀)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2s');
-	t = t.replace(/(M̂)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2x');
-	t = t.replace(/(m̂)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2x');
-	t = t.replace(/(M̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2v');
-	t = t.replace(/(m̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2v');
-	t = t.replace(/(M̄)([aeioumngptkhr]{0,5})(?!\w)/g, 'M$2f');
-	t = t.replace(/(m̄)([aeioumngptkhr]{0,5})(?!\w)/g, 'm$2f');
-	t = t.replace(/(N̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2l');
-	t = t.replace(/(n̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2l');
-	t = t.replace(/(N̂)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2x');
-	t = t.replace(/(n̂)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2x');
-	t = t.replace(/(Ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2v');
-	t = t.replace(/(ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2v');
-	t = t.replace(/(Ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2v');
-	t = t.replace(/(ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2v');
-
-	t = t.replace(/(N̄)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2f');
-	t = t.replace(/(n̄)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2f');
-	t = t.replace(/(N̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2zz');
-	t = t.replace(/(n̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2zz');
-	t = t.replace(/(Ń)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2z');
-	t = t.replace(/(ń)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2z');
-	t = t.replace(/(Ǹ)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2s');
-	t = t.replace(/(ǹ)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2s');
-
-	t = t.replace(/(y̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2zz');
-	t = t.replace(/(ý|ý)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2z');
-	t = t.replace(/(y̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2v');
-	t = t.replace(/(ỳ|ỳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2s');
-	t = t.replace(/(ŷ|ŷ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2x');
-	t = t.replace(/(ȳ|ȳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2f');
-	t = t.replace(/(y̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2l');
-
-	t = t.replace(/(Y̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2zz');
-	t = t.replace(/(Ý|Ý)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2z');
-	t = t.replace(/(Y̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2v');
-	t = t.replace(/(Ỳ|Ỳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2s');
-	t = t.replace(/(Ŷ|Ŷ)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2x');
-	t = t.replace(/(Ȳ|Ȳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2f');
-	t = t.replace(/(Y̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2l');
-
-	return t;
+  t = t.replace(/űn(?!\w)/g, 'unzz').replace(/Űn(?!\w)/g, 'Unzz').replace(/ű(?!\w)/g, 'uzz').replace(/Ű(?!\w)/g, 'Uzz');   // 先處理「űn」「ű」（ű＝u＋雙銳符）
+  for (const { map, re } of ZVS_RULES) t = t.replace(re, (m, mk, rest) => { const [ch, tone] = map.get(mk); return ch + rest + tone; });
+  return t;
 }
 
 // 和樂的 holoZvsToNumber 不認「鼻化入聲」（-nnh：hiannh、sannh、khe̍nnh），這裡先補上：舒入聲 → 4、有 l（8）→ 8
@@ -302,6 +204,13 @@ function toNumberTone(rom) {
   return holoZvsToNumber(t).toLowerCase().trim();                   // 字母調 → 數字調
 }
 const dumps = o => JSON.stringify(o);
+
+// 新增：函式庫用到才載入（SheetJS 約 900 KB，只有 .xlsx／.xls 才需要；.ods 走自己的串流解析，用不到）
+const loadLib = (src) => new Promise((resolve, reject) => {
+  const el = document.createElement('script');
+  el.src = src; el.onload = resolve; el.onerror = () => reject(new Error('無法載入函式庫：' + src + '，請確認網路連線後重新整理。'));
+  document.head.appendChild(el);
+});
 
 
 // ---------- ODS 串流解析（不用 SheetJS，避免整份 XML 載入記憶體而當機）----------
@@ -520,6 +429,64 @@ function myRadicalGroupByStrokes() {
 }
 `;
   return { text, radicals: list.length, chars, bad };
+}
+
+// ---------- 新增：資料檢查（只回報，不影響輸出）----------
+// 轉換時「對不上」的列會被悄悄略過（例如近反義的義項id 找不到詞目）；這裡把它們列出來，方便回試算表修。
+function checkData(S) {
+  const issues = [], info = [];
+  const push = (title, list) => { if (list.length) issues.push({ title, n: list.length, sample: list.slice(0, 12) }); };
+  const ids = new Set(), dupIds = [], emptyIds = [];
+  S['詞目'].recs.forEach((r, i) => {
+    const id = clean(r['詞目id']);
+    if (!id) emptyIds.push('第 ' + (i + 2) + ' 列：' + clean(r['漢字']));
+    else if (ids.has(id)) dupIds.push('id ' + id + '：' + clean(r['漢字']));
+    ids.add(id);
+  });
+  push('詞目：詞目id 空白', emptyIds); push('詞目：詞目id 重複', dupIds);
+
+  const senseOwner = new Map(), sOrphan = [], sDup = [];
+  for (const r of S['義項'].recs) {
+    const sid = clean(r['義項id']), eid = clean(r['詞目id']);
+    if (!ids.has(eid)) sOrphan.push('義項id ' + sid + '：詞目id ' + eid + ' 不存在');
+    if (senseOwner.has(sid)) sDup.push('義項id ' + sid + ' 重複');
+    senseOwner.set(sid, eid);
+  }
+  push('義項：找不到所屬詞目', sOrphan); push('義項：義項id 重複', sDup);
+
+  const exBad = [];
+  for (const r of S['例句'].recs) {
+    const sid = clean(r['義項id']), eid = clean(r['詞目id']);
+    if (senseOwner.get(sid) !== eid) exBad.push('詞目id ' + eid + '／義項id ' + sid + '：' + clean(r['漢字']).slice(0, 16));
+  }
+  push('例句：詞目id 與義項id 對不上（該例句不會顯示）', exBad);
+
+  for (const sh of ['又唸作', '合音唸作', '俗唸作', '語音差異', '異用字']) {
+    if (!S[sh]) continue;
+    push(sh + '：詞目id 不存在', S[sh].recs.filter(r => !ids.has(clean(r['詞目id']))).map(r => 'id ' + clean(r['詞目id']) + '：' + clean(r['漢字'])));
+  }
+  const heads = new Set(S['詞目'].recs.map(r => clean(r['漢字']).replace(/【[^】]*】/g, '')));
+  for (const sh of ['詞目tuì詞目近義', '詞目tuì詞目反義', '義項tuì詞目近義', '義項tuì詞目反義', '義項tuì義項近義', '義項tuì義項反義']) {
+    const bySense = S[sh].cols.includes('義項id');
+    const noOwner = [], noTarget = new Set();
+    for (const r of S[sh].recs) {
+      const own = bySense ? senseOwner.has(clean(r['義項id'])) : ids.has(clean(r['詞目id']));
+      if (!own) noOwner.push((bySense ? '義項id ' : '詞目id ') + clean(r[bySense ? '義項id' : '詞目id']) + ' → ' + clean(r['對應詞目漢字']));
+      const w = clean(r['對應詞目漢字']);
+      if (w && !heads.has(w)) noTarget.add(w);
+    }
+    push(sh + '：本方 id 找不到（整列略過）', noOwner);
+    push(sh + '：「對應詞目漢字」不是任何詞目', [...noTarget]);
+  }
+  push('詞彙比較：漢字或羅馬字空白', S['詞彙比較'].recs.filter(r => !clean(r['漢字']) || !clean(r['羅馬字'])).map(r => clean(r['華語詞目']) + '／' + clean(r['腔'])));
+
+  // 參考資訊：詞目類型分布（不是錯誤）
+  const hasSense = new Set([...senseOwner.values()]), types = {};
+  for (const r of S['詞目'].recs) { const k = clean(r['詞目類型']) || '（空）'; types[k] = (types[k] || 0) + 1; }
+  if (S['詞目'].cols.includes('詞目類型')) info.push('詞目類型：' + Object.entries(types).map(([k, n]) => k + ' ' + n.toLocaleString()).join('、') + `；沒有義項的詞目 ${[...ids].filter(i => !hasSense.has(i)).length.toLocaleString()} 筆`);
+  const unused = Object.keys(S).filter(n => !REQUIRED.includes(n) && !['姓', '名', '異用字', '部首', '字表', '部首總覽'].includes(n));
+  if (unused.length) info.push('網站用不到的工作表（已忽略）：' + unused.join('、'));
+  return { issues, info };
 }
 
 // ---------- 新增：詞頻（斷詞分析用）----------
@@ -764,11 +731,21 @@ function convert(S) {
   const alts = (S['異用字'] && S['異用字'].recs.length) ? buildAlt(S) : null;   // 新增：沒有「異用字」工作表就略過
   const radical = (S['部首'] && S['部首'].recs.length) ? buildRadical(S) : null;   // 新增：沒有「部首」工作表就略過
   const freq = buildFreq(S);   // 新增：詞頻（斷詞分析用）
+  const check = checkData(S);  // 新增：資料檢查
 
-  let body = rows.map(r => r.join('\t')).join('\n');
+  // 新增：分類字典。「分類」欄同一組字串（例：性質、程度、數詞、量詞）在上萬筆詞目重複出現，
+  // 改成只在 myCatDict 存一份，詞目欄位只寫編號（依出現次數排序，常見的編號短）；script.js 的 parseCSV 會還原成原本的字串。
+  const catCount = new Map();
+  for (const r of rows) if (r[3]) catCount.set(r[3], (catCount.get(r[3]) || 0) + 1);
+  const catList = [...catCount.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(e => e[0]);
+  const catIdx = new Map(catList.map((c, i) => [c, i]));
+  let rawBytes = 0, packedBytes = 0;
+  for (const [c, n] of catCount) { rawBytes += new TextEncoder().encode(c).length * n; packedBytes += String(catIdx.get(c)).length * n; }
+  packedBytes += new TextEncoder().encode(dumps(catList)).length;
+  let body = rows.map(r => { const c = r.slice(); if (c[3]) c[3] = String(catIdx.get(c[3])); return c.join('\t'); }).join('\n');
   body = body.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
   return {
-    'data.js': 'var myData = `\n' + HEAD.join('\t') + '\n' + body + '\n`;\nvar myVariantIds = ' + dumps(vids) + ';\n',
+    'data.js': 'var myCatDict = ' + dumps(catList) + ';\nvar myData = `\n' + HEAD.join('\t') + '\n' + body + '\n`;\nvar myVariantIds = ' + dumps(vids) + ';\n',
     'variants.js': 'var myVariantCols = ' + dumps(vcols) + ';\nvar myVariants = ' + dumps(variantsObj) + ';\n',
     'compare.js': 'var myCompareCols = ' + dumps(ccols) + ';\nvar myCompare = ' + dumps(compare) + ';\n',
     ...(names ? { 'name.js': names.text } : {}),   // 新增
@@ -776,15 +753,17 @@ function convert(S) {
     ...(radical ? { 'radical.js': radical.text } : {}),   // 新增：部首
     'freq.js': freq.js, 'freq.tsv': freq.tsv,   // 新增：詞頻
     'suggest.js': 'var mySuggestFreq = ' + dumps(freq.byId) + ';\n',   // 新增：輸入提示用的詞頻（{詞目id: 分數}）
-    stats: { entries: rows.length, variants: vids.length, compare: compare.length, sample: rows.slice(0, 3),
+    stats: { cat: { kinds: catList.length, saved: rawBytes - packedBytes }, entries: rows.length, variants: vids.length, compare: compare.length, sample: rows.slice(0, 3),
              names: names ? { surnames: names.surnames, given: names.given } : null,
              alt: alts ? { words: alts.words, pairs: alts.pairs } : null,   // 新增
              radical: radical ? { radicals: radical.radicals, chars: radical.chars, bad: radical.bad } : null,   // 新增
-             freq },
+             freq, check },
   };
 }
 
 // ---------- 介面 ----------
+// 修改：輸出檔案清單只維護這一處（說明文字、下載按鈕、zip 打包都用它；原本 zip 另有一份寫死的清單）
+const FILE_INFO = { 'data.js': '主資料（含分類字典 myCatDict），網站啟動時載入', 'variants.js': '語音差異，開啟詳細頁時載入', 'compare.js': '華語對照，點該分頁時載入', 'name.js': '姓名資料，姓名查詢使用，網站啟動時載入', 'alt.js': '異用字資料，文章頁「異用字檢查」第一次使用時載入', 'radical.js': '部首與筆畫資料，詳細頁單字詞目顯示「部首 筆畫」，網站啟動時載入（工作表「部首」，沒有就不產生）', 'freq.js': '詞頻資料（漢字＋羅馬字），文章頁「斷詞分析」第一次使用時載入', 'suggest.js': '輸入提示的詞頻分數（{詞目id: 分數}，很小），搜尋框打字時第一次用到才載入', 'freq.tsv': '同一份詞頻的表格版，可用 Excel／試算表開啟（只供檢視，網站不需要）' };
 let outputs = null;
 const setStatus = (t, cls = '') => { $('status').textContent = t; $('status').className = cls; };
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -810,7 +789,7 @@ async function handleFile(file) {
       bar.max = 100; bar.value = 0;
       S = await readOds(buf, p => { if (p != null) { bar.value = p; setStatus(`解析 ODS ⋯ ${Math.round(p)}%`); } });
     } else {
-      if (typeof XLSX === 'undefined') throw new Error('無法載入 SheetJS 函式庫，請確認網路連線後重新整理。');
+      if (typeof XLSX === 'undefined') { setStatus('載入 SheetJS ⋯'); await loadLib('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); }   // 修改：改成用到才載入
       setStatus('解析試算表（檔案大時需要一點時間）⋯'); await nextFrame();
       const wb = XLSX.read(buf, { type: 'array', dense: true });
       S = readSheets(wb);
@@ -821,10 +800,12 @@ async function handleFile(file) {
     // 新增：只有「部首」工作表（完整辭典的工作表一個都沒有）→ 只輸出 radical.js
     const radicalOnly = !!(S['部首'] && S['部首'].recs.length) && missing.length === REQUIRED.length;
     if (missing.length && !radicalOnly) throw new Error('缺少工作表：' + missing.join('、') + '。請確認這是 kautian 辭典資料檔。');
+    if (!radicalOnly) { const lack = checkColumns(S); if (lack.length) throw new Error(lack.join('；')); }   // 新增：欄位檢查
     setStatus('轉換中 ⋯'); await nextFrame();
+    const t0 = performance.now();
     outputs = radicalOnly ? convertRadicalOnly(S) : convert(S);
     showResult(file.name);
-    setStatus('完成！', 'ok');
+    setStatus(`完成！（轉換 ${((performance.now() - t0) / 1000).toFixed(1)} 秒）`, 'ok');
   } catch (err) {
     console.error(err); setStatus('轉換失敗：' + err.message, 'err');
   } finally { bar.style.display = 'none'; }
@@ -837,6 +818,7 @@ function showResult() {
     $('statTable').innerHTML = radicalRow;
   } else $('statTable').innerHTML = `
     <tr><th>詞目</th><td>${st.entries.toLocaleString()} 筆</td></tr>
+    <tr><th>分類字典</th><td>${st.cat.kinds.toLocaleString()} 種分類組合，data.js 約縮小 ${fmtSize(st.cat.saved)}</td></tr>
     <tr><th>語音差異</th><td>${st.variants.toLocaleString()} 詞</td></tr>
     <tr><th>華語對照</th><td>${st.compare.toLocaleString()} 組</td></tr>
     <tr><th>姓名</th><td>${st.names ? `姓 ${st.names.surnames.toLocaleString()} 字、名 ${st.names.given.toLocaleString()} 字` : '（檔案內沒有「姓」「名」工作表，略過）'}</td></tr>
@@ -847,8 +829,9 @@ function showResult() {
       輸入提示詞頻：${Object.keys(st.freq.byId).length.toLocaleString()} 個詞目有分數（suggest.js）<br>
       最常見：${st.freq.top.map(r => esc(r[0]) + '（' + esc(r[1]) + '）' + (r[2] || 1).toLocaleString()).join('、')}<br>
       ${st.freq.skipped.length ? `<details><summary>${st.freq.skipped.length} 筆字數與音節數對不上，未統計</summary>${st.freq.skipped.map(x => esc(x[0] + '：' + x[1] + '　' + x[2])).join('<br>')}</details>` : '沒有略過的句子'}</td></tr>
+    <tr><th>資料檢查</th><td>${st.check.issues.length ? `<b style="color:var(--err)">${st.check.issues.length} 項需要留意</b>（不影響轉換，但這些列不會正確出現在網站）` + st.check.issues.map(x => `<details><summary>${esc(x.title)}：${x.n.toLocaleString()} 筆</summary>${x.sample.map(esc).join('<br>')}${x.n > x.sample.length ? '<br>⋯' : ''}</details>`).join('') : '<b style="color:var(--ok)">全部通過</b>（id 對應、近反義、語音差異、例句歸屬都正常）'}${st.check.info.map(t => '<br><small style="color:var(--muted)">' + esc(t) + '</small>').join('')}</td></tr>
     <tr><th>範例</th><td>${st.sample.map(r => r[0] + '　' + r[1] + '　→　' + r[8]).join('<br>')}</td></tr>`;
-  const info = { 'data.js': '主資料，網站啟動時載入', 'variants.js': '語音差異，開啟詳細頁時載入', 'compare.js': '華語對照，點該分頁時載入', 'name.js': '姓名資料，姓名查詢使用，網站啟動時載入', 'alt.js': '異用字資料，文章頁「異用字檢查」第一次使用時載入', 'radical.js': '部首與筆畫資料，詳細頁單字詞目顯示「部首 筆畫」，網站啟動時載入（工作表「部首」，沒有就不產生）', 'freq.js': '詞頻資料（漢字＋羅馬字），文章頁「斷詞分析」第一次使用時載入', 'suggest.js': '輸入提示的詞頻分數（{詞目id: 分數}，很小），搜尋框打字時第一次用到才載入', 'freq.tsv': '同一份詞頻的表格版，可用 Excel／試算表開啟（只供檢視，網站不需要）' };
+  const info = FILE_INFO;
   $('files').innerHTML = '';
   for (const name of Object.keys(info).filter(n => outputs[n] != null)) {
     const div = document.createElement('div'); div.className = 'file';
@@ -864,7 +847,7 @@ $('zipBtn').onclick = async () => {
   if (!outputs) return;
   if (typeof JSZip === 'undefined') { setStatus('無法載入 JSZip，請改為逐一下載。', 'err'); return; }
   const zip = new JSZip();
-  for (const n of ['data.js', 'variants.js', 'compare.js', 'name.js', 'alt.js', 'radical.js', 'freq.js', 'suggest.js', 'freq.tsv']) if (outputs[n] != null) zip.file(n, outputs[n]);
+  for (const n of Object.keys(FILE_INFO)) if (outputs[n] != null) zip.file(n, outputs[n]);
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kautian-data.zip';
   document.body.appendChild(a); a.click(); a.remove();

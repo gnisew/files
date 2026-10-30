@@ -2,7 +2,7 @@
 // 也可以做「斷詞分析」：把文章斷成一個一個詞，點或滑過詞就顯示台羅與釋義（詞頻資料來自 freq.js，第一次按「斷詞分析」時才載入）。
 // 兩個模式共用同一個編輯區：建議先做「異用字檢查」把用字改成正字，再做「換詞分析」。異用字資料來自 alt.js（第一次按「異用字檢查」時才載入）。
 // 第一次開啟「文章」分頁時才由 script.js 的 showArticle() 載入（跟 variants.js、compare.js 一樣，sw.js 會自動快取）。
-// 依賴 script.js 的全域：dictionary、escHtml；category.js 的 myCategoryTree（有就用來排除縣市、姓氏、諺語等分類）。
+// 依賴 script.js 的全域：dictionary、escHtml、loadScript；category.js 的 myCategoryTree（有就用來排除縣市、姓氏、諺語等分類）。
 (function () {
   'use strict';
 
@@ -111,18 +111,8 @@
 
   // ---- 異用字檢查 ----
   // alt.js（converter 由試算表「異用字」工作表輸出）：{ 異用字: [正字, …] }
-  var altLoading = null;
-  function loadAlt() {
-    if (typeof myAltChars !== 'undefined') return Promise.resolve();
-    if (!altLoading) altLoading = new Promise(function (res, rej) {
-      var el = document.createElement('script');
-      el.src = 'alt.js';
-      el.onload = function () { if (typeof myAltChars !== 'undefined') res(); else { altLoading = null; rej(new Error('alt.js 內容不正確')); } };
-      el.onerror = function () { altLoading = null; rej(new Error('找不到 alt.js')); };
-      document.head.appendChild(el);
-    });
-    return altLoading;
-  }
+  // 修改：改用 script.js 的共用 loadScript（刪除原本自己寫的載入程式與 altLoading）
+  function loadAlt() { return loadScript('alt.js', function () { return typeof myAltChars !== 'undefined'; }); }
   // 異用字（正規化）→ { std: [正字…], maybe: 這個寫法本身也是辭典詞目（例：同、共、事、到），不一定是錯 }
   function buildAltIndex() {
     if (S.altIdx) return S.altIdx;
@@ -171,18 +161,7 @@
   // 作法：以「漢字」為單位建詞庫（各種唸法的次數加總），用「機率最大的切法」（詞頻的對數相加，動態規劃）斷詞；
   // 每個詞顯示的台羅取該漢字最常見的唸法，其他唸法在選單裡一併列出。
   var HANALL = /^[\u3400-\u9fff\uf900-\ufaff\u{20000}-\u{2ffff}]+$/u;
-  var freqLoading = null;
-  function loadFreq() {
-    if (typeof myWordFreq !== 'undefined') return Promise.resolve();
-    if (!freqLoading) freqLoading = new Promise(function (res, rej) {
-      var el = document.createElement('script');
-      el.src = 'freq.js';
-      el.onload = function () { if (typeof myWordFreq !== 'undefined') res(); else { freqLoading = null; rej(new Error('freq.js 內容不正確')); } };
-      el.onerror = function () { freqLoading = null; rej(new Error('找不到 freq.js')); };
-      document.head.appendChild(el);
-    });
-    return freqLoading;
-  }
+  function loadFreq() { return loadScript('freq.js', function () { return typeof myWordFreq !== 'undefined'; }); }   // 修改：同上
   function buildLex() {
     if (S.lex) return S.lex;
     var m = new Map(), N = 0, maxL = 1;
