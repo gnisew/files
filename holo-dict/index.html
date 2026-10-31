@@ -69,6 +69,41 @@ if (/[?&](q|cas|d|a)=|[?&]b=(cat|rad|py)(&|$)/.test(location.search)) {
   window.applyAppearance(a);
 })();
 </script>
+<script>
+// 新增：提前套用「首頁狀態」與「背景圖」，避免載入時先閃一下沒背景的首頁、LOGO 縮放動畫
+// 1) 沒有查詢網址時，先加上 is-home／no-tabs（原本要等 script.js 最後才加，LOGO 會從 80px 動畫縮到 62px）
+// 2) 上次有設定背景圖時（localStorage 旗標 holo-bg-on），先短暫隱藏畫面、關閉過場動畫，從 IndexedDB 讀出圖片並解碼後才顯示
+(function () {
+  var h = document.documentElement;
+  if (!h.classList.contains('restoring')) h.classList.add('is-home', 'no-tabs');
+  var on = false;
+  try { on = localStorage.getItem('holo-bg-on') === '1'; } catch (e) {}
+  if (!on || !window.indexedDB) return;
+  h.classList.add('bg-pending');
+  var reveal = function () { requestAnimationFrame(function () { requestAnimationFrame(function () { h.classList.remove('bg-pending'); }); }); };
+  setTimeout(function () { h.classList.remove('bg-pending'); }, 800);   // 保險：最久 0.8 秒
+  var P = window.__holoBgP = new Promise(function (res) {   // script.js 的背景圖還原會直接沿用這個結果
+    try {
+      var r = indexedDB.open('holo-bg', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+      r.onsuccess = function () {
+        var db = r.result, q = db.transaction('kv', 'readonly').objectStore('kv').get('home');
+        q.onsuccess = function () { db.close(); res(q.result || null); };
+        q.onerror = function () { db.close(); res(null); };
+      };
+      r.onerror = function () { res(null); };
+    } catch (e) { res(null); }
+  });
+  P.then(function (b) {
+    if (!b) { reveal(); return; }
+    var url = window.__holoBgUrl = URL.createObjectURL(b);
+    h.style.setProperty('--home-bg', 'url("' + url + '")');
+    var img = new Image(); img.src = url;
+    var go = function () { h.classList.add('has-bg'); reveal(); };
+    (img.decode ? img.decode() : Promise.resolve()).then(go, go);   // 先解碼，避免圖片慢慢浮現
+  });
+})();
+</script>
 </head>
 <body spellcheck="false">
 <!-- 內嵌 SVG 圖示庫（Material Icons，Apache 2.0）：用 <svg class="icon"><use href="#i-名稱"/></svg> 呼叫 -->
@@ -99,6 +134,7 @@ if (/[?&](q|cas|d|a)=|[?&]b=(cat|rad|py)(&|$)/.test(location.search)) {
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
   <symbol id="i-swap-horiz" viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></symbol>
   <symbol id="i-view-column" viewBox="0 0 24 24"><path d="M10 18h5V5h-5v13zm-6 0h5V5H4v13zM16 5v13h5V5h-5z"/></symbol>
+  <symbol id="i-spellcheck" viewBox="0 0 24 24"><path d="M12.45 16h2.09L9.43 3H7.57L2.46 16h2.09l1.12-3h5.64l1.14 3zm-6.02-5L8.5 5.48 10.57 11H6.43zm15.16.59l-8.09 8.09L9.83 16l-1.41 1.41 5.09 5.09L23 13l-1.41-1.41z"/></symbol>
 </svg>
 
 <div class="container">

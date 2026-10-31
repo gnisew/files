@@ -1440,10 +1440,50 @@ function latinTermPattern(term) {
 // 規則：查詢詞只含英文字母（可夾空白、-），把它拆成「每個音節開頭的一段」，段數須等於詞的音節數。
 //   tsiulaua → tsiu|lau|a、tsla → ts|l|a、tsiula → tsiu|la|（酒漏仔 tsiú-lāu-á）；ts、tsh、kh、ng 等聲母不會被拆開
 // 比對對象為純台羅欄位（台羅、台羅無調）；只有一個音節的詞須完整輸入，避免 ts 之類列出一大堆。
+// 新增：漢字＋音節混合查詢（風 y y、風 pue y）——一個代號對應一個位置：漢字對「台語」欄的字，音節代號對「台羅無調」欄的音節。
+//   因為漢字與台羅在不同欄位，無法用單一欄位的正則比對，所以替每個詞目建一個虛擬欄位 _mix（不可列舉、第一次用到才算）：
+//   「\uFDD0風:hong1 火:hue2 頭:thau5\uFDD1」——一個讀音一段，每個位置是「字:音節」。混合查詢的正則一律以 MIX_PFX 開頭（藉此辨認），只比對 _mix。
+const MIX_PFX = '(?<=[\uFDD0 ])';
+let _mixActive = false;   // 目前這次查詢是不是混合查詢（performSearch 設定）；是的話，getRelevantValues 會多附上 _mix，讓層級（完全符合／部分符合）算得出來
+const _mixWholeCache = new Map();
+function mixWhole(re) {   // 混合查詢的「完全符合」：整個詞（某個讀音的每個位置）剛好被吃完
+  let w = _mixWholeCache.get(re.source);
+  if (!w) { if (_mixWholeCache.size > 50) _mixWholeCache.clear(); w = new RegExp(MIX_PFX + '(?<=\uFDD0)' + re.source.slice(MIX_PFX.length) + '(?=\uFDD1)', 'i'); _mixWholeCache.set(re.source, w); }
+  return w;
+}
+const isMixRx = r => !!r && typeof r.source === 'string' && r.source.startsWith(MIX_PFX);
+function mixBuild(it) {
+  const strip = v => String(v || '').replace(/【[^】]*】/g, '');
+  const hans = strip(it['台語']).split('/').map(x => x.trim()).filter(Boolean);
+  const roms = strip(it['台羅無調']).split('/').map(x => x.trim()).filter(Boolean);
+  const CH = /[\p{L}\p{N}\p{Co}]/u, out = new Set();
+  hans.forEach(h => {
+    const chars = Array.from(h).filter(c => CH.test(c));
+    if (!chars.length) return;
+    roms.forEach(r => {
+      const syl = r.split(/[\s\-]+/).map(x => x.replace(/^[^\p{L}\p{N}\p{M}]+|[^\p{L}\p{N}\p{M}]+$/gu, '')).filter(Boolean);
+      if (syl.length === chars.length) out.add('\uFDD0' + chars.map((c, i) => c + ':' + syl[i]).join(' ') + '\uFDD1');   // 字數＝音節數才配得起來
+    });
+  });
+  return [...out].join('');
+}
+dictionary.forEach(it => {   // 不可列舉；第一次查混合查詢時才算
+  let c;
+  Object.defineProperty(it, '_mix', { get() { return c === undefined ? (c = mixBuild(it)) : c; } });
+});
+
+// 新增：疊字代號——從 A 開始依序編排（A B C ...，不限字數），同一字母＝同一個字，不同字母＝不同的字；至少要有一個重複。
+//   AABC、ABCCDEFG 可以；AACB（C 跳在 B 前面）、BB（不從 A 開始）不是疊字代號
+function isRepCode(c) {
+  if (!/^[A-Z]{2,}$/.test(c)) return false;
+  let next = 0;
+  for (const ch of c) { const k = ch.charCodeAt(0) - 65; if (k > next) return false; if (k === next) next++; }
+  return next < c.length;
+}
 const IME_ROM = /^[A-Za-z0-9\u00C0-\u024F\u0300-\u036F\u207F\s\-\/]+$/;
 function imeQuery(raw) {
   raw = (raw || '').trim();
-  if (!/^[A-Za-z\s\-]+$/.test(raw) || /^[A-D]{2,}$/.test(raw)) return '';   // 含數字、符號、漢字，或 AA／ABB 疊字代號：不啟用
+  if (!/^[A-Za-z\s\-]+$/.test(raw) || isRepCode(raw)) return '';   // 含數字、符號、漢字，或 AA／ABB／ABCCDEFG 疊字代號：不啟用
   const q = raw.toLowerCase().replace(/[\s\-]+/g, '');
   return q.length >= 3 && !/[vwy]/.test(q) ? q : '';   // 至少 3 個字母，避免打到一半列出太多
 }
@@ -1519,6 +1559,10 @@ const SIMPLE = (() => {
   const INIT_GROUP = { p: '(?:ph|p|m|b)', t: '(?:th|t|n|l)', ts: '(?:tsh|ts|s|j)', k: '(?:kh|k|ng|g|h)', ph: '(?:ph|th|kh|tsh)', m: '(?:ng|n|m)', b: '(?:b|g)', j: '(?:j|l)' };
   const REQ_INIT = '(?:tsh|ts|ph|th|kh|ng|[ptkmbnlsjgh])', ANY_INIT = REQ_INIT + '?';   // 新增：+a ＝ 一定要有聲母（不含零聲母）；   // 新增：?a ＝ 任一聲母（含零聲母）＋元音；?y 仍同 y
   const INIT_RE = new RegExp('^(?:' + INITS + ')(?:;(?:' + INITS + '))*');
+  // 新增：元音之間的「;」＝ 或，只處理相鄰的元音（oo 算一個元音）：pa;i0 ＝ p＋(a|i)＋任一調（pa2、pi3）；a;oo、i;u、a;i;u。pa;i 不是「pa 或 i」
+  const VOW_LIST = /^(?:oo|[aeiou])(?:;(?:oo|[aeiou]))+/, VOW_ENGAGE = /[aeiou];[aeiou]/;
+  // 新增：漢字之間的「;」＝ 或，只處理相鄰的各一個字：天;地 ＝ (天|地)；天文;地 ＝ 天(文|地)（可查天文、天地）；天;地;人 ＝ (天|地|人)
+  const HAN_LIST = new RegExp('^' + HAN + '(?:;' + HAN + ')+'), HAN_LIST_ENGAGE = new RegExp(HAN + ';' + HAN);
   const INIT_ENGAGE = new RegExp('(?<![A-Za-z])(?:' + INITS + ');');
   const HAN_RE = /[\u3007\u3400-\u4DBF\u4E00-\u9FFF\uE815-\uE864\uF900-\uFAFF]|[\uD840-\uD87F][\uDC00-\uDFFF]/;
   const noEsc = t => t.replace(/\\./g, '').replace(/\[[^\]]*\]/g, '');   // 去掉跳脫字元與 [...] 字元集後再判斷
@@ -1544,21 +1588,38 @@ const SIMPLE = (() => {
     return out;
   }
   // 新增：用了簡易語法、又不含漢字的查詢才補空格（一般的台羅、華語、舊的 {x} 寫法維持原樣）
-  const tidySyl = term => (engaged(term) && !HAN_RE.test(noEsc(term))) ? splitSyl(term) : term;
+  // 新增：w（一個任意漢字）預設不加空格。查詢只由漢字、w（可含 ^ $）和空格組成時，把空格全部拿掉：水 w w、水 ww、水w w → 水ww；w w → ww
+  //   只有「w 與拼音（y、pue…）」並用的混合查詢才需要空格（水w y、水 y w），那由 mixGlue 處理，這裡不動
+  function normW(term) {
+    const t = String(term || '');
+    if (!/\s/.test(t) || !/w/.test(t)) return t;
+    if (!Array.from(t).every(c => /[\s^$w;]/.test(c) || HAN_RE.test(c))) return t;   // 修改：加入 ;（天;地 w → 天;地w）
+    return t.replace(/\s+/g, '');
+  }
+  // 新增：用空格隔開的單一數字（聲調）＝ y＋該數字：1 2 1 2 等同 y1 y2 y1 y2（四個音節，聲調為 1 2 1 2）。至少兩個才算，單獨一個數字、多位數（10、2026）不動
+  function normTone(term) {
+    return /^[0-9](?: [0-9])+$/.test(term) ? term.replace(/[0-9]/g, 'y$&') : term;
+  }
+  const tidySyl = term => { const g = mixGlue(term); if (g !== null) return g; term = normW(term); return (engaged(term) && !HAN_RE.test(noEsc(term))) ? splitSyl(term) : term; };   // 修改：混合查詢送出時，風y y、風yy 自動改成 風 y y；新增 normW（水 w w → 水ww）
 
-  function findAA(t) {   // 疊字代號：A~D 連續 2 個以上且有重複，如 AA、ABB、AABC
-    const re = /(?<![A-Za-z])[A-D]{2,}(?![A-Za-z])/g; let m;
-    while ((m = re.exec(t))) if (new Set(m[0]).size < m[0].length) return true;
+  // 新增：y 一律保有聲調。音節裡有 y、y 後面還有字母（piym、pyi、ym、yng）、又沒寫聲調時，補一個 0（＝任意聲調）。
+  //   y 在結尾的（y、by、piy）由 yPat 自己帶聲調；已經有數字、%、@、;、~ 等記號的音節不動
+  function addTone(t) {
+    return t.split(' ').map(tok => (/^-?[a-z]*y[a-z]+$/.test(tok) || /^-?[a-z]*y[-+](?:ng|nn|m|n|p|t|k|h)$/.test(tok) || /^-?[a-z]*y~[mp]$/.test(tok)) ? tok + '0' : tok).join(' ');   // 修改：加入 y~m、y~p（鼻音／入聲結尾，不必再寫 0）
+  }
+  function findAA(t) {   // 疊字代號：A、B、C… 依序編排（不限字數）且有重複，如 AA、ABB、AABC、ABCCDEFG
+    const re = /(?<![A-Za-z])[A-Z]{2,}(?![A-Za-z])/g; let m;
+    while ((m = re.exec(t))) if (isRepCode(m[0])) return true;
     return false;
   }
 
   // 是否要用簡易語法處理（否則維持原本的查詢方式）
   function engaged(term) {
     const t = noEsc(term), han = HAN_RE.test(t);
-    if (/[w#]/.test(t) || hasH(term) || findAA(t)) return true;
+    if (/[w#]/.test(t) || hasH(term) || findAA(t) || HAN_LIST_ENGAGE.test(t)) return true;   // 修改：加入漢字或（天;地）
     if (!han && /(?:^|[ \-(|#])[?+][aeiouy]/.test(t)) return true;   // 新增：?a、?a3、?a0、+a（音節開頭的 ?／+ ＋元音）   // 修改：加入 hasH(term)，輸入 \h 也啟用簡易語法
     if (han) return false;
-    if (/[yvV~%@]/.test(t) || /(?<=[A-Za-z])0/.test(t) || INIT_ENGAGE.test(t) || CODA_ENGAGE.test(t)) return true;   // 修改：加入聲母群組／或（p;）
+    if (/[yvV~%@]/.test(t) || /(?<=[A-Za-z])0/.test(t) || INIT_ENGAGE.test(t) || CODA_ENGAGE.test(t) || VOW_ENGAGE.test(t)) return true;   // 修改：加入聲母群組／或（p;）、元音或（a;i）
     return /[A-Za-z0-9]/.test(t) && /[?*+.|()]|\[/.test(t);      // 台羅含正則符號：改為不自動加 ^$
   }
 
@@ -1575,25 +1636,27 @@ const SIMPLE = (() => {
     parts.push(cur); return parts;
   }
 
-  // 新增：y 依「前後的符號」決定功能（前：聲母／元音；後：聲調／字母／元音）
-  //   前後有元音           → 只剩元音（一個以上）            iyu → iau；pyi → pai、puai
-  //     例外：只有前面是元音、y 在結尾（沒被元音封閉）→ 元音＋聲調  pyay → piau2、puai3（pyay2 → 聲調已由 2 負責，只剩元音）
-  //   前有聲母（輔音字母） → 聲母功能取消，只剩韻（＋調）    py → pa2；py2 → pa2（不含 pa1、a1）
-  //   後有聲調（數字、0、%、@） → 聲調功能取消               y2 → 聲母＋韻＋2
-  //   後有其他字母或符號   → 不含聲調（聲調由後面的符號負責）  yng0、y~m0
-  //   前後都沒有東西       → 整個音節（聲母＋韻＋調）        y → a1、pa2、mai3、gak8
+  // 新增：y 依「前後的符號」決定功能（前：聲母／元音；後：聲調／字母／元音）。y ＝ 聲母＋韻＋調，聲調一律保留
+  //   被夾住（聲母＋聲母、聲母＋元音、元音＋元音、元音＋聲母）→ 才是元音（至少一個）   kyt → kuat、kat；kyu → kiau、kau；iyu → iau、iou
+  //   末尾的 y（前面是元音）→ 不限元音（至少一個字母）＋聲調     piy → pia、piang、pin；pyay → piau2、pian2
+  //   y 後面接「-」→ 限縮成「只有一個元音」；接「+」→ 一個以上的元音（見 yVowel）；後面還可接韻尾
+  //       py- → pa、pi、poo；pyy- → pia、pau、pai；py-ng → ping、pang、pong；pyy-ng → piang、puang、piong
+  //   前有聲母（輔音字母）、y 在結尾 → 聲母固定，只剩韻＋調        by → bi1、bak8
+  //   後有聲調（數字、0、%、@） → 聲調功能取消                    y2 → 聲母＋韻＋2
+  //   後面還有字母又沒寫聲調時，toRegex 先用 addTone 補 0          kyt → kyt0、piym → piym0、ym → ym0
+  //   前後都沒有東西       → 整個音節（聲母＋韻＋調）            y → a1、pa2、mai3、gak8
   // 修改：新增 zero 參數。zero 為 true 時，等同「前面已有聲母」＝取消 y 的聲母能力，只剩韻＋調（-y → 零聲母音節）
   function yPat(term, i, zero) {
     const p = term[i - 1], q = term[i + 1];
     const atEnd = q === undefined || /[ \-)|#$?*+{]/.test(q);          // 後面沒有東西：y 含聲調（修改：提前宣告，供下面判斷）
     const vBefore = !!p && /[aeiouv]/.test(p), vAfter = !!q && /[aeiouv]/.test(q);
-    if (vBefore || vAfter) {
-      // 新增：前後都是元音（被元音封閉）→ 只剩元音；只有前面是元音、後面已經沒有東西（結尾）→ 沒被封閉，仍有聲調功能：元音＋聲調（pyay → piau2、puai3）
-      if (vBefore && !vAfter && atEnd) return '(?:[aeiou]+' + TONE + ')';
-      return '(?:[aeiou]+)';   // 其餘：前或後有元音，只剩元音
-    }
-    const hasInit = !!zero || (!!p && /[A-Za-z;]/.test(p));            // 前面緊接字母＝已有聲母，y 不再含聲母；修改：加上 zero
     const toneAfter = !!q && /[0-9%@]/.test(q);                      // 後面緊接聲調：y 不再含聲調
+    const hasInit = !!zero || (!!p && /[A-Za-z;]/.test(p));            // 前面緊接字母＝已有聲母（或開頭／零聲母），y 不再含聲母
+    if (vBefore || vAfter) {
+      // 末尾的 y（前面是元音，後面是結尾或聲調）→ 不限元音，至少一個字母：piy → pia、piang、pin；piy2 → pia2、pin2；pyay → piau2、puai3、pian2
+      if (vBefore && !vAfter && (atEnd || toneAfter)) return atEnd ? '(?:[a-z]+' + TONE + ')' : '(?:[a-z]+)';
+      return '(?:[aeiou]+)';   // 被夾住（元音＋輔音、輔音＋元音、元音＋元音）→ 才是元音（至少一個）：kyu → kiau、kau；iyu → iau、iou
+    }
     if (hasInit) return atEnd ? '(?:' + FINAL + TONE + ')' : toneAfter ? '(?:' + FINAL + ')' : '(?:[aeiou]+)';
     if (!atEnd && q === 'n' && !/[ng]/.test(term[i + 2] || '')) return '(?:[A-Za-z]*[A-Za-mo-z])';   // 新增：yn0 只取 n 結尾，不含 nn（前面的字母部分不能再以 n 結尾）
     return atEnd ? '(?:[A-Za-z]+' + TONE + ')' : '(?:[A-Za-z]+)';
@@ -1603,11 +1666,19 @@ const SIMPLE = (() => {
   //   前有聲母（或 zero）時聲母固定；沒有聲母時，聲母為任意輔音（或無聲母）。後面直接接聲調（數字、0、%）時由它負責聲調，沒寫就是任意聲調
   //   「-」「+」後面接字母、~ 時，仍是音節分隔符號／重複符號，不當作元音符號（y-y 還是兩個音節）
   function yVowel(term, i, zero) {
-    const m = /^y([-+])(?=$|[ )|#$0-9%])/.exec(term.slice(i)); if (!m) return null;
+    // 修改：「-」「+」後面可接韻尾（ng nn m n p t k h）：py-ng → ping、pang、pong；pyy-ng → piang、puang、piong。韻尾後的聲調沒寫時由 addTone 補 0
+    const SUF = '(?:ng|nn|m|n|p|t|k|h)(?:;(?:ng|nn|m|n|p|t|k|h))*(?=$|[ )|#$0-9%])';   // 修改：韻尾可以是清單（p;t、m;ng），ty-p;t4 ＝ 一個元音＋(p|t)＋4
+    const m = new RegExp('^y([-+])(?=$|[ )|#$0-9%]|' + SUF + ')').exec(term.slice(i)); if (!m) return null;
     const p = term[i - 1], q = term[i + 2];
+    const ms = new RegExp('^' + SUF).exec(term.slice(i + 2)), hasSuf = !!ms;
     const hasInit = !!zero || (!!p && /[A-Za-z;]/.test(p));
     const V = m[1] === '-' ? '(?:oo|[aeiou])' : '[aeiou]+';
-    return { out: (hasInit ? '' : CONS1 + '*') + V + (q && /[0-9%]/.test(q) ? '' : TONE), len: 2 };
+    // 新增：韻尾清單（p;t）由這裡一起轉成 (?:p|t)；單一韻尾（ng）維持原本，留給後面的字元處理（聲調沒寫由 addTone 補 0）
+    if (ms && ms[0].includes(';')) {
+      const q2 = term[i + 2 + ms[0].length];
+      return { out: (hasInit ? '' : CONS1 + '*') + V + '(?:' + ms[0].split(';').join('|') + ')' + (q2 && /[0-9%]/.test(q2) ? '' : TONE), len: 2 + ms[0].length };
+    }
+    return { out: (hasInit ? '' : CONS1 + '*') + V + (hasSuf || (q && /[0-9%]/.test(q)) ? '' : TONE), len: 2 };
   }
   // 新增：yi;u、ya;ah ＝ 結尾為 i 或 u／a 或 ah 的音節；後面可接聲調數字，沒寫就是任意聲調。前面有聲母（或 zero）時，聲母與結尾之間只能是元音
   //   （「; 」前後每一項都是聲母名稱時，如 yk;kh，不當作結尾清單）
@@ -1696,10 +1767,20 @@ const SIMPLE = (() => {
         while (term[j] === ' ' || (term[j] === '-' && !(!han && term[j + 1] === 'y' && term[j - 1] === ' '))) j++;   // 修改：遇到音節開頭的 -y 就停，不吞掉這個 -
         seps.push(term.slice(i, j)); out += '\u0001'; i = j; continue;
       }
-      if (/[A-D]/.test(c) && !isL(prev) && (m = /^[A-D]{2,}(?![A-Za-z])/.exec(rest)) && new Set(m[0]).size < m[0].length) {
-        const names = {}; let s = '';
-        for (const L of m[0]) { if (names[L]) s += '\\k<' + names[L] + '>'; else { names[L] = 'g' + (gN++) + L; s += '(?<' + names[L] + '>' + HAN + ')'; } }
+      if (/[A-Z]/.test(c) && !isL(prev) && (m = /^[A-Z]{2,}(?![A-Za-z])/.exec(rest)) && isRepCode(m[0])) {
+        const names = {}, seen = []; let s = '';
+        for (const L of m[0]) {
+          if (names[L]) s += '\\k<' + names[L] + '>';
+          else {   // 新字母：必須與先前其他字母不同字
+            names[L] = 'g' + (gN++) + L;
+            s += seen.map(o => '(?!\\k<' + o + '>)').join('') + '(?<' + names[L] + '>' + HAN + ')';
+            seen.push(names[L]);
+          }
+        }
         out += s; i += m[0].length; continue;
+      }
+      if (han && (m = HAN_LIST.exec(rest))) {   // 新增：相鄰漢字的「或」：天;地 → (?:天|地)，只換緊鄰「;」的各一個字，前後的字照舊（天文;地 → 天(?:文|地)）
+        out += '(?:' + m[0].split(';').join('|') + ')'; i += m[0].length; continue;
       }
       if (c === 'w') { out += HAN; i++; continue; }
       if (c === '.') { out += ANY; i++; continue; }
@@ -1714,6 +1795,9 @@ const SIMPLE = (() => {
         if (!isL(prev) && (m = CODA_LIST.exec(rest))) {   // 新增：am;ng0 ＝ a＋(m|ng)＋任意聲調
           const q1 = term[i + m[0].length], atEnd1 = q1 === undefined || /[ \-)|#$?*+{]/.test(q1);
           out += m[1] + '(?:' + m[2].split(';').join('|') + ')' + (atEnd1 ? TONE : ''); latin = true; i += m[0].length; continue;
+        }
+        if (/[aeiou]/.test(c) && (m = VOW_LIST.exec(rest))) {   // 新增：相鄰元音的「或」：a;i → (a|i)，只換掉緊鄰「;」的那幾個元音，前後的字母照舊（pa;i0 → p(a|i)＋任一調）
+          out += '(?:' + m[0].split(';').join('|') + ')'; latin = true; i += m[0].length; continue;
         }
         if (!isL(prev) && (m = INIT_RE.exec(rest))) {   // 新增：聲母群組（p;）與聲母或（p;kh、g;tsh;ng）
           const names = m[0].split(';');
@@ -1774,12 +1858,77 @@ const SIMPLE = (() => {
     return LB + b + (/\[1-9\]$/.test(s.body) ? '' : LA);
   };
 
+  // 新增：混合查詢（漢字＋音節代號）的黏在一起的寫法自動分開：風y y、風yy → 風 y y（漢字與代號之間補空格；只有 y 的連寫拆成一個個 y）。
+  //   不是混合查詢（沒有漢字、沒有字母、有其他符號、不在「詞目」分頁）時回傳 null
+  function mixGlue(term) {
+    if (typeof currentSearchType === 'undefined' || !langMap.has(currentSearchType)) return null;
+    const t = String(term || '').replace(/\s+/g, ' ').trim();
+    if (!t || !HAN_RE.test(t) || !(/[A-Za-z]/.test(t) || /(?:^| )[0-9](?: |$)/.test(t))) return null;   // 修改：除了字母，單獨的一個數字（聲調，風 1 2）也算拼音代號
+    const cs = Array.from(t);
+    if (!cs.every(c => c === ' ' || HAN_RE.test(c) || /[A-Za-z0-9%@;~+?\-]/.test(c))) return null;
+    let out = '';
+    // 新增：緊鄰漢字的「;」（天;地）算漢字那一邊，不在漢字與 ; 之間補空格（否則天;地w 會被拆成 天 ; 地 w）
+    const hanSide = i => HAN_RE.test(cs[i]) || (cs[i] === ';' && (HAN_RE.test(cs[i - 1] || '') || HAN_RE.test(cs[i + 1] || '')));
+    cs.forEach((c, i) => {
+      const prev = cs[i - 1];
+      if (i && c !== ' ' && prev !== ' ' && hanSide(i) !== hanSide(i - 1)) out += ' ';   // 漢字與代號交界補空格；修改：改用 hanSide
+      out += c;
+    });
+    // 修改：先把每一段整理成 toks，再決定要不要空格（原本一律用空格 join）
+    //   漢字、w 屬於「漢字位置」（HW），彼此相連不加空格（水ww）；拼音代號（y、pue…）前後才加空格（水w y、水 y w）
+    const toks = out.split(' ').filter(Boolean).flatMap(tok => HAN_RE.test(tok) ? [tok] : /^y{2,}$/.test(tok) ? tok.split('') : [splitSyl(tok)]);
+    const isHW = tok => Array.from(tok).every(c => c === 'w' || c === ';' || HAN_RE.test(c));   // 修改：漢字之間的 ;（天;地）也算漢字位置
+    if (toks.every(isHW)) return null;   // 新增：只有漢字和 w、沒有任何拼音代號 ＝ 不是混合查詢（水ww、水 w w 走一般漢字查詢）
+    let res = '', prevHW = false;
+    toks.forEach(tok => { const hw = isHW(tok); res += (res && !(hw && prevHW) ? ' ' : '') + tok; prevHW = hw; });
+    return res;
+  }
+  // 新增：漢字＋音節混合查詢。以空格分段：全是漢字的段（每字一個位置）、音節代號的段（每個音節一個位置，可寫 y、pue、pa1、-y 等；沒寫聲調的純字母＝任一調；w＝任一字）
+  //   風 y y → 風火頭；風 pue y → 風飛沙。只用在「詞目」（langMap）分頁；沒有漢字或沒有音節代號時不算混合查詢
+  function mixQuery(term, start, end) {
+    term = mixGlue(term); if (term === null) return null;   // 新增：風y y、風yy 也當成 風 y y
+    const MIXCH = '(?:[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[^\\uD800-\\uDFFF\\s:\\uFDD0\\uFDD1])';
+    const pos = []; let hasHan = false, hasLat = false;
+    for (const tok0 of term.split(' ')) {
+      if (!tok0) continue;
+      const tok = /^[0-9]$/.test(tok0) ? 'y' + tok0 : tok0;   // 新增：混合查詢裡單獨的一個數字（聲調）＝ y＋數字：風 1 2 ＝ 風 y1 y2
+      const cs = Array.from(tok);
+      // 修改：原本只認純漢字的段；現在漢字與 w 可連在一起（水ww、w水），w ＝ 任一個字的位置（水ww y ＝ 水 ＋ 兩個任意字 ＋ 一個音節）
+      if (cs.every(c => c === 'w' || c === ';' || HAN_RE.test(c))) {
+        // 修改：加入漢字的「;」或（天;地 y ＝ 第一字天或地，後面一個音節）；;只能夾在兩個漢字之間，其餘（w;天、頭尾的 ;）不支援
+        for (let k = 0; k < cs.length; k++) {
+          const alts = [cs[k]];
+          if (cs[k] === ';') return null;
+          while (cs[k + 1] === ';') { if (!cs[k + 2] || cs[k + 2] === ';') return null; alts.push(cs[k + 2]); k += 2; }
+          if (alts.length > 1 && alts.includes('w')) return null;
+          if (alts[0] !== 'w') hasHan = true;
+          pos.push((alts[0] === 'w' ? MIXCH : alts.length > 1 ? '(?:' + alts.map(escapeRegExp).join('|') + ')' : escapeRegExp(alts[0])) + ':[^ \\uFDD0\\uFDD1]+');
+        }
+        continue;
+      }
+      // 修改：音節代號段落允許 y- 的「-」（一個元音）：風 ty-p;t4、風 py-ng、風 py-。只放行 y 後面的 -，且 - 後面必須是結尾、聲調（數字、%）或韻尾（ng nn m n p t k h，可用 ; 列成清單）；y-y 等仍視為不支援
+      const CODA1 = '(?:ng|nn|m|n|p|t|k|h)';
+      if (HAN_RE.test(tok) || !new RegExp('^-?(?:[A-Za-z0-9%@;~+?]|(?<=y)-(?=$|[0-9%]|' + CODA1 + '(?:;' + CODA1 + ')*(?:$|[0-9%])))+$').test(tok)) return null;
+      hasLat = true;
+      for (let piece of addTone(splitSyl(tok)).split(' ')) {
+        if (!piece) continue;
+        if (piece === 'w') { pos.push(MIXCH + ':[^ \\uFDD0\\uFDD1]+'); continue; }
+        if ((/^[A-Za-z]+$/.test(piece) || /^[a-z]*(?:oo|[aeiou]);(?:oo|[aeiou])[a-z]*$/.test(piece)) && !/[yvVw]/.test(piece)) piece += '0';   // pue → pue＋任一調；修改：pa;i 也補（元音或）
+        pos.push(MIXCH + ':(?:' + translate(piece).body + ')(?=[ \\uFDD1])');
+      }
+    }
+    if (!hasHan || !hasLat || !pos.length) return null;
+    const src = MIX_PFX + (start ? '(?<=\\uFDD0)' : '') + pos.join(' ') + (end ? '(?=\\uFDD1)' : '');
+    return { src, hl: null, and: false, disp: src, code: 'p' };
+  }
+
   // 回傳 { src, hl, and } 或 null（不是簡易語法）
   function toRegex(term, start, end) {
     const exact = !!(start && end), oneSide = !!(start || end) && !exact;   // 修改：exact 改由 start、end 同時勾選而來
-    term = term.replace(/\s+/g, ' ').trim();
+    term = normTone(normW(term.replace(/\s+/g, ' ').trim()));   // 修改：加 normW，水 w w、水 ww 都當成 水ww（w 不加空格）；加 normTone，1 2 1 2 ＝ y1 y2 y1 y2
+    const mx = mixQuery(term, start, end); if (mx) return mx;   // 新增：漢字＋音節混合查詢
     if (!oneSide && !engaged(term)) return null;   // 只開頭／只結尾：一律走簡易引擎（不加音節邊界）
-    if (!HAN_RE.test(noEsc(term))) term = splitSyl(term);   // 新增：y0y3 → y0 y3
+    if (!HAN_RE.test(noEsc(term))) term = addTone(splitSyl(term));   // 新增：y0y3 → y0 y3；修改：piym → piym0（y 一律保有聲調）
     const segs = splitTop(term, '#').map(s => s.trim()).filter(Boolean);
     if (!segs.length) return null;
     const parts = segs.map(translate);
@@ -1979,12 +2128,14 @@ function cmpHanThenRom(a, b) {      // 詞目 > 音讀：詞目（資料原順�
 function compareSearchResults(a, b, searchTerm, searchType) {
   function getRelevantValues(item) {
     if (langMap.has(searchType)) {
-      return [searchType, ...langMap.get(searchType)].map(field => {
+      const vals = [searchType, ...langMap.get(searchType)].map(field => {
         if (field.includes('本變')) {
           return convertPinyin(item[field] || '')?.pinyinBendiao || '';
         }
         return item[field] || '';
       });
+      if (_mixActive) vals.push(item._mix || '');   // 新增：混合查詢的層級要看 _mix
+      return vals;
     }
     return isExType(searchType) ? (item[fieldOf(searchType)] || '').split('\n').filter(Boolean) : [item[searchType] || ''];
   }
@@ -2097,7 +2248,7 @@ function calculateTypeCounts(regex) {
         let count = 0;
         if (langMap.has(type)) {
             const searchFields = [type, ...langMap.get(type)];
-            let arr = dictionary.filter(item =>
+            let arr = isMixRx(regex) ? dictionary.filter(item => regex.test(item._mix)) : dictionary.filter(item =>   // 修改：混合查詢只比對 _mix
                 searchFields.some(field => {
                     if (field.includes('本變')) {
                         return regex.test(convertPinyin(item[field] || '')?.pinyinBendiao || '');
@@ -2409,6 +2560,7 @@ const TIER_RANK = [0, 1, 3, 4, 2];    // 層級 → 名次（與 TIER_ORDER 互�
 // 新增：完全符合時，詞目前後的【替】【白】等標記不算（「揣【替】」查「揣」算完全符合）
 // 修改：一個詞有多個讀音時（台羅以「/」分開，如 tshuē/tshē），任何一個讀音完全符合就算完全符合
 function wholeMatch(v, re) {
+  if (isMixRx(re)) return v.charCodeAt(0) === 0xFDD0 && mixWhole(re).test(v);   // 新增：混合查詢只看 _mix 的整詞比對
   if (wholeMatch1(v, re)) return true;
   if (v.indexOf('/') < 0) return false;
   return v.split('/').some(p => { p = p.trim(); return p && wholeMatch1(p, re); });
@@ -2465,12 +2617,14 @@ function isExactMatchItem(item, searchTerm, searchType) {
 
 function getRelevantValues(item, searchType) {
   if (langMap.has(searchType)) {
-    return [searchType, ...langMap.get(searchType)].map(field => {
+    const vals = [searchType, ...langMap.get(searchType)].map(field => {
       if (field.includes('本變')) {
         return convertPinyin(item[field] || '')?.pinyinBendiao || '';
       }
       return item[field] || '';
     });
+    if (_mixActive) vals.push(item._mix || '');   // 新增：混合查詢的層級要看 _mix
+    return vals;
   }
   return isExType(searchType) ? (item[fieldOf(searchType)] || '').split('\n').filter(Boolean) : [item[searchType] || ''];
 }
@@ -2770,6 +2924,7 @@ function performSearch() {
     showRxError('正則格式有誤（' + String(e.message).replace(/^.*:\s*/, '') + '），已改以文字原樣搜尋');   // 新增：告訴使用者為什麼結果怪怪的
   }
   _hlRe = regex;   // 供結果標示使用
+  _mixActive = isMixRx(regex);   // 新增：混合查詢（漢字＋音節代號）
   if (_simpleHl) { try { _hlRe = new RegExp(_simpleHl, 'i'); } catch (e) {} }   // 新增：A#B 查詢標示 A 或 B
   const _imeQ = _rawRx ? '' : imeQuery(searchInput.value);   // 修改：原始正則模式不啟用輸入法式   // 輸入法式查詢（標示仍用上面的原正則）
   if (_imeQ) regex = new ImeRegExp(regex.source, regex.flags, _imeQ);
@@ -2812,6 +2967,7 @@ function performSearch() {
 
 function filterData(regex) {
     if (langMap.has(currentSearchType)) {
+        if (isMixRx(regex)) return dictionary.filter(item => regex.test(item._mix));   // 新增：漢字＋音節混合查詢只比對 _mix
         const searchFields = [currentSearchType, ...langMap.get(currentSearchType)];
         return dictionary.filter(item =>
             searchFields.some(field => {
@@ -2858,6 +3014,7 @@ function randomWord() {
     return _randPool.length ? _randPool[Math.floor(Math.random() * _randPool.length)] : '';
 }
 function submitSearch() {
+    tidySearchInput();   // 新增：按查詢按鈕、Enter 時先整理框內文字（風y y → 風 y y）
     if (!searchInput.value.trim()) {
         const w = randomWord();
         if (w) {
@@ -2888,8 +3045,10 @@ function fitFloatingPanel(el, maxPx) {
   const top = el.getBoundingClientRect().top;
   el.style.maxHeight = Math.max(160, Math.min(maxPx, window.innerHeight - top - 12)) + 'px';
 }
+// 新增：代號面板高度上限；LOGO 縮小（html.kb-shrink）時空間變多，上限放寬到 560px
+function kbPanelCap() { return document.documentElement.classList.contains('kb-shrink') ? 560 : 360; }
 window.addEventListener('resize', () => {
-  fitFloatingPanel(document.getElementById('virtualKeyboard'), 360);
+  fitFloatingPanel(document.getElementById('virtualKeyboard'), kbPanelCap());   // 修改：360 → kbPanelCap()
   fitFloatingPanel(_histEl, 320);
 });
 
@@ -5078,86 +5237,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const myChars = `
 【基本符號】
-.	任一符號
 w	一個漢字
-y	一個音節（前有聲母、後有聲調或元音時縮減）
+y	一個音節（聲韻可縮減）
+.	任一符號
 0	任意聲調
-0+	完整八調（1 2 3 4 5 7 8），如 pa0+ ＝ pa1、pa2、pa3、pak4、pa5、pa7、pak8
-.*	0 次以上
-.+	1 次以上
-.?	0 或 1 次
-|	或（天|地）
-#	而且（天#地）
+0+	完整八調，如 pa0+ ＝ pa1、pa2、pa3、pak4、pa5、pa7、pak8
+-	y 前：零聲母；y 後：單一元音
+?	元音前：任一聲母（含零聲母）；其他：0 或 1 次
++	y、元音前：一定有聲母；y 後：一個以上元音；其他：1 次以上
+*	0 次以上
+|	或（整段二選一）：天|地
+;	或（相鄰各一個位置）：天;地
+#	而且：天#地
 ^	作為開頭
 $	作為結尾
-~	一個音節
-~<	聲母
-~>	韻母＋聲調
-%	補足各調（si%）
-@	同韻（ai@）
-【母音與聲母】
-v	母音（a e i o u）
-V	聲母（非母音）
 【漢字位置範例】
-^ww$	精確兩個漢字
-^wwwww$	精確五個漢字
 ^天	天開頭
 天$	天結尾
-^天..$	天開頭的三字詞
-^...天$	天結尾的四字詞
-^..無.$	第三字為無的四字詞
-【拼音範例】
-y0	任意聲調的音節
-pa0+	 pa 的完整八調：pa1、pa2、pa3、pap／pat／pak／pah4、pa5、pa7、pap／pat／pak／pah8
+^ww$	精確兩個漢字
+^wwwww$	精確五個漢字
+^天ww$	天開頭的三字詞（等同 ^天..$）
+^www天$	天結尾的四字詞（等同 ^...天$）
+^ww無w$	第三字為無的四字詞（等同 ^..無.$）
+天;地	漢字之間的 ; ＝ 或，只管相鄰各一個字：天 或 地；天文;地 ＝ 天文、天地
+風 y y	漢字＋拼音混合：第一字風，後面兩個音節任意（風火頭）
+風 pue y	漢字＋拼音混合：第一字風、第二音節 pue、第三音節任意（風飛沙）
+【拼音範例1：音節與聲調】
 y3	第 3 調的音節
-y2 y5	第 2、5 調兩音節
-1y 2y 1y 2y	四個音節，第 1、3 相同，第 2、4 相同（ABAB）
-1y 2y 2y	三個音節，第 2、3 相同，且與第 1 不同
-tua7 y0 y0	三字詞，tua7 開頭
-ya0	元音＋a（ia、ua）
-pyay	結尾的 y 前面是元音：元音＋聲調，如 piau2、puai3
-v0	母音＋任意聲調
-Va0	聲母＋a
-ym0	以 m 結尾的音節，如 am3、kam2、hiam1
-yn0	以 n 結尾的音節，如 an5、kin2、tsin3
-yng0	以 ng 結尾的音節，如 ing5、tong7、tshiong1
-ynn0	以 nn 結尾的音節，如 inn7、tenn7、hainn3
-yp0	以 p 結尾的音節，如 ap4、tsap8
-yt0	以 t 結尾的音節，如 at4、kit4
-yk0	以 k 結尾的音節，如 ik8、sik4
-yh0	以 h 結尾的音節，如 ah4、beh4
-tym0	以 t 開頭而 m 結尾的音節，如 tim5、tiam7，不含 thim7
-kyp0	以 k 開頭而 p 結尾的音節，如 kip8、kiap4，不含 khip4
--yn0	無聲母而以 n 結尾的音節，如 in3、ian5
--yat0	無聲母而以 at 結尾的音節，如 iat4、uat8
-y~m0	鼻音結尾
-y~p0	入聲結尾
-ym;	鼻音結尾的音節（m n ng nn），可加聲調數字
-yp;	入聲結尾的音節（p t k h），可加聲調數字
-ym;ng	結尾為 m 或 ng 的音節；-ym;ng 為無聲母，如 am3、ang5、im1、ing3
-am;ng0	符合 am3、ang5（a 後接 m 或 ng）
-py-	以 p 開頭，一個元音的音節，如 pa1、pe5、poo7
-py+	以 p 開頭，一個或多個元音的音節，如 pa1、pai5、poo7，但不符合 pan5
-yi;u	結尾為 i 或 u 的音節，可加聲調數字
-ya;ah	結尾為 a 或 ah 的音節，可加聲調數字
--y	零聲母音節（無聲母，a1、im2、ng7 等）
+y2 y5	兩個音節，聲調依序為 2、5
+tua7 y y	三個音節，第一個為 tua7
+y1 y2 y1 y2	四個音節，聲調依序為 1 2 1 2
+1 2 1 2	四個音節，聲調依序為 1 2 1 2（等同 y1 y2 y1 y2）
+pa0+	pa 的完整八調：pa1、pa2、pa3、pap／pat／pak／pah4、pa5、pa7、pap／pat／pak／pah8
+【拼音範例2：聲母有無】
+-y	零聲母音節（無聲母）：a1、im2、ng7
 -y -y	兩個零聲母音節
-hu?e1	u 可有可無
-?a	任一聲母（含零聲母）拼 a，只限第 1 調，如 pa、ka1、sa
-?a3	任一聲母拼 a 第 3 調，如 pa3、ka3、sa3
-?a0	任一聲母拼 a 任一調，如 pa1、ka3、tsa7
-?y	仍同 y（? 只用在元音前）
-+ai3	一定要有聲母（不含零聲母）拼 ai 第 3 調，如 pai3、kai3，不符合 ai3
-+a0	一定要有聲母拼 a 任一調（不符合 a1）；+a 沒寫聲調只限第 1 調
-+y	同 y，但一定要有聲母（不含零聲母）
-si%	各聲調
-~ ~ ~	三個音節
-s~ b~ h~	s、b、h 開頭的三音節
-~ bak8 ~	中間為 bak8
-~<a1	聲母＋a1
-ph~>	ph 開頭的所有韻
-ai@	押 ai 韻
-【聲母代號】
+-yn	無聲母、n 結尾：in3、ian5
+-yat	無聲母、at 結尾：iat4、uat8
++y	有聲母的音節
+?a	任一聲母（含零聲母）拼 a，只限第 1 調：pa、ka1、sa（只寫 ?y 時與 y 相同）
+?a3	任一聲母拼 a 第 3 調：pa3、ka3、sa3
+?a0	任一聲母拼 a 任一調：pa1、ka3、tsa7
++ai3	一定要有聲母，拼 ai 第 3 調：pai3、kai3，不含 ai3
++a0	一定要有聲母，拼 a 任一調，不含 a1；+a 沒寫聲調時只限第 1 調
+【拼音範例3：聲母分類】
 p;	唇音：p ph m b
 t;	舌音：t th n l
 ts;	齒音：ts tsh s j
@@ -5166,16 +5289,55 @@ ph;	送氣音：ph th kh tsh
 m;	鼻音聲母：m n ng
 b;	b、g 組（同 b;g）
 j;	j、l 組（同 j;l，如 jit8／lit8）
-p;kh	聲母「或」：p 或 kh（只寫聲母沒有 y，就只代表聲母本身）
 p;khy	聲母為 p 或 kh 的音節
+【拼音範例4：元音】
+ya	元音＋a：ia、ua
+kyt	聲母 k、中間為元音、結尾 t：kat4、kuat4
+kyu	聲母 k、中間為元音、結尾 u：kau3、kiau1
+iyu	首尾為 i、u，中間為元音：iau
+piy	以 pi 開頭，後面不限：piah4、piang7、pin5
+piy2	以 pi 開頭，指定第 2 調：pia2、pin2
+py-	聲母 p、只有一個元音：pa1、pi1、poo7，不含 pia1、pai1
+pyy-	聲母 p、兩個以上元音：pia1、pau1、pai1
+py+	聲母 p、後面全是元音（一個以上）：pa1、pai5、poo7、pia1，不含 pan5
+py-ng	聲母 p、一個元音、ng 結尾：ping1、pang1、pong1
+pyy-ng	聲母 p、兩個以上元音、ng 結尾：piang1、puang1、piong1
+pyay	聲母 p、元音、a、再接韻尾和聲調：piau2、puai3、pian2
+【拼音範例5：韻尾】
+ym	以 m 結尾：am3、kam2、hiam1
+yn	以 n 結尾：an5、kin2、tsin3
+yng	以 ng 結尾：ing5、tong7、tshiong1
+ynn	以 nn 結尾：inn7、tenn7、hainn3
+yp	以 p 結尾：ap4、tsap8
+yt	以 t 結尾：at4、kit4
+yk	以 k 結尾：ik8、sik4
+yh	以 h 結尾：ah4、beh4
+tym	以 t 開頭、m 結尾：tim5、tiam7，不含 thim7
+kyp	以 k 開頭、p 結尾：kip8、kiap4，不含 khip4
+ym;	鼻音結尾（m n ng nn），可加聲調數字
+yp;	入聲結尾（p t k h），可加聲調數字
+ym;ng	結尾為 m 或 ng；-ym;ng 為無聲母：am3、ang5、im1、ing3
+am;ng	a 後接 m 或 ng：am、ang
+yi;u	結尾為 i 或 u，可加聲調數字
+ya;ah	結尾為 a 或 ah，可加聲調數字
+【拼音範例6：或、可有可無】
+pa;i	元音之間的 ; ＝ 或，只管相鄰的元音：p＋(a 或 i)，符合 pa、pi
+a;oo	a 或 oo（oo 算一個元音）；i;u、a;i;u 也可以
+hu?e1	u 可有可無：he1、hue1
+【拼音範例7：音節重複】
+1y 2y 2y	三個音節，第 2、3 相同，且與第 1 不同（數字是編號，不是聲調）
+1y 2y 1y 2y	四個音節，第 1、3 相同，第 2、4 相同（ABAB；數字是編號，不是聲調）
 【疊字範例】
 AA	如「譀譀」
+AAA	如「仁仁仁」
 花AA	如「花貓貓」
 ABB	如「紅記記、閒仙仙」
 AABB	如「風風雨雨」
 AABC	如「寬寬仔是」
 ABCC	如「無閒𩑾𩑾」
 ABAC	如「想空想縫」
+ABCDBE	六字詞，第 2、5 字相同，如「玩石家博石館」
+ABCCDEFG	八字詞，第 3、4 字相同，如「臺北二二八紀念館」
 `;
 
 
@@ -5225,29 +5387,37 @@ ABAC	如「想空想縫」
     // 創建導航下拉選單
     const navigation = document.createElement('div');
     navigation.className = 'keyboard-navigation';
-    const select = document.createElement('select');
-    select.addEventListener('change', (event) => {
-      const groupName = event.target.value;
-      const target = groupName && document.getElementById(groupName);
-      if (target) {
-        // 修改：只捲動鍵盤面板本身（原本 scrollIntoView 會連整個頁面一起捲）
-        virtualKeyboard.scrollTo({ top: target.offsetTop - navigation.offsetHeight, behavior: 'smooth' });
-      }
-      event.target.value = '';   // 回到「選擇組別」，方便再選同一組
+    // 修改：原生 <select> 改成自訂的「組別 ˅」小選單（原生下拉清單的寬度跟著最長的組名走、樣式也無法調整）
+    const select = document.createElement('div');   // 沿用變數名 select：後面 insertBefore 以它為基準
+    select.className = 'kb-dd';
+    const ddBtn = document.createElement('button');
+    ddBtn.type = 'button'; ddBtn.className = 'kb-dd-btn'; ddBtn.textContent = '組別';
+    ddBtn.setAttribute('aria-haspopup', 'listbox'); ddBtn.setAttribute('aria-expanded', 'false');
+    const ddMenu = document.createElement('div');
+    ddMenu.className = 'kb-dd-menu'; ddMenu.setAttribute('role', 'listbox'); ddMenu.hidden = true;
+    const closeDd = () => { ddMenu.hidden = true; ddBtn.setAttribute('aria-expanded', 'false'); select.classList.remove('open'); };
+    ddBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = ddMenu.hidden;
+      ddMenu.hidden = !open; ddBtn.setAttribute('aria-expanded', String(open)); select.classList.toggle('open', open);
     });
-    
-    // 添加預設選項
-    const defaultOption = document.createElement('option');
-    defaultOption.textContent = '組別';
-    defaultOption.value = '';
-    select.appendChild(defaultOption);
-
+    // 修改：click 改成 pointerdown＋捕獲階段（面板或頁面其他元素若擋掉 click 冒泡，原本的寫法收不起來）；點選單外面任何地方都收起
+    document.addEventListener('pointerdown', (e) => { if (!ddMenu.hidden && !select.contains(e.target)) closeDd(); }, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ddMenu.hidden) closeDd(); });   // 新增：Esc 也能收起
+    window.addEventListener('blur', closeDd);   // 新增：切換視窗時收起
+    virtualKeyboard.addEventListener('scroll', () => { if (!ddMenu.hidden) closeDd(); }, { passive: true });
     Object.keys(groups).forEach(groupName => {
-      const option = document.createElement('option');
-      option.textContent = groupName;
-      option.value = groupName;
-      select.appendChild(option);
+      const it = document.createElement('button');
+      it.type = 'button'; it.className = 'kb-dd-item'; it.setAttribute('role', 'option');
+      it.textContent = groupName.replace('範例', '');   // 選單內去掉「範例」兩字，更精簡（組標題仍是完整名稱）
+      it.addEventListener('click', (e) => {
+        e.stopPropagation(); closeDd();
+        const target = document.getElementById(groupName);
+        if (target) virtualKeyboard.scrollTo({ top: target.offsetTop - navigation.offsetHeight, behavior: 'smooth' });   // 只捲動面板本身
+      });
+      ddMenu.appendChild(it);
     });
+    select.appendChild(ddBtn); select.appendChild(ddMenu);
     navigation.appendChild(select);
 
     // 新增：^開頭、結尾$ 勾選；兩個都勾時，旁邊顯示「＝精確」標記（不再有獨立的 ^精確$ 按鈕）
@@ -5353,10 +5523,19 @@ ABAC	如「想空想縫」
     const w = document.querySelector('.search-wrapper');
     const on = virtualKeyboard.style.display === 'block';   // 新增：on
     if (w) w.classList.toggle('kb-open', on);
+    // 新增：首頁（尚無查詢結果）展開代號面板時，縮小 LOGO、上移搜尋框，讓面板有更多空間（見 styles.css 的 html.kb-shrink）
+    document.documentElement.classList.toggle('kb-shrink', on);   // 修改：只看面板是否展開；有無查詢結果的版面差異交給 CSS（:not(.has-results)）
+    // 新增：LOGO 縮小有 0.3 秒動畫，動畫結束後重新量一次面板可用高度
+    setTimeout(() => fitFloatingPanel(virtualKeyboard, kbPanelCap()), 350);
     // 新增：特殊代號面板開著時，提示文字改成「烏衣行代號揣看覓...」（只有框內沒字時才看得到）；關閉後換回原本的提示
     if (on && !searchInput._phKb) { searchInput._phKb = true; searchInput._phNormal = searchInput.placeholder; searchInput.placeholder = '烏衣行代號揣看覓...'; }
     else if (!on && searchInput._phKb) { searchInput._phKb = false; searchInput.placeholder = searchInput._phNormal; }
   }).observe(virtualKeyboard, { attributes: true, attributeFilter: ['style'] });
+
+  // 新增：面板開著時，查詢結果被清除（按 X）或出現，搜尋列版面會變動，等動畫結束後重新量面板高度
+  new MutationObserver(() => {
+    if (virtualKeyboard.style.display === 'block') setTimeout(() => fitFloatingPanel(virtualKeyboard, kbPanelCap()), 350);
+  }).observe(searchHeader, { attributes: true, attributeFilter: ['class'] });
 
   // 初始渲染鍵盤
   renderKeyboard();
@@ -5669,4 +5848,153 @@ function holoConfirm(title, text, okText) {
   const wrap = document.querySelector('.search-wrapper');   // 點清除、虛擬鍵盤、正則等按鈕時，不讓搜尋框失去焦點（否則會誤退出搜尋模式）
   if (wrap) wrap.addEventListener('mousedown', e => { if (mq.matches && e.target.closest('button, .search-clear, .search-icon') && !e.target.closest('.search-history')) e.preventDefault(); });
   mq.addEventListener && mq.addEventListener('change', update);
+})();
+
+
+// ======== 新增：首頁自訂背景圖（右下角圖示 → 選擇圖片／移除背景）========
+// 圖片只存在這台裝置的瀏覽器（IndexedDB），不會上傳；載入時先縮到長邊 2000px 以內再存。
+// 只在首頁（html.no-tabs：還沒有查詢結果，含打字中）顯示背景與按鈕，查詢結果畫面維持原本白底。樣式見 styles.css 的 .bg-btn、html.has-bg。
+(function () {
+  const DB = 'holo-bg', ST = 'kv', KEY = 'home', MAXSIDE = 2000;
+  const root = document.documentElement;
+  const idbOpen = () => new Promise((res, rej) => {
+    const r = indexedDB.open(DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(ST);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const idb = (mode, fn) => idbOpen().then(db => new Promise((res, rej) => {
+    const t = db.transaction(ST, mode), rq = fn(t.objectStore(ST));
+    t.oncomplete = () => { db.close(); res(rq && rq.result); }; t.onerror = () => { db.close(); rej(t.error); };
+  }));
+  let curUrl = null;
+  function apply(blob) {
+    if (curUrl) { URL.revokeObjectURL(curUrl); curUrl = null; }
+    if (blob) { curUrl = URL.createObjectURL(blob); root.style.setProperty('--home-bg', 'url("' + curUrl + '")'); }
+    else root.style.removeProperty('--home-bg');
+    root.classList.toggle('has-bg', !!blob);
+    rm.disabled = !blob;
+    try { if (blob) localStorage.setItem('holo-bg-on', '1'); else localStorage.removeItem('holo-bg-on'); } catch (e) {}   // 新增：記旗標，下次開頁時 index.html 的先行腳本才知道要提前載入背景
+  }
+  function shrink(file) {   // 縮圖並轉成 JPEG，避免原圖太大
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, MAXSIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(b => b ? res(b) : rej(new Error('toBlob')), 'image/jpeg', 0.86);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('load')); };
+      img.src = url;
+    });
+  }
+
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'bg-btn'; btn.title = '更換背景圖'; btn.setAttribute('aria-label', '更換背景圖'); btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>';
+  const menu = document.createElement('div');
+  menu.className = 'bg-menu'; menu.hidden = true; menu.setAttribute('role', 'menu');
+  const pick = document.createElement('button'); pick.type = 'button'; pick.textContent = '選擇背景圖⋯'; pick.setAttribute('role', 'menuitem');
+  const rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '移除背景'; rm.setAttribute('role', 'menuitem'); rm.disabled = true;
+  // 新增：線上隨機背景（免費、免金鑰）。「隨機」用 Lorem Picsum；其他類別用 Wikimedia Commons 的特色圖片（Featured pictures）分類，
+  //   想增減類別只要改下面這個陣列（cat 填 Commons 的分類名，不含 Category:）。
+  const ONLINE = [
+    { n: '隨機', picsum: true },
+    { n: '台灣', cat: 'Featured pictures of Taiwan' },
+    { n: '自然風景', cat: 'Featured pictures of landscapes' },
+    { n: '山岳', cat: 'Featured pictures of mountains' },
+    { n: '海與海灘', cat: 'Featured pictures of beaches' },
+    { n: '日出日落', cat: 'Featured pictures of sunsets' },
+    { n: '花卉', cat: 'Featured pictures of flowers' },
+    { n: '城市', cat: 'Featured pictures of cityscapes' }
+  ];
+  const lab = document.createElement('div'); lab.className = 'bg-label'; lab.textContent = '線上隨機圖片';
+  const catBtns = ONLINE.map(it => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = it.n; b.setAttribute('role', 'menuitem');
+    b.addEventListener('click', () => loadOnline(it, b)); return b;
+  });
+  const sep = () => { const d = document.createElement('div'); d.className = 'bg-sep'; return d; };
+  const credit = document.createElement('a'); credit.className = 'bg-credit'; credit.target = '_blank'; credit.rel = 'noopener'; credit.hidden = true;
+  menu.append(pick, sep(), lab, ...catBtns, sep(), rm, credit);
+  const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+  document.body.append(btn, menu, file);
+
+  const CREDIT_KEY = 'holo-bg-credit';
+  function setCredit(c) {   // 圖片出處（線上圖片才有）；顯示在選單最下面，並記在 localStorage
+    try { if (c) localStorage.setItem(CREDIT_KEY, JSON.stringify(c)); else localStorage.removeItem(CREDIT_KEY); } catch (e) {}
+    credit.hidden = !c;
+    if (c) { credit.textContent = '來源：' + c.t; credit.href = c.u; }
+  }
+  try { const c = JSON.parse(localStorage.getItem(CREDIT_KEY) || 'null'); if (c && c.t && c.u) setCredit(c); } catch (e) {}
+  async function loadOnline(item, b) {
+    const old = b.textContent; b.textContent = '載入中⋯'; menu.classList.add('busy');
+    try {
+      let blob, cr;
+      if (item.picsum) {
+        const r = await fetch('https://picsum.photos/1920/1080', { cache: 'no-store' }); if (!r.ok) throw new Error('picsum');
+        blob = await r.blob(); cr = { t: 'Lorem Picsum（圖片取自 Unsplash）', u: 'https://picsum.photos/' };
+      } else {
+        const api = 'https://commons.wikimedia.org/w/api.php?format=json&origin=*&action=query&';
+        const lst = await (await fetch(api + 'list=categorymembers&cmtype=file&cmlimit=500&cmtitle=' + encodeURIComponent('Category:' + item.cat))).json();
+        const files = ((lst.query && lst.query.categorymembers) || []).filter(x => /\.(jpe?g|png|webp)$/i.test(x.title));
+        if (!files.length) throw new Error('empty');
+        for (let k = 0; k < 6 && !blob; k++) {   // 隨機抽一張；只要橫幅的，直幅就重抽
+          const f = files[Math.floor(Math.random() * files.length)];
+          const info = await (await fetch(api + 'prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1920&titles=' + encodeURIComponent(f.title))).json();
+          const pg = Object.values((info.query && info.query.pages) || {})[0], ii = pg && pg.imageinfo && pg.imageinfo[0];
+          if (!ii || ii.width < ii.height * 1.2) continue;
+          const r = await fetch(ii.thumburl || ii.url); if (!r.ok) continue;
+          blob = await r.blob();
+          const m = ii.extmetadata || {}, strip = h => ((h && h.value) || '').replace(/<[^>]*>/g, '').trim();
+          cr = { t: (strip(m.Artist) || '未具名') + '／' + (strip(m.LicenseShortName) || '授權見來源頁') + '（Wikimedia Commons）', u: ii.descriptionurl || 'https://commons.wikimedia.org/' };
+        }
+        if (!blob) throw new Error('no landscape');
+      }
+      const small = await shrink(blob);
+      apply(small); setCredit(cr);
+      try { await idb('readwrite', s => s.put(small, KEY)); } catch (e) {}
+      close();
+    } catch (e) { alert('線上圖片載入失敗（可能是網路問題或圖庫暫時無法使用），請稍後再試，或改用「選擇背景圖」。'); }
+    finally { b.textContent = old; menu.classList.remove('busy'); }
+  }
+
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', e => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute('aria-expanded', String(!menu.hidden)); });
+  document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) close(); });
+  pick.addEventListener('click', () => { close(); file.value = ''; file.click(); });
+  rm.addEventListener('click', () => { close(); apply(null); setCredit(null); idb('readwrite', s => s.delete(KEY)).catch(() => {}); });
+  file.addEventListener('change', async () => {
+    const f = file.files && file.files[0]; if (!f) return;
+    try {
+      const blob = await shrink(f);
+      apply(blob); setCredit(null);
+      try { await idb('readwrite', s => s.put(blob, KEY)); } catch (e) { /* 無痕模式等無法儲存：本次仍可使用，重新整理後會消失 */ }
+    } catch (e) { alert('這個檔案無法當作背景圖，請改選其他圖片（JPG、PNG、WebP）。'); }
+  });
+  // 修改：開啟網頁時還原上次的背景。若 index.html 的先行腳本已讀好（window.__holoBgP），就沿用它的圖片與網址，不再重讀、重建，避免再閃一次
+  (window.__holoBgP || idb('readonly', s => s.get(KEY))).then(b => {
+    if (b && window.__holoBgUrl) { curUrl = window.__holoBgUrl; rm.disabled = false; }   // has-bg 已由先行腳本加上
+    else if (b) apply(b);
+    else { try { localStorage.removeItem('holo-bg-on'); } catch (e) {} }               // 旗標在但圖已不在：清掉旗標
+  }).catch(() => {});
+})();
+
+
+// ======== 新增：量出列表（.results-table）的實際寬度，存成 --list-w，讓背景圖模式下分頁列的淡底與列表等寬（見 styles.css 的 .search-type-selector::before）========
+// 表格欄位有最小寬度，實際寬度可能比容器寬，單用 CSS 的 100% 對不齊；換分頁、重新查詢、視窗縮放時都會重新量。
+(function () {
+  const root = document.documentElement;
+  let ro = null, cur = null;
+  function sync() {
+    const t = resultsContainer.querySelector('.results-table');
+    if (t !== cur) { if (ro && cur) ro.unobserve(cur); cur = t; if (t && ro) ro.observe(t); }
+    if (t && t.offsetWidth) root.style.setProperty('--list-w', t.getBoundingClientRect().width + 'px');
+    else root.style.removeProperty('--list-w');
+  }
+  if ('ResizeObserver' in window) ro = new ResizeObserver(sync);
+  new MutationObserver(sync).observe(resultsContainer, { childList: true });
+  window.addEventListener('resize', sync);
+  sync();
 })();

@@ -2924,7 +2924,6 @@ html.cat-full-open { overflow: hidden; }
 /* 工具列的圖示鈕（復原、複製、清除、統計）：用中灰色，不搶「換詞分析」的風頭；滑過才轉藍，清除轉紅 */
 .ar-bar .ar-ic { color: #5f6368; }
 .ar-bar .ar-ic:hover:not(:disabled) { color: #1a73e8; }
-.ar-bar #arClear:hover { color: #d93025; background: rgba(217, 48, 37, 0.08); }
 .ar-bar .ar-ic:disabled { color: #bdc1c6; }
 
 /* ===== 斷詞分析：每個詞一條底線，相鄰的詞交替用兩種顏色，詞界看得出來；點或滑過詞，顯示台羅與釋義 ===== */
@@ -2951,8 +2950,8 @@ html.cat-full-open { overflow: hidden; }
 /* 選單裡的唸法可點選：標示在詞上方的音 */
 .ar-sg-pick { border: 0; background: none; font: inherit; font-weight: 700; color: #1a73e8; padding: 1px 8px; margin-left: -8px; border-radius: 12px; cursor: pointer; }
 .ar-sg-pick:hover, .ar-sg-pick:focus-visible { background: #f1f3f4; outline: none; }
-.ar-sg-pick.ar-on { background: #e8f0fe; }
-.ar-sg-pick.ar-on::after { content: " ✓"; font-weight: 400; }
+.ar-sg-pick.ar-on { background: #d6e4fd; }   /* 修改：底色稍微加深，沒有 ✓ 也看得出是採用的音 */
+/* 修改：採用的音改用底色凸顯，不再加 ✓（原本：.ar-sg-pick.ar-on::after { content: " ✓"; }） */
 
 /* 斷詞選單：拆分／合併按鈕 */
 .ar-ops { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eceff1; }
@@ -4629,3 +4628,444 @@ html.search-active .search-wrapper.sg-open .search-box { padding-right: 44px; }
 .py-dh .py-nw + .py-x { margin-left: 4px; }
 .py-nw.is-on { background: #e8f0fe; color: #1a73e8; box-shadow: inset 0 0 0 1px #c6d7f5; }
 .py-nw.is-on:hover { background: #d2e3fc; }
+
+/* ===== 新增：電腦版展開「烏衣行代號」面板時，LOGO 縮小、搜尋框上移，讓面板有更多空間 =====
+   html.kb-shrink 由 script.js 在面板展開時加上（含「查詢後按 X 清除、回到首頁版面」的情況）。
+   已有查詢結果（.has-results）時 LOGO 本來就是小的，所以用 :not(.has-results) 排除；
+   手機版展開時會進入搜尋模式（LOGO 已隱藏），所以只處理電腦版。 */
+@media (min-width: 769px) {
+  html.kb-shrink .container .search-header:not(.has-results) { margin-top: 12px; }
+  html.kb-shrink .container .search-header:not(.has-results) .logo { font-size: calc(32px * var(--fs, 1)); margin: 0 0 14px; }   /* 與查詢後的小 LOGO 同大 */
+  html.kb-shrink .container .search-header:not(.has-results) .search-container { margin-bottom: 0; }
+}
+
+/* ===== 新增：代號面板的「組別」自訂小選單（取代原生 <select>）=====
+   選擇器多墊 .virtual-keyboard，才贏得過 .virtual-keyboard button（16px 字、方框、2px 外距）。
+   外觀與旁邊的「^開頭」「結尾$」小膠囊一致：同字級、全圓角、淡色邊框。 */
+.virtual-keyboard .kb-dd { position: relative; flex: none; margin-left: auto; }
+.virtual-keyboard .kb-dd .kb-dd-btn {
+  display: inline-flex; align-items: center; margin: 0; padding: 5px 26px 5px 12px; border: 1px solid #dadce0; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: calc(14px * var(--fs, 1)); line-height: normal; color: #3c4043; white-space: nowrap; outline: none; box-shadow: none;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235f6368' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  transition: background-color .12s, border-color .12s;
+}
+.virtual-keyboard .kb-dd .kb-dd-btn:hover { background-color: #f8f9fa; box-shadow: none; }
+.virtual-keyboard .kb-dd.open .kb-dd-btn { background-color: #e8f0fe; border-color: #c6dafc; color: #1a73e8; }
+.virtual-keyboard .kb-dd .kb-dd-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; box-sizing: border-box; width: max-content; min-width: 100%; max-width: 14em;
+  max-height: 260px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 4px;
+  background: #fff; border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(60, 64, 67, .22), 0 0 0 1px rgba(60, 64, 67, .06);
+}
+.virtual-keyboard .kb-dd .kb-dd-menu[hidden] { display: none; }
+.virtual-keyboard .kb-dd .kb-dd-item {
+  display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 5px 12px; border: 0; border-radius: 10px; background: none; box-shadow: none; cursor: pointer;
+  font-family: inherit; font-size: calc(13px * var(--fs, 1)); line-height: 1.45; color: #5f6368; text-align: left; white-space: nowrap;
+}
+.virtual-keyboard .kb-dd .kb-dd-item:hover { background: #f1f3f4; color: #1a73e8; box-shadow: none; }
+
+/* ===== 新增：代號說明文字換行更好看（避免括號、單一字被拆到下一行）===== */
+.kb-desc { text-wrap: pretty; line-break: strict; overflow-wrap: break-word; }
+
+/* ===== 新增：自訂背景圖（script.js 最後一段）=====
+   html.has-bg 時，所有頁面（首頁、查詢結果）都有背景；上面疊一層白色半透明遮罩，首頁較淡（.38）、查詢結果較濃（.5）。
+   結果區、列表各列、表頭、頁尾改成半透明（覆蓋 --bg-panel 等變數），背景才透得出來。
+   不動 --bg-page：詳細頁、手機搜尋模式仍是不透明，維持閱讀清楚。 */
+html.has-bg body {
+  background: linear-gradient(rgba(255, 255, 255, .5), rgba(255, 255, 255, .5)), var(--home-bg) center / cover fixed no-repeat;
+}
+html.no-tabs.has-bg body {
+  background: linear-gradient(rgba(255, 255, 255, .38), rgba(255, 255, 255, .38)), var(--home-bg) center / cover fixed no-repeat;
+}
+html.has-bg {
+  --bg-panel:   rgba(250, 250, 250, .80);   /* 結果區 */
+  --bg-row-a:   rgba(250, 250, 250, .62);   /* 列表奇數列 */
+  --bg-row-b:   rgba(232, 232, 232, .78);   /* 列表偶數列 */
+  --bg-head:    rgba(250, 250, 250, .78);   /* 表頭 */
+  --bg-head-on: rgba(232, 232, 232, .88);   /* 查詢欄的表頭 */
+}
+html.has-bg .results-table tr.group-exact td { background: rgba(198, 222, 201, .82); }
+html.has-bg .results-table tr.group-partial td { background: rgba(200, 208, 222, .82); }
+/* 頁尾說明條：半透明灰（電腦版左右延伸用的 box-shadow 色也一併改成半透明；手機版沒有這條陰影） */
+html.has-bg .site-footer { background: rgba(241, 243, 244, .62); }
+@media (min-width: 769px) { html.has-bg .site-footer { box-shadow: 0 0 0 100vmax rgba(241, 243, 244, .62); } }
+.bg-btn {
+  display: none; position: fixed; right: 14px; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); z-index: 900;
+  width: 40px; height: 40px; padding: 0; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: rgba(255, 255, 255, .86); color: #5f6368; cursor: pointer;
+  box-shadow: 0 1px 4px rgba(60, 64, 67, .3); backdrop-filter: blur(4px); transition: background .12s, color .12s;
+}
+.bg-btn svg { width: 22px; height: 22px; fill: currentColor; }
+.bg-btn:hover, .bg-btn[aria-expanded="true"] { background: #fff; color: #1a73e8; }
+html.no-tabs .bg-btn { display: flex; }
+html.search-active .bg-btn, html.kb-shrink .bg-btn { display: none; }   /* 手機搜尋模式、代號面板展開時不顯示 */
+.bg-menu {
+  position: fixed; right: 14px; bottom: calc(104px + env(safe-area-inset-bottom, 0px)); z-index: 901; min-width: 9em; padding: 4px;
+  background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(60, 64, 67, .26), 0 0 0 1px rgba(60, 64, 67, .06);
+}
+.bg-menu[hidden] { display: none; }
+.bg-menu button {
+  display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 7px 14px; border: 0; border-radius: 10px; background: none; cursor: pointer;
+  font: inherit; font-size: calc(14px * var(--fs, 1)); color: #3c4043; text-align: left; white-space: nowrap;
+}
+.bg-menu button:hover:not(:disabled) { background: #f1f3f4; color: #1a73e8; }
+.bg-menu button:disabled { color: #bdc1c6; cursor: default; }
+
+/* ===== 新增：詳細檢視、分析頁也套用背景圖（延續上面 html.has-bg 的半透明做法）=====
+   這兩頁是蓋滿整個視窗的獨立圖層，自己有底色，所以要各自畫上背景圖與遮罩。 */
+html.has-bg .sidebar-modal,
+html.has-bg .article-page {
+  background: linear-gradient(rgba(255, 255, 255, .5), rgba(255, 255, 255, .5)), var(--home-bg) center / cover fixed no-repeat;
+}
+html.has-bg .detail-topbar { background: rgba(250, 250, 250, .6); }   /* 頂部列：半透明 */
+html.has-bg {   /* 詳細頁左側清單（原本是不透明的灰） */
+  --bg-side:        rgba(245, 245, 245, .72);
+  --bg-side-hover:  rgba(232, 232, 232, .80);
+  --bg-side-active: rgba(220, 220, 220, .85);
+}
+html.has-bg .ar-text { background: rgba(255, 255, 255, .84); }   /* 分析頁貼文章的輸入框 */
+html.has-bg .ar-btn, html.has-bg .ar-secondary, html.has-bg .ar-secondary:disabled { background: rgba(255, 255, 255, .82); }
+html.has-bg .ar-primary { background: #1a73e8; }                  /* 主要按鈕維持實心藍 */
+html.has-bg .ar-primary:disabled { background: rgba(232, 240, 254, .9); }
+
+/* ===== 新增：有背景圖時，搜尋類型分頁列（詞目 釋義 例句…）加一條淡淡的半透明底，字才清楚 =====
+   底色寬度與下方列表（.results-table）實際寬度一致，置中；不延伸到視窗邊緣。 */
+html.has-bg .search-type-selector::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 50%; z-index: 0; pointer-events: none;
+  width: var(--list-w, 100%); transform: translateX(-50%);   /* --list-w 由 script.js 量列表實際寬度；量不到時退回與分頁列同寬 */
+  background: rgba(250, 250, 250, .72); border-radius: 8px 8px 0 0;
+}
+html.has-bg .search-type-selector > button { position: relative; z-index: 1; }   /* 分頁按鈕疊在底色上面 */
+html.has-bg .search-type-selector button.active { background-color: #fff; }
+
+/* ===== 新增：背景選單的「線上隨機圖片」區（類別清單、分隔線、出處）===== */
+.bg-menu { max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; }
+.bg-menu .bg-sep { height: 1px; margin: 4px 8px; background: #e8eaed; }
+.bg-menu .bg-label { padding: 4px 14px 2px; font-size: calc(12px * var(--fs, 1)); color: #80868b; }
+.bg-menu.busy { pointer-events: none; opacity: .75; }
+.bg-menu .bg-credit {
+  display: block; max-width: 16em; margin: 2px 0 2px; padding: 6px 14px 4px; border-top: 1px solid #e8eaed;
+  font-size: calc(11px * var(--fs, 1)); line-height: 1.4; color: #80868b; text-decoration: none; white-space: normal; word-break: break-all;
+}
+.bg-menu .bg-credit[hidden] { display: none; }
+.bg-menu .bg-credit:hover { color: #1a73e8; text-decoration: underline; }
+
+/* ===== 新增：有背景圖時，logo 加白色外框＋光暈，避免被背景色吃掉 =====
+   只在 html.has-bg（有設定背景圖）時生效；沒有背景圖時 logo 維持原樣。
+   涵蓋：首頁／查詢後的 .logo、分析頁與詳細頁的 .logofont。 */
+html.has-bg .logo,
+html.has-bg .article-topbar .logofont,
+html.has-bg .detail-topbar .logofont {
+  -webkit-text-stroke: .14em rgba(255, 255, 255, .92);   /* 白色描邊；用 em 讓大小字都成比例 */
+  paint-order: stroke fill;                              /* 先畫描邊、再畫藍字，描邊只長在字的外側，不會把字吃細 */
+  text-shadow: 0 0 .35em rgba(255, 255, 255, .95),       /* 白色柔光 */
+               0 1px 4px rgba(0, 0, 0, .22);             /* 極淡下陰影，亮背景上的白邊也看得出來 */
+}
+
+/* ===== 新增：載入時提前還原背景圖（index.html 先行腳本）：讀圖期間短暫隱藏畫面並關閉過場動畫，避免先閃一下沒背景的首頁 ===== */
+html.bg-pending body { visibility: hidden; }
+html.bg-pending *, html.bg-pending *::before, html.bg-pending *::after { transition: none !important; }
+
+/* =====================================================================
+   新增：分析頁改版（現代、專業的卡片式版面）
+   結構：頂端（返回／HOLO／設定）→ 一張卡片 .ar-card［工具列 .ar-bar／編輯區 .ar-text／狀態列 .ar-foot］
+   設計重點：單一卡片＋淡邊框＋柔和陰影；按鈕統一 38px 高、10px 圓角；設定選單改成「文字＋開關」列。
+   這一整段放在檔案最底部，覆蓋前面舊的 .ar-* 樣式；想退回舊版，刪掉這一段（以及 article.js 的 .ar-card／.ar-modes）即可。
+   ===================================================================== */
+
+/* ---- 頂端：返回、設定改成圓形鈕 ---- */
+.article-close, .article-tools .ar-ic {
+  width: 40px; height: 40px; padding: 0; justify-content: center; align-items: center;
+  border-radius: 50%; transition: background-color .15s, color .15s;
+}
+.article-close:hover, .article-tools .ar-ic:hover:not(:disabled) { background: rgba(26, 115, 232, .1); }
+.article-tools .ar-ic[aria-expanded="true"] { background: rgba(26, 115, 232, .14); }
+.article-close:focus-visible, .article-tools .ar-ic:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+
+/* ---- 卡片 ---- */
+.article-body > .ar-wrap > .ar-card { flex: 0 1 auto; min-height: 0; }
+.ar-card {
+  display: flex; flex-direction: column;
+  background: #fff; border: 1px solid #e3e7ee; border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 6px 20px rgba(16, 24, 40, .05);
+  transition: border-color .15s, box-shadow .15s;
+}
+.ar-card:focus-within {
+  border-color: #9ec1f7;
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, .10), 0 6px 20px rgba(16, 24, 40, .06);
+}
+
+/* ---- 工具列 ---- */
+.ar-card .ar-bar {
+  flex: none; margin: 0; padding: 10px 12px; gap: 8px;
+  background: #fafbfd; border-bottom: 1px solid #eef0f4; border-radius: 15px 15px 0 0;
+}
+.ar-card .ar-btn:not(.ar-ic) {
+  display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px;
+  border: 1px solid #e3e7ee; border-radius: 10px; background: #fff;
+  font-weight: 500; color: #3c4043; letter-spacing: .02em;
+  transition: background-color .15s, border-color .15s, color .15s, transform .08s;
+}
+.ar-card .ar-btn:not(.ar-ic):hover:not(:disabled) { background: #f4f6fa; }
+.ar-card .ar-btn:active:not(:disabled) { transform: translateY(1px); }
+.ar-card .ar-btn:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+.ar-card .ar-ic { width: 38px; height: 38px; padding: 0; border-radius: 10px; }
+
+/* 三個分析按鈕：淡藍底的「色調按鈕」＋各自的圖示色（與分析後的標示色一致：異用字紅、換詞藍、斷詞綠） */
+.ar-modes { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.ar-card .ar-btn.ar-go { padding: 0 16px 0 12px; border-color: transparent; background: #eef3fd; color: #1a4fb5; }
+.ar-card .ar-btn.ar-go:hover:not(:disabled) { background: #e0eafb; }
+.ar-card .ar-go .icon { width: 1.25em; height: 1.25em; vertical-align: 0; }
+.ar-card #arGoAlt .icon { color: #d93025; }
+.ar-card #arGo .icon    { color: #1a73e8; }
+.ar-card #arGoSeg .icon { color: #00897b; }
+.ar-card .ar-btn.ar-go:disabled { background: #f3f4f6; color: #aab0b8; border-color: transparent; cursor: not-allowed; }
+.ar-card .ar-btn.ar-go:disabled .icon { color: #c4c9d0; }
+
+.ar-card .ar-btn.ar-stop { background: #fff4e0; border-color: transparent; color: #a85a00; }
+.ar-card .ar-btn.ar-stop:hover:not(:disabled) { background: #fde6bf; }
+.ar-card .ar-nav { gap: 0; padding: 0 2px; border: 1px solid #e3e7ee; border-radius: 10px; background: #fff; }
+.ar-card .ar-nav .ar-ic { width: 34px; height: 34px; }
+.ar-card .ar-nav-pos { min-width: 3.4em; }
+
+/* 右側：統計靠右（修改：清除鈕已移到底部狀態列，統計改用 margin-left:auto 靠右） */
+.ar-card .ar-stat-wrap { margin-left: auto; }
+
+/* ---- 編輯區 ---- */
+.ar-card .ar-text {
+  flex: 0 1 auto; min-height: clamp(190px, 34vh, 380px); padding: 22px 26px;
+  background: transparent; border: 0; border-radius: 0; caret-color: #1a73e8; font-size: 1.04em;
+}
+.ar-card .ar-text:empty::before { font-size: 1.05em; color: #9aa0a6; }
+.ar-card .ar-text:empty::after {   /* 空白時的操作提示（第二行） */
+  content: '貼上後，從上方選擇分析方式'; display: block; margin-top: .3em; font-size: .8em; line-height: 1.6; color: #b9bec6;
+}
+
+/* ---- 狀態列（字數、段數） ---- */
+.ar-foot {
+  flex: none; display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 44px; padding: 6px 16px;   /* 修改：min-height 36→44，刪除鈕出現時高度不跳動；新增 gap */
+  background: #fafbfd; border-top: 1px solid #eef0f4; border-radius: 0 0 15px 15px;
+  font-size: calc(12px * var(--fs, 1)); color: #8a9099; font-variant-numeric: tabular-nums;
+}
+
+/* 新增：右下角的刪除鈕（有字才出現，由 article.js 控制 hidden） */
+.ar-card .ar-foot #arClear { width: 32px; height: 32px; margin-right: -6px; color: #5f6368; }
+.ar-card .ar-foot #arClear[hidden] { display: none; }
+.ar-card .ar-foot #arClear:hover:not(:disabled) { color: #d93025; background: rgba(217, 48, 37, 0.08); }
+
+/* ---- 設定選單／匯出選單／統計選單：新的浮動面板外觀 ---- */
+.ar-setmenu {
+  min-width: 320px; padding: 8px; border: 1px solid #e3e7ee; border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(16, 24, 40, .16), 0 2px 6px rgba(16, 24, 40, .06);
+  max-height: min(78vh, 680px);
+}
+.ar-setmenu.ar-expmenu { min-width: 260px; }
+.ar-setmenu.ar-statmenu { min-width: 190px; padding: 12px 16px; }
+.ar-set-title { padding: 12px 10px 4px; font-size: .78em; font-weight: 600; letter-spacing: .08em; color: #80868b; }
+.ar-setmenu > .ar-set-title:first-child { padding-top: 6px; }
+.ar-set-sep { height: 1px; margin: 8px 4px; background: #eef0f4; }
+.ar-set-hint {
+  margin: 2px 4px 4px; padding: 7px 10px; border-radius: 8px; background: #f3f7fe; color: #5b6b86;
+  font-size: .8em; line-height: 1.5; white-space: normal;
+}
+/* 每一列：文字在左、開關在右 */
+.ar-setmenu label {
+  display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 10px; border-radius: 10px; transition: background-color .12s;
+}
+.ar-setmenu label:hover { background: #f4f6fa; }
+.ar-setmenu input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: none; position: relative; margin: 0;
+  width: 38px; height: 22px; border-radius: 999px; background: #c9ced6; cursor: pointer; transition: background-color .18s;
+}
+.ar-setmenu input[type="checkbox"]::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .18s;
+}
+.ar-setmenu input[type="checkbox"]:checked { background: #1a73e8; }
+.ar-setmenu input[type="checkbox"]:checked::after { transform: translateX(16px); }
+.ar-setmenu input[type="checkbox"]:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+/* 匯出選單的單選：文字在左、圓點在右，選中的整列淡藍 */
+.ar-setmenu input[type="radio"] { flex: none; margin: 0; width: 18px; height: 18px; accent-color: #1a73e8; cursor: pointer; }
+.ar-setmenu label:has(input[type="radio"]:checked) { background: #eef3fd; color: #1a4fb5; font-weight: 500; }
+/* 選單裡的動作按鈕 */
+.ar-set-act, .ar-expact {
+  display: block; width: 100%; box-sizing: border-box; padding: 10px; border: 0; border-radius: 10px;
+  font: inherit; text-align: left; cursor: pointer; transition: background-color .12s;
+}
+.ar-set-act { margin-top: 2px; background: #eef3fd; color: #1a4fb5; font-weight: 500; text-align: center; }
+.ar-set-act:hover, .ar-set-act:focus-visible { background: #e0eafb; outline: none; }
+.ar-expact { background: none; color: #202124; }
+.ar-expact:hover, .ar-expact:focus-visible { background: #f4f6fa; outline: none; }
+
+/* ---- 手機版 ---- */
+@media (max-width: 768px) {
+  .ar-wrap { padding: 8px 10px 14px; }
+  .ar-card { border-radius: 14px; }
+  .ar-card .ar-bar { padding: 8px; gap: 6px; }
+  .ar-card .ar-text { padding: 16px 16px; min-height: clamp(160px, 30vh, 320px); }
+  .ar-modes { gap: 6px; }
+  .ar-card .ar-btn.ar-go { padding: 0 10px; }
+  .ar-setmenu { min-width: min(320px, calc(100vw - 24px)); }
+  .ar-setmenu label, .ar-set-act { padding: 12px 10px; }   /* 手指好點 */
+}
+@media (max-width: 480px) { .ar-card .ar-go .icon { display: none; } }   /* 窄螢幕：只留文字，三顆才排得進一行 */
+
+/* ---- 有背景圖時：整張卡片半透明毛玻璃，背景圖才透得出來 ---- */
+html.has-bg .ar-card { background: rgba(255, 255, 255, .86); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+html.has-bg .ar-card .ar-text { background: transparent; }
+html.has-bg .ar-card .ar-bar, html.has-bg .ar-foot { background: rgba(250, 251, 253, .7); }
+html.has-bg .ar-card .ar-btn.ar-go { background: rgba(238, 243, 253, .9); }
+html.has-bg .ar-card .ar-btn.ar-go:disabled { background: rgba(243, 244, 246, .8); }
+
+/* 手機版：三顆分析按鈕平均分配寬度、不換行，清除鈕才擠得進同一行 */
+@media (max-width: 768px) {
+  .ar-modes { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 4px; }
+  .ar-card .ar-btn.ar-go { flex: 1 1 auto; min-width: 0; justify-content: center; padding: 0 6px; white-space: nowrap; font-size: calc(13px * var(--fs, 1)); }
+}
+
+/* ===== 新增：有背景圖時，右上角按鈕（分析、分類、設定、手機選單；分析頁的返回、設定）改成大小一致的柔和圓形底板 =====
+   背景圖偏暗或偏藍時，藍色圖示會融進圖裡；墊一層半透明白＋毛玻璃，深淺背景都看得清楚。
+   首頁三顆統一成同樣大小的圓（「分析」兩個字也縮進同樣的圓裡）；右緣位置不變，原本靠 right 推算的排列不會跑掉。 */
+html.has-bg {
+  --chip-bg:    rgba(255, 255, 255, .70);
+  --chip-bg-on: rgba(255, 255, 255, .92);
+  --chip-bd:    rgba(255, 255, 255, .55);
+  --chip-sh:    0 2px 12px rgba(16, 24, 40, .14);
+}
+html.has-bg #settingsTriggerContainer > .article-trigger,
+html.has-bg #settingsTriggerContainer > .cat-trigger,
+html.has-bg #settingsTriggerContainer > .settings-trigger {
+  box-sizing: border-box; width: calc(24px + 16px * var(--fs, 1)); height: calc(24px + 16px * var(--fs, 1));
+  padding: 0; justify-content: center; align-items: center;
+  background: none; border-radius: 50%; transition: transform .12s;
+}
+html.has-bg #settingsTriggerContainer > .article-trigger { font-size: calc(12px * var(--fs, 1)); letter-spacing: 0; white-space: nowrap; }
+html.has-bg #settingsTriggerContainer > .article-trigger::before,
+html.has-bg #settingsTriggerContainer > .cat-trigger::before,
+html.has-bg #settingsTriggerContainer > .settings-trigger::before {
+  content: ''; position: absolute; inset: 2px; z-index: -1; pointer-events: none;
+  border-radius: 50%; background: var(--chip-bg); border: 1px solid var(--chip-bd);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: var(--chip-sh); transition: background-color .15s;
+}
+html.has-bg #settingsTriggerContainer > .article-trigger:hover::before,
+html.has-bg #settingsTriggerContainer > .cat-trigger:hover::before,
+html.has-bg #settingsTriggerContainer > .cat-trigger[aria-expanded="true"]::before,
+html.has-bg #settingsTriggerContainer > .settings-trigger:hover::before { background: var(--chip-bg-on); }
+html.has-bg #settingsTriggerContainer > .article-trigger:hover,
+html.has-bg #settingsTriggerContainer > .cat-trigger:hover,
+html.has-bg #settingsTriggerContainer > .cat-trigger[aria-expanded="true"],
+html.has-bg #settingsTriggerContainer > .settings-trigger:hover { background: none; }   /* 原本滑過的淡藍底改由 ::before 負責 */
+html.has-bg #settingsTriggerContainer > .article-trigger:active,
+html.has-bg #settingsTriggerContainer > .cat-trigger:active,
+html.has-bg #settingsTriggerContainer > .settings-trigger:active { transform: scale(.94); }
+
+/* 手機選單鈕、分析頁的返回／設定：同樣的圓形柔和底板 */
+html.has-bg .menu-trigger, html.has-bg .article-close, html.has-bg .article-tools .ar-ic {
+  box-sizing: border-box; width: calc(24px + 16px * var(--fs, 1)); height: calc(24px + 16px * var(--fs, 1)); padding: 0;
+  justify-content: center; align-items: center; border-radius: 50%;
+  background-color: var(--chip-bg); border: 1px solid var(--chip-bd);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: var(--chip-sh);
+}
+html.has-bg .menu-trigger:active, html.has-bg .menu-trigger[aria-expanded="true"],
+html.has-bg .article-close:hover, html.has-bg .article-tools .ar-ic:hover:not(:disabled),
+html.has-bg .article-tools .ar-ic[aria-expanded="true"] { background-color: var(--chip-bg-on); }
+
+/* 有背景圖時，分析頁工具列的圖示鈕（清除、復原、複製…）維持無底，不要被舊規則套上白色方塊 */
+html.has-bg .ar-card .ar-btn.ar-ic { background: transparent; }
+html.has-bg .ar-card .ar-btn.ar-ic:hover:not(:disabled), html.has-bg .ar-card .ar-btn.ar-ic[aria-expanded="true"] { background: rgba(26, 115, 232, .1); }
+html.has-bg .ar-foot #arClear:hover { background: rgba(217, 48, 37, .08); }   /* 修改：選擇器由 .ar-bar 改成 .ar-foot */
+
+/* 新增：手機版底部面板：取消桌面版的 400px 寬度上限，滿版；高度上限改用 dvh（網址列伸縮時也準），實際位置與高度由 article.js 的 fitSheet() 依可視範圍調整 */
+.ar-pop.ar-sheet { max-width: none; box-sizing: border-box; max-height: min(60vh, 60dvh); }
+
+/* 新增：選單內容太長要捲動時，標題列（詞＋唸法＋×）固定在最上面，× 不會被捲走
+   用負的 margin-top 抵掉選單的上方 padding；sticky 的 top 也要用同樣的負值（sticky 以內容區邊緣為基準，不含 padding），
+   否則固定住時頂端會露出一條縫，內容從縫裡透出來 */
+.ar-pop-head { position: sticky; top: -8px; z-index: 2; background: #fff; margin-top: -8px; padding-top: 8px; padding-bottom: 4px; }
+.ar-pop.ar-sheet .ar-pop-head { top: -10px; margin-top: -10px; padding-top: 10px; }
+
+/* ===== 新增：斷詞「未收錄字」與自訂台羅 ===== */
+/* 詞庫沒有的漢字：橘色點狀底線（可點，點開可自己標台羅）；標完就變成一般的詞 */
+.ar-w.ar-unk { text-decoration-style: dotted; text-decoration-color: #e37400; }
+.ar-w.ar-unk:hover, .ar-w.ar-unk.ar-open { background: #fff0d6; }
+/* 選單裡的自訂台羅輸入列 */
+.ar-cust { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.ar-cust-in { flex: 1 1 auto; min-width: 0; width: 11em; height: 34px; padding: 0 10px; box-sizing: border-box; border: 1px solid #dadce0; border-radius: 8px; background: #fff; color: #202124; font: inherit; font-size: .95em; }
+.ar-cust-in::placeholder { color: #b9bec6; }
+.ar-cust-in:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, .15); }
+.ar-cust-ok { height: 34px; padding: 0 14px; flex: none; }
+.ar-cust-hint { margin-top: 4px; font-size: .78em; line-height: 1.5; color: #9aa0a6; }
+.ar-udel { flex: none; height: 34px; padding: 0 12px; color: #5f6368; }   /* 修改：移到輸入列，與「更新」同高 */
+.ar-udel:hover, .ar-udel:focus-visible { color: #d93025; border-color: #d93025; background: rgba(217, 48, 37, .06); }
+@media (max-width: 768px) { .ar-cust-in { font-size: 16px; } }   /* 手機版輸入框 16px 以上，iOS 才不會自動放大畫面 */
+
+/* 新增：選單標題列右側的「釋義」開關（預設關，打開才顯示釋義） */
+.ar-pop-def { margin-left: auto; align-self: center; border: 1px solid #dadce0; background: #fff; color: #5f6368; font: inherit; font-size: .8em; padding: 2px 10px; border-radius: 14px; cursor: pointer; }
+.ar-pop-def:hover, .ar-pop-def:focus-visible { background: #f1f3f4; outline: none; }
+.ar-pop-def[aria-pressed="true"] { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+.ar-pop-def { min-width: 30px; padding: 2px 8px; text-align: center; }   /* 修改：「自」「義」單字按鈕，窄一點 */
+.ar-pop-def + .ar-pop-def { margin-left: 4px; }
+.ar-pop-def + .ar-pop-x { margin-left: 4px; }
+
+/* 新增：不顯示釋義時，各唸法（含詞頻）排成同一行，放不下才換行 */
+.ar-sg-flow { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+.ar-sg-flow .ar-sg { margin-top: 0; }
+.ar-sg-flow .ar-sg-top { gap: 4px; }
+
+
+/* =====================================================================
+   新增：導覽鈕精簡（‹ 1/5 ›）＋ 手機版底部浮動導覽 ＋ 統計列可點
+   想退回舊版，刪掉這一整段，並還原 article.js 的 navHtml()
+   ===================================================================== */
+.ar-nav[hidden] { display: none; }   /* 沒有可導覽的項目時整個藏起來（.ar-nav 的 display 會蓋過 hidden，所以要明寫） */
+.ar-flip { transform: scaleX(-1); }   /* ‹ 用 › 的圖示左右翻轉，不用另外加圖示 */
+.ar-card .ar-nav { padding: 0 3px; border-radius: 999px; }   /* 藥丸形 */
+.ar-card .ar-nav .ar-ic { width: 30px; height: 30px; border-radius: 50%; }
+.ar-card .ar-nav-pos { min-width: 3em; font-size: .9em; white-space: nowrap; }
+.ar-card .ar-nav-unk { background: #fff8ec; border-color: #f5d9a8; }   /* 未收錄字＝待處理，用橘色底（與未收錄字的橘色點狀底線一致） */
+.ar-card .ar-nav-unk .ar-nav-pos { color: #a85a00; }
+.ar-stop-short { display: none; }
+
+/* 統計選單裡可點的列（多音詞、未收錄字） */
+button.ar-stat-go { width: 100%; padding: 4px 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.ar-stat-go:hover:not(:disabled), button.ar-stat-go:focus-visible { color: #1a73e8; outline: none; }
+button.ar-stat-go:disabled { color: #bdc1c6; cursor: default; }
+
+@media (max-width: 768px) {
+  .ar-stop-long { display: none; }   /* 停止異用字／停止換詞／停止斷詞 → 結束 */
+  .ar-stop-short { display: inline; }
+  .ar-card .ar-nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 20; height: 46px; padding: 0 4px; box-shadow: 0 4px 16px rgba(16, 24, 40, .2); }   /* 浮在畫面下方，捲到哪都按得到；z-index 比選單（30）低，不會蓋住選單 */
+  .ar-card .ar-nav .ar-ic { width: 42px; height: 42px; }
+  .ar-card .ar-nav-pos { min-width: 4em; font-size: 1em; }
+  .ar-wrap:has(.ar-nav:not([hidden])) { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }   /* 讓文章最後一段不被浮動鈕擋住 */
+  html.has-bg .ar-card { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, .94); }   /* 毛玻璃會讓卡片變成 fixed 的參照框，浮動鈕就會跑到卡片底部，所以手機版關掉 */
+}
+
+/* 新增：自訂音（個人詞庫）的詞一律綠色底線，標了台羅之後、下一篇文章都會顯示 */
+.ar-w.ar-seg.ar-cus { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: #00897b; }   /* 修改：實線 → 點線，與未收錄字的橘色點線同樣式 */
+.ar-text.ar-ruby .ar-seg.ar-cus { text-decoration: none; background: radial-gradient(circle, #00897b 1px, transparent 1.3px) repeat-x 0 100% / 4px 2px; }   /* 修改：綠點線與未收錄字的橘點線同高。依截圖量測，原本（padding-bottom: 3px）比橘線低約 3.3px，所以拿掉 padding-bottom 與 margin-bottom 的調整，點線直接畫在詞的底邊（margin-bottom 回到原本的 4px）；若還有差距，在這裡加 padding-bottom／減 margin-bottom 微調，兩者加起來維持 4px */
+
+/* 新增：段落前空兩格（text-indent）會被 ruby 模式的 inline-block 詞繼承，每個詞的盒子裡又各縮排 2em，造成詞距暴增、台羅與漢字沒對齊。只讓段落首行縮排，詞盒子裡歸零 */
+.ar-text.ar-ruby .ar-seg { text-indent: 0; }
+
+/* 新增：用「空格」分詞（設定→斷詞分析：用空格分詞）。只改顯示：詞與詞之間留空隙，不畫底線，文字內容不變。
+   未收錄字的橘色點線、自訂音的綠色點線是「待處理／自訂」的記號，不是詞界，所以保留 */
+.ar-text.ar-sp:not(.ar-ruby) .ar-seg, .ar-text.ar-sp:not(.ar-ruby) .ar-unk { margin: 0 .16em; }   /* 兩個相鄰的詞各 .16em，合起來約一個空格寬；想要更寬就加大這個數字 */
+.ar-text.ar-sp:not(.ar-ruby) .ar-seg:not(.ar-cus):not(.ar-mrg) { text-decoration: none; }   /* 修改：合併詞的紫點線也保留 */
+
+/* 新增：工具列右側的「範例」按鈕與選單 */
+.ar-sample-wrap { margin-left: auto; }
+.ar-card .ar-btn.ar-sample { color: #5f6368; }
+.ar-setmenu.ar-samplemenu { left: auto; right: 0; min-width: 200px; }
+
+
+/* 新增：設定選單裡的「斷詞標記」輸入框（只放一個符號） */
+.ar-setmenu .ar-mk-in { flex: none; width: 2.6em; height: 2em; box-sizing: border-box; padding: 0; border: 1px solid #dadce0; border-radius: 8px; background: #fff; text-align: center; font: inherit; color: #202124; }
+.ar-setmenu .ar-mk-in:focus { outline: none; border-color: #1a73e8; }
+
+/* 新增：合併詞（詞庫沒有，台羅是各詞的音接起來的、尚未確認）：紫色點線。
+   顏色分工：藍／青綠實線＝詞庫的詞；橘色點線＝未收錄字；綠色點線＝自訂台羅；紫色點線＝合併詞（待確認） */
+.ar-w.ar-seg.ar-mrg { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: #8e24aa; }
+.ar-text.ar-ruby .ar-seg.ar-mrg { text-decoration: none; background: radial-gradient(circle, #8e24aa 1px, transparent 1.3px) repeat-x 0 100% / 4px 2px; }
