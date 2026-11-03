@@ -1,15 +1,1 @@
-{
-  "name": "和樂典-烏衣行",
-  "short_name": "和樂典",
-  "description": "臺灣台語常用詞辭典查詢",
-  "lang": "zh-Hant",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "icons": [
-    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
-  ]
-}
+{"name":"和樂典-烏衣行","short_name":"和樂典","description":"臺灣台語常用詞辭典查詢","lang":"zh-Hant","start_url":"./","scope":"./","display":"standalone","background_color":"#ffffff","theme_color":"#ffffff","icons":[{"src":"favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"},{"src":"apple-touch-icon.png","sizes":"180x180","type":"image/png"}]}
