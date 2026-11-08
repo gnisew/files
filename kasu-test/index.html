@@ -6,181 +6,204 @@
 <title>詔安客語基礎百句測驗</title>
 <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
 <style>
-:root{
-  --ink:#1b2a41; --indigo:#24457a; --indigo-d:#162c52; --bg:#eef2f7; --card:#ffffff;
-  --peony:#c4285f; --leaf:#2f7d4f; --line:#c9d3e2; --warn:#b3261e; --sun:#f3b63f;
-}
+:root{--ink:#16233f;--muted:#5d6b86;--blue:#2f66f5;--blue-d:#1f4ed8;--soft:#e6eeff;--indigo:#1d3a78;--line:#dbe3f1;--bg:#f2f5fb;--warn:#c0392b;--peony:#e5578a}
 *{box-sizing:border-box}
-html{font-size:20px}
-body{margin:0;background:var(--bg);color:var(--ink);line-height:1.7;
-  font-family: tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif;}
-button,input,select{font-family:inherit}
-header{background:var(--indigo);color:#fff;padding:1rem 1.2rem;border-bottom:.35rem solid var(--peony)}
-header h1{margin:0;font-size:1.6rem;letter-spacing:.08em}
-header p{margin:0;font-size:.9rem;opacity:.85}
-main{max-width:46rem;margin:0 auto;padding:1.2rem}
-.card{background:var(--card);border:2px solid var(--line);border-radius:1rem;padding:1.4rem;margin-bottom:1.2rem}
-h2{margin:.2rem 0 1rem;font-size:1.5rem;color:var(--indigo-d)}
-label{display:block;font-size:1.1rem;font-weight:700;margin:1rem 0 .3rem}
-input,select{width:100%;font-size:1.3rem;padding:.7rem .8rem;border:2px solid var(--line);border-radius:.6rem;background:#fff;color:var(--ink)}
-input:focus,select:focus,button:focus-visible{outline:4px solid var(--sun);outline-offset:2px}
-.hint{font-size:.85rem;color:#52617a;margin:.2rem 0 0}
-.err{color:var(--warn);font-weight:700;font-size:1rem;margin:.3rem 0 0;min-height:1.2em}
-.btn{display:block;width:100%;border:0;border-radius:.8rem;padding:.9rem 1rem;font-size:1.4rem;font-weight:700;cursor:pointer;
-  background:var(--indigo);color:#fff;margin-top:1.2rem}
-.btn:hover{background:var(--indigo-d)}
-.btn.alt{background:#fff;color:var(--indigo);border:3px solid var(--indigo)}
-.btn.pink{background:var(--peony)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.role{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.role .btn{margin:0;padding:2rem 1rem;font-size:1.8rem}
+html{font-size:clamp(17px,1.1vw + 12px,20px)}
+body{margin:0;min-height:100dvh;color:var(--ink);line-height:1.6;display:flex;flex-direction:column;
+ font-family:tauhu-oo,PingFangTC-Regular,"Microsoft JhengHei",sans-serif;
+ background:radial-gradient(900px 420px at 0 -10%,#dce7ff,transparent),radial-gradient(800px 380px at 100% 0,#fde6ef,transparent),var(--bg)}
+button,input,select{font-family:inherit;color:inherit}
+.top{height:3.1rem;display:flex;align-items:center;gap:.7rem;padding:0 1rem;background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.logo{width:2rem;height:2rem;border-radius:.6rem;background:var(--indigo);color:#fff;display:grid;place-items:center;font-weight:700;box-shadow:.18rem .18rem 0 var(--peony)}
+.top b{font-size:1.05rem;letter-spacing:.06em;color:var(--indigo)}
+main{flex:1;width:100%;max-width:54rem;margin:0 auto;padding:.9rem;display:flex;flex-direction:column;justify-content:center}
+.card{background:#fff;border-radius:1.4rem;padding:1.3rem 1.4rem;box-shadow:0 10px 40px rgba(29,58,120,.1);border:1px solid #fff}
 .hide{display:none!important}
-.bar{display:flex;justify-content:space-between;align-items:center;font-size:1.05rem;margin-bottom:.6rem}
-.prog{height:.7rem;background:var(--line);border-radius:1rem;overflow:hidden;margin-bottom:1rem}
-.prog>i{display:block;height:100%;background:var(--peony);width:0;transition:width .3s}
-.type{display:inline-block;background:var(--indigo);color:#fff;border-radius:2rem;padding:.1rem .9rem;font-size:.95rem}
-.qtext{font-size:1.9rem;font-weight:700;margin:.8rem 0;min-height:2.4rem}
-.play{background:var(--leaf);font-size:1.6rem}
-.play:hover{background:#235f3c}
-.opts{display:grid;gap:.8rem;margin-top:1.2rem}
-.opt{display:flex;gap:.8rem;align-items:center;text-align:left;width:100%;font-size:1.7rem;padding:.9rem 1rem;border-radius:.8rem;
-  border:3px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
-.opt b{flex:none;width:2.4rem;height:2.4rem;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:1.3rem}
-.opt:hover{border-color:var(--indigo)}
-.opt.sel{border-color:var(--peony);background:#fdeaf1}
-.opt.sel b{background:var(--peony);color:#fff}
-.nav{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.score{font-size:3.2rem;font-weight:700;color:var(--peony);text-align:center;margin:.5rem 0}
-.sum{width:100%;border-collapse:collapse;font-size:1rem}
-.sum td,.sum th{border-bottom:1px solid var(--line);padding:.4rem;text-align:left}
-.ok{color:var(--leaf)} .ng{color:var(--warn)}
-.who{background:var(--bg);border-radius:.6rem;padding:.5rem .8rem;font-size:.95rem;margin-bottom:1rem}
-/* grading */
-.g-item{border:2px solid var(--line);border-radius:.8rem;padding:1rem;margin-bottom:1rem;background:#fff}
-.g-item h3{margin:0 0 .3rem;font-size:1rem;color:#52617a;font-weight:400}
-.g-q{font-size:1.7rem;font-weight:700;margin:.2rem 0 .6rem}
-.g-play{display:inline-block;width:auto;padding:.4rem 1.2rem;font-size:1.2rem;margin:0 0 .8rem;background:var(--leaf)}
-.scores{display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem}
-.scores button{font-size:1.6rem;font-weight:700;padding:.6rem 0;border-radius:.6rem;border:3px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
-.scores button.on{background:var(--peony);border-color:var(--peony);color:#fff}
-.total{position:sticky;bottom:0;background:var(--indigo);color:#fff;border-radius:.8rem;padding:.6rem 1rem;font-size:1.2rem;margin-top:1rem;display:flex;justify-content:space-between}
-@media(max-width:480px){html{font-size:18px}.role{grid-template-columns:1fr}}
+h2{margin:0 0 .8rem;font-size:1.45rem;color:var(--indigo)}
+.sub{margin:0 0 1rem;color:var(--muted)}
+label{display:block;font-weight:700;margin:.7rem 0 .25rem;font-size:1rem;color:var(--indigo)}
+input,select{width:100%;font-size:1.25rem;padding:.6rem .8rem;border:2px solid var(--line);border-radius:.8rem;background:#f9fbff}
+input:focus,select:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 4px var(--soft)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.hint{font-size:.82rem;color:var(--muted);margin:.2rem 0 0}
+.err{color:var(--warn);font-weight:700;min-height:1.4em;margin:.4rem 0 0;font-size:.95rem}
+.btn{border:0;border-radius:.9rem;padding:.75rem 1.2rem;font-size:1.25rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--blue),var(--blue-d));color:#fff;box-shadow:0 6px 16px rgba(47,102,245,.28);transition:transform .12s}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:scale(.98)}
+.btn:focus-visible,.opt:focus-visible,.scores button:focus-visible{outline:4px solid #ffd46b;outline-offset:2px}
+.btn.ghost{background:#fff;color:var(--indigo);border:2px solid var(--line);box-shadow:none}
+.btn.sm{font-size:1rem;padding:.4rem .9rem}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.actions{display:grid;grid-template-columns:1fr 2fr;gap:.8rem;margin-top:1rem}
+/* 身分 */
+.hero{text-align:center}
+.hero h1{margin:.2rem 0;font-size:clamp(1.7rem,4vw,2.4rem);color:var(--indigo);letter-spacing:.1em}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.2rem}
+.tile{border:2px solid var(--line);background:#f9fbff;border-radius:1.2rem;padding:1.4rem .8rem;cursor:pointer;font-size:1.7rem;font-weight:700;color:var(--indigo)}
+.tile span{display:block;font-size:3rem;line-height:1.2}
+.tile small{display:block;font-size:.9rem;color:var(--muted);font-weight:400}
+.tile:hover{border-color:var(--blue);background:var(--soft)}
+/* 聽力 */
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:.6rem;margin-bottom:.8rem}
+.chip{background:var(--soft);color:var(--blue-d);border-radius:2rem;padding:.1rem .9rem;font-weight:700;font-size:1rem}
+.dots{display:flex;gap:.35rem}
+.dots i{width:.9rem;height:.9rem;border-radius:50%;background:var(--line)}
+.dots i.done{background:#9db8ff}.dots i.cur{background:var(--blue);box-shadow:0 0 0 3px var(--soft)}
+.qrow{display:flex;align-items:center;gap:1rem;margin-bottom:.9rem}
+.play{flex:none;width:4rem;height:4rem;border-radius:50%;border:0;font-size:1.8rem;cursor:pointer;background:var(--indigo);color:#fff;box-shadow:0 6px 16px rgba(29,58,120,.3)}
+.play:active{transform:scale(.94)}
+.play.playing{background:var(--blue);animation:ring 1s infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(47,102,245,.55)}100%{box-shadow:0 0 0 1.1rem rgba(47,102,245,0)}}
+.qtext{font-size:clamp(1.5rem,3.4vw,2rem);font-weight:700;line-height:1.4}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.opt{display:flex;align-items:center;gap:.8rem;text-align:left;min-height:4.4rem;padding:.6rem 1rem;font-size:clamp(1.25rem,2.6vw,1.65rem);
+ border:2.5px solid var(--line);border-radius:1.1rem;background:#fff;cursor:pointer;transition:.12s}
+.opt b{flex:none;width:2.2rem;height:2.2rem;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:1.1rem;color:var(--indigo)}
+.opt:hover{border-color:#9db8ff}
+.opt.sel{border-color:var(--blue);background:var(--soft)}
+.opt.sel b{background:var(--blue);color:#fff}
+.qnav{margin-top:.9rem}
+.qnav .btn{width:100%;font-size:1.4rem;padding:.7rem}
+/* 完成 */
+.end{text-align:center;padding:2rem 1.4rem}
+.end .big{font-size:5.5rem;line-height:1.1;animation:pop .7s cubic-bezier(.3,1.6,.5,1)}
+.end h2{font-size:2rem;margin:.6rem 0 .2rem}
+.end p{margin:.2rem 0;font-size:1.25rem;color:var(--muted)}
+.stat{font-size:.9rem!important;margin-top:1rem!important}
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.confetti span{position:absolute;top:-3rem;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(112vh) rotate(360deg)}}
+@keyframes pop{from{transform:scale(.2);opacity:0}}
+/* 評分 */
+.gwho{display:flex;justify-content:space-between;align-items:flex-start;gap:.8rem;background:var(--bg);border-radius:.9rem;padding:.6rem .9rem;margin-bottom:.8rem;font-size:.95rem}
+.g-item{display:grid;grid-template-columns:1fr auto;gap:.6rem 1rem;align-items:center;padding:.7rem 0;border-bottom:1px solid var(--line)}
+.g-main{display:flex;align-items:center;gap:.8rem}
+.g-main .play{width:3rem;height:3rem;font-size:1.3rem}
+.sp{flex:none;width:3rem}
+.tag{font-size:.8rem;background:var(--soft);color:var(--blue-d);border-radius:2rem;padding:0 .6rem;font-weight:700}
+.g-q{font-size:1.5rem;font-weight:700;line-height:1.35}
+.scores{display:grid;grid-template-columns:repeat(5,3.7rem);gap:.35rem}
+.scores button{padding:.3rem 0;border:2px solid var(--line);border-radius:.8rem;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center}
+.scores b{font-size:1.4rem;line-height:1.3}
+.scores small{font-size:.7rem;color:var(--muted);min-height:1em;line-height:1}
+.scores button.on{background:var(--blue);border-color:var(--blue)}
+.scores button.on b,.scores button.on small{color:#fff}
+.gfoot{position:sticky;bottom:.6rem;margin-top:.8rem;background:var(--indigo);color:#fff;border-radius:1.1rem;padding:.6rem .8rem .6rem 1.2rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;box-shadow:0 8px 24px rgba(29,58,120,.35)}
+.gfoot strong{font-size:1.2rem}
+.gfoot .btn{background:#fff;color:var(--indigo);box-shadow:none;padding:.5rem 1.2rem}
+/* 自訂視窗 */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(22,35,63,.45);backdrop-filter:blur(4px);display:grid;place-items:center;padding:1rem}
+.mbox{background:#fff;border-radius:1.4rem;padding:1.6rem;max-width:26rem;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .25s}
+.mbox p{font-size:1.35rem;margin:.2rem 0 1.2rem;font-weight:700;color:var(--indigo)}
+.mact{display:flex;gap:.7rem;justify-content:center}.mact .btn{flex:1}
+@media(max-width:640px){
+ .opts,.row2,.tiles{grid-template-columns:1fr}.opts{gap:.55rem}.opt{min-height:3.6rem}
+ .tiles{gap:.7rem}.tile{padding:.9rem}.tile span{display:inline;font-size:2rem;margin-right:.5rem}
+ .card{padding:1rem}.g-item{grid-template-columns:1fr}.scores{grid-template-columns:repeat(5,1fr)}
+ .actions{grid-template-columns:1fr 1fr}.dots i{width:.7rem;height:.7rem}
+}
+@media(prefers-reduced-motion:reduce){.confetti{display:none}*{animation:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <h1>詔安客語基礎百句測驗</h1>
-  <p>聽力測驗・口說測驗</p>
-</header>
+<div class="top"><div class="logo">客</div><b>詔安客語基礎百句測驗</b></div>
 <main>
 
-<!-- 1. 選身分 -->
-<section id="s-role" class="card">
-  <h2>請選擇你的身分</h2>
-  <div class="role">
-    <button class="btn" id="roleStudent">我是學生</button>
-    <button class="btn pink" id="roleTeacher">我是老師</button>
+<section id="s-role" class="card hero">
+  <h1>詔安客語基礎百句測驗</h1>
+  <p class="sub">請選擇你的身分</p>
+  <div class="tiles">
+    <button class="tile" id="roleStudent"><span>🐥</span>我是學生<small>聽力測驗</small></button>
+    <button class="tile" id="roleTeacher"><span>🦖</span>我是老師<small>口說測驗評分</small></button>
   </div>
 </section>
 
-<!-- 2a. 學生資料 -->
 <section id="s-student" class="card hide">
   <h2>學生資料</h2>
-  <label for="st-school">學校</label>
-  <select id="st-school"></select>
-  <input id="st-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.6rem">
-  <label for="st-class">班級與座號（5 碼數字）</label>
-  <input id="st-class" inputmode="numeric" maxlength="5" placeholder="例：40107">
-  <p class="hint">四年甲班 7 號 → 40107（年級1碼＋班級2碼＋座號2碼）</p>
-  <label for="st-id">學號</label>
-  <input id="st-id" inputmode="numeric" placeholder="請輸入學號">
+  <label for="st-school">學校</label><select id="st-school"></select>
+  <input id="st-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.5rem">
+  <div class="row2">
+    <div><label for="st-class">班級座號（5碼）</label><input id="st-class" inputmode="numeric" maxlength="5" placeholder="40107"></div>
+    <div><label for="st-id">學號</label><input id="st-id" inputmode="numeric" placeholder="學號"></div>
+  </div>
+  <p class="hint">例：四年甲班 7 號 → 40107（年級1碼＋班級2碼＋座號2碼）</p>
   <p class="err" id="st-err"></p>
-  <button class="btn" id="stStart">開始聽力測驗</button>
-  <button class="btn alt" data-back>回上一頁</button>
+  <div class="actions"><button class="btn ghost" data-back>返回</button><button class="btn" id="stStart">開始聽力測驗</button></div>
 </section>
 
-<!-- 2b. 老師資料 -->
 <section id="s-teacher" class="card hide">
   <h2>老師資料</h2>
-  <label for="t-school">學校</label>
-  <select id="t-school"></select>
-  <input id="t-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.6rem">
-  <label for="t-name">姓名</label>
-  <input id="t-name" placeholder="老師姓名" autocomplete="name">
-  <label for="t-mail">信箱</label>
-  <input id="t-mail" type="email" placeholder="name@example.com" autocomplete="email">
+  <label for="t-school">學校</label><select id="t-school"></select>
+  <input id="t-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.5rem">
+  <div class="row2">
+    <div><label for="t-name">姓名</label><input id="t-name" autocomplete="name" placeholder="老師姓名"></div>
+    <div><label for="t-mail">信箱</label><input id="t-mail" type="email" autocomplete="email" placeholder="name@example.com"></div>
+  </div>
   <p class="err" id="t-err"></p>
-  <button class="btn" id="tNext">下一步：填寫受測學生</button>
-  <button class="btn alt" data-back>回上一頁</button>
+  <div class="actions"><button class="btn ghost" data-back>返回</button><button class="btn" id="tNext">下一步</button></div>
 </section>
 
-<!-- 3b. 老師填受測學生 -->
 <section id="s-tstudent" class="card hide">
   <h2>受測學生資料</h2>
-  <label for="ts-school">學生學校</label>
-  <select id="ts-school"></select>
-  <input id="ts-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.6rem">
-  <label for="ts-class">班級與座號（5 碼數字）</label>
-  <input id="ts-class" inputmode="numeric" maxlength="5" placeholder="例：40107">
-  <label for="ts-id">學號</label>
-  <input id="ts-id" inputmode="numeric" placeholder="學生學號">
+  <label for="ts-school">學生學校</label><select id="ts-school"></select>
+  <input id="ts-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.5rem">
+  <div class="row2">
+    <div><label for="ts-class">班級座號（5碼）</label><input id="ts-class" inputmode="numeric" maxlength="5" placeholder="40107"></div>
+    <div><label for="ts-id">學號</label><input id="ts-id" inputmode="numeric" placeholder="學號"></div>
+  </div>
   <p class="err" id="ts-err"></p>
-  <button class="btn" id="tsStart">開始口說測驗</button>
-  <button class="btn alt" id="tsBack">回上一頁</button>
+  <div class="actions"><button class="btn ghost" id="tsBack">返回</button><button class="btn" id="tsStart">開始口說評分</button></div>
 </section>
 
-<!-- 聽力測驗 -->
 <section id="s-listen" class="card hide">
-  <div class="bar"><span class="type" id="l-type"></span><span id="l-count"></span></div>
-  <div class="prog"><i id="l-prog"></i></div>
-  <div class="qtext" id="l-text"></div>
-  <button class="btn play" id="l-play">🔊 播放題目</button>
+  <div class="qhead"><span class="chip" id="l-type"></span><div class="dots" id="l-dots"></div></div>
+  <div class="qrow">
+    <button class="play" id="l-play" aria-label="播放題目">🔊</button>
+    <div class="qtext" id="l-text"></div>
+  </div>
   <div class="opts" id="l-opts"></div>
-  <div class="nav">
-    <button class="btn alt" id="l-prev">上一題</button>
-    <button class="btn" id="l-next">下一題</button>
+  <div class="qnav"><button class="btn" id="l-ok" disabled>確定</button></div>
+</section>
+
+<section id="s-result" class="card end hide">
+  <div class="big" id="r-emoji">🎆</div>
+  <h2>全部作答完成！</h2>
+  <p>你好棒，謝謝你認真作答 🎉</p>
+  <p class="stat" id="r-status"></p>
+  <div class="actions" style="grid-template-columns:1fr;max-width:18rem;margin:1rem auto 0">
+    <button class="btn" id="r-retry">重新傳送</button>
+    <button class="btn ghost" id="r-home">回首頁</button>
   </div>
 </section>
 
-<!-- 聽力結果 -->
-<section id="s-result" class="card hide">
-  <h2>聽力測驗完成！</h2>
-  <div class="score" id="r-score"></div>
-  <p id="r-status" style="text-align:center;font-weight:700"></p>
-  <table class="sum" id="r-table"></table>
-  <button class="btn" id="r-retry">重新傳送成績</button>
-  <button class="btn alt" id="r-home">回首頁</button>
-</section>
-
-<!-- 口說評分 -->
 <section id="s-speak" class="card hide">
-  <h2>口說測驗評分</h2>
-  <div class="who" id="g-who"></div>
+  <div class="gwho"><div id="g-who"></div><button class="btn ghost sm" id="g-cancel">離開</button></div>
   <div id="g-list"></div>
-  <div class="total"><span>目前總分</span><span id="g-total">0 / 50</span></div>
   <p class="err" id="g-err"></p>
-  <button class="btn" id="g-submit">送出評分</button>
-  <button class="btn alt" id="g-cancel">取消，回首頁</button>
+  <div class="gfoot"><strong id="g-total"></strong><button class="btn" id="g-submit">送出評分</button></div>
 </section>
 
-<section id="s-done" class="card hide">
+<section id="s-done" class="card end hide">
+  <div class="big">✅</div>
   <h2>評分已送出</h2>
-  <p id="d-msg" style="font-size:1.2rem"></p>
-  <button class="btn" id="d-next">評下一位學生</button>
-  <button class="btn alt" id="d-home">回首頁</button>
+  <p id="d-msg"></p>
+  <div class="actions" style="grid-template-columns:1fr;max-width:18rem;margin:1rem auto 0">
+    <button class="btn" id="d-next">評下一位學生</button>
+    <button class="btn ghost" id="d-home">回首頁</button>
+  </div>
 </section>
-
 </main>
+
+<div class="modal hide" id="modal" role="dialog" aria-modal="true">
+  <div class="mbox"><p id="m-msg"></p>
+    <div class="mact"><button class="btn ghost" id="m-cancel"></button><button class="btn" id="m-ok"></button></div></div>
+</div>
+<div class="confetti" id="confetti"></div>
 
 <script>
 /* ===== 設定區 ===== */
-// 貼上 Google Apps Script「網頁應用程式」部署後的網址（結尾 /exec）
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyZgwh7NWuZIXTgX8Ek5hIf0gv1aJq4T3QCHaPLlTA6FRVmMXLTgE9M2s55YPz0pExzQw/exec";
-// 音檔資料夾（與 index.html 同層的 audio/ 資料夾，放在 GitHub Pages）
-const AUDIO_BASE = "audio/";
-// 聽選正確回應題，是否在畫面顯示題目文字（false = 只聽音檔）
-const SHOW_RESPONSE_TEXT = true;
-
+const GAS_URL = "https://script.google.com/macros/s/請換成你的部署ID/exec"; // Apps Script 部署網址（/exec 結尾）
+const AUDIO_BASE = "audio/";          // 音檔資料夾
+const SHOW_RESPONSE_TEXT = true;      // 「聽選正確回應」是否顯示題目文字
 const SCHOOLS = ["崙背國中","崙背國小","東興國小","陽明國小","豐榮國小","二崙國中","二崙國小","三和國小","來惠國小","光復國小"];
 
 const LISTEN = [
@@ -195,7 +218,6 @@ const LISTEN = [
  {n:9,type:"聽選正確回應",q:"你有紅色个筆無？",a:"有，𠊎有三支筆",o:["無，𠊎正有青色个筆","毋係，遐毋係紅色","無，佢个筆係綠豆色"],f:"listen09.mp3"},
  {n:10,type:"聽選正確回應",q:"你今年幾多歲？讀幾多年？",a:"𠊎十一歲，讀五年",o:["今日拜三，這滿兩點","𠊎在這，佢在便所","猶吂，𠊎猶吂食"],f:"listen10.mp3"}
 ];
-// 口說：複誦題音檔 repeat01~05 對應複誦 1~5（若你的音檔編號不同，改這裡的 f）
 const SPEAK = [
  {id:"複誦1",type:"複誦題",q:"今日𠊎感覺真歡喜。",f:"repeat01.mp3"},
  {id:"複誦2",type:"複誦題",q:"𠊎想討去圖書館借書。",f:"repeat02.mp3"},
@@ -208,131 +230,134 @@ const SPEAK = [
  {id:"問答4",type:"問答題",q:"五加六係幾多？"},
  {id:"問答5",type:"問答題",q:"剪刀、石頭、布，哪儕贏？"}
 ];
+const SCORE_LABEL={1:"待加強",3:"尚可",5:"優"};
 
 /* ===== 工具 ===== */
 const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const SECS=["s-role","s-student","s-teacher","s-tstudent","s-listen","s-result","s-speak","s-done"];
 function show(id){SECS.forEach(s=>$(s).classList.toggle("hide",s!==id));window.scrollTo(0,0)}
 const audio=new Audio();
-function play(f){audio.pause();audio.src=AUDIO_BASE+f;audio.currentTime=0;audio.play().catch(()=>alert("音檔無法播放，請確認網路或音檔檔名（"+f+"）"))}
+let curBtn=null;
+function stopUI(){if(curBtn){curBtn.classList.remove("playing");curBtn.textContent="🔊";curBtn=null}}
+audio.onplaying=()=>{if(curBtn){curBtn.classList.add("playing");curBtn.textContent="🎶"}};
+audio.onended=stopUI;audio.onerror=stopUI;audio.onpause=()=>{if(audio.paused)stopUI()};
+function play(f,btn){stopUI();audio.pause();curBtn=btn||null;audio.src=AUDIO_BASE+f;audio.currentTime=0;
+  audio.play().catch(()=>{stopUI();dlg("音檔無法播放，請檢查網路或請老師協助（"+f+"）")})}
+// 自訂視窗：dlg("訊息") 只有「好」；dlg("訊息","確定","取消") 有兩個按鈕，回傳 true/false
+function dlg(msg,ok="好",cancel=null){return new Promise(res=>{
+  $("m-msg").textContent=msg;$("m-ok").textContent=ok;
+  $("m-cancel").classList.toggle("hide",!cancel);if(cancel)$("m-cancel").textContent=cancel;
+  $("modal").classList.remove("hide");$("m-ok").focus();
+  const done=v=>{$("modal").classList.add("hide");document.onkeydown=null;res(v)};
+  $("m-ok").onclick=()=>done(true);$("m-cancel").onclick=()=>done(false);
+  document.onkeydown=e=>{if(e.key==="Escape")done(false)};
+})}
 function fillSchools(sel,other){
   sel.innerHTML='<option value="">請選擇學校</option>'+SCHOOLS.map(s=>`<option>${s}</option>`).join("")+'<option value="__other">其他（自行輸入）</option>';
   sel.onchange=()=>other.classList.toggle("hide",sel.value!=="__other");
 }
-const schoolVal=(sel,other)=>sel.value==="__other"?other.value.trim():sel.value;
+const schoolVal=(s,o)=>s.value==="__other"?o.value.trim():s.value;
 const classOK=v=>/^\d{5}$/.test(v);
-function post(payload){
-  return fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)})
-   .then(r=>r.json());
-}
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-fillSchools($("st-school"),$("st-school-other"));
-fillSchools($("t-school"),$("t-school-other"));
-fillSchools($("ts-school"),$("ts-school-other"));
-
+const post=p=>fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)}).then(r=>r.json());
+[["st"],["t"],["ts"]].forEach(([p])=>fillSchools($(p+"-school"),$(p+"-school-other")));
 document.querySelectorAll("[data-back]").forEach(b=>b.onclick=()=>show("s-role"));
 $("roleStudent").onclick=()=>show("s-student");
 $("roleTeacher").onclick=()=>show("s-teacher");
 
-/* ===== 學生登入 ===== */
-let student={}, quiz=[], idx=0, answers=[], pending=null;
+/* ===== 學生：聽力 ===== */
+let student={},quiz=[],idx=0,answers=[],pending=null,lock=false;
 $("stStart").onclick=()=>{
   const school=schoolVal($("st-school"),$("st-school-other")),cls=$("st-class").value.trim(),sid=$("st-id").value.trim();
   if(!school) return $("st-err").textContent="請選擇或輸入學校";
-  if(!classOK(cls)) return $("st-err").textContent="班級與座號要是 5 碼數字，例如 40107，請重新輸入";
+  if(!classOK(cls)) return $("st-err").textContent="班級座號要是 5 碼數字（例如 40107），請重新輸入";
   if(!sid) return $("st-err").textContent="請輸入學號";
-  $("st-err").textContent="";
-  student={school,cls,sid};
-  // 選項亂數；題目順序固定
+  $("st-err").textContent="";student={school,cls,sid};
   quiz=LISTEN.map(q=>({...q,opts:shuffle([q.a,...q.o])}));
-  answers=new Array(quiz.length).fill(null);idx=0;
-  show("s-listen");renderQ();
+  answers=quiz.map(()=>null);idx=0;lock=false;show("s-listen");renderQ();
 };
+function renderOpts(){
+  const L=["A","B","C","D"];
+  $("l-opts").innerHTML=quiz[idx].opts.map((t,i)=>`<button class="opt ${answers[idx]===t?"sel":""}" data-i="${i}"><b>${L[i]}</b><span>${esc(t)}</span></button>`).join("");
+  $("l-opts").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{if(lock)return;answers[idx]=quiz[idx].opts[b.dataset.i];renderOpts()});
+  $("l-dots").innerHTML=quiz.map((_,i)=>`<i class="${i===idx?"cur":i<idx?"done":""}"></i>`).join("");
+  $("l-ok").disabled=answers[idx]===null;
+  $("l-ok").textContent=idx===quiz.length-1?"完成 ✔":"確定";
+}
 function renderQ(){
   const q=quiz[idx];
-  $("l-type").textContent=q.type;
-  $("l-count").textContent=`第 ${idx+1} 題 / 共 ${quiz.length} 題`;
-  $("l-prog").style.width=((idx+1)/quiz.length*100)+"%";
+  $("l-type").textContent=`第 ${idx+1} 題・${q.type}`;
   $("l-text").textContent=(q.type==="聽選正確回應"&&!SHOW_RESPONSE_TEXT)?"(注意聽)":q.q;
-  const L=["Ａ","Ｂ","Ｃ","Ｄ"];
-  $("l-opts").innerHTML=q.opts.map((t,i)=>`<button class="opt ${answers[idx]===t?"sel":""}" data-t="${esc(t)}"><b>${L[i]}</b><span>${esc(t)}</span></button>`).join("");
-  $("l-opts").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{answers[idx]=b.dataset.t;renderQ()});
-  $("l-prev").style.visibility=idx?"visible":"hidden";
-  $("l-next").textContent=idx===quiz.length-1?"交卷":"下一題";
-  play(q.f);
+  renderOpts();play(q.f,$("l-play"));
 }
-$("l-play").onclick=()=>play(quiz[idx].f);
-$("l-prev").onclick=()=>{if(idx){idx--;renderQ()}};
-$("l-next").onclick=()=>{
-  if(answers[idx]===null) return alert("請先選一個答案");
-  if(idx<quiz.length-1){idx++;renderQ();return}
-  const un=answers.map((a,i)=>a===null?i+1:0).filter(Boolean);
-  if(un.length) return alert("第 "+un.join("、")+" 題還沒作答");
-  if(confirm("確定要交卷嗎？")) finishListen();
+$("l-ok").onclick=()=>{
+  if(lock||answers[idx]===null) return;
+  lock=true;
+  if(idx<quiz.length-1){idx++;lock=false;renderQ()} else {lock=false;finishListen()}
 };
+$("l-play").onclick=()=>play(quiz[idx].f,$("l-play"));
+
 function finishListen(){
-  audio.pause();
+  audio.pause();stopUI();
   const detail=quiz.map((q,i)=>({n:q.n,answer:answers[i],correct:q.a,ok:answers[i]===q.a}));
-  const score=detail.filter(d=>d.ok).length;
-  pending={type:"listening",school:student.school,cls:student.cls,sid:student.sid,score,total:quiz.length,detail};
-  $("r-score").textContent=`${score} / ${quiz.length}`;
-  $("r-table").innerHTML="<tr><th>題</th><th>你的答案</th><th>結果</th></tr>"+detail.map(d=>
-    `<tr><td>${d.n}</td><td>${esc(d.answer)}</td><td class="${d.ok?"ok":"ng"}">${d.ok?"✔ 答對":"✘ 正確：<br>"+esc(d.correct)}</td></tr>`).join("");
-  show("s-result");sendListen();
+  pending={type:"listening",school:student.school,cls:student.cls,sid:student.sid,score:detail.filter(d=>d.ok).length,total:quiz.length,detail};
+  const faces=["🎆","🥳","🤩","😻","🐯","🦄","🐣"];
+  $("r-emoji").textContent=faces[Math.floor(Math.random()*faces.length)];
+  show("s-result");burst();sendListen();
 }
 function sendListen(){
-  $("r-status").textContent="成績傳送中…";$("r-status").className="";$("r-retry").classList.add("hide");
-  post(pending).then(r=>{
-    if(!r.ok) throw new Error(r.error);
-    $("r-status").textContent="✔ 成績已送出";$("r-status").className="ok";
-  }).catch(()=>{
-    $("r-status").textContent="✘ 成績傳送失敗，請按下方按鈕重新傳送";$("r-status").className="ng";$("r-retry").classList.remove("hide");
-  });
+  $("r-status").textContent="資料傳送中…";$("r-retry").classList.add("hide");
+  post(pending).then(r=>{if(!r.ok)throw 0;$("r-status").textContent="✔ 已完成登錄"})
+  .catch(()=>{$("r-status").textContent="傳送失敗，請按「重新傳送」或請老師協助";$("r-retry").classList.remove("hide")});
 }
 $("r-retry").onclick=sendListen;
 $("r-home").onclick=()=>show("s-role");
+function burst(){
+  const em=["🎉","🎆","✨","🎊","⭐","🌟","🥳","🎈"],box=$("confetti");box.innerHTML="";
+  for(let i=0;i<40;i++){const s=document.createElement("span");s.textContent=em[i%em.length];
+    s.style.cssText=`left:${Math.random()*96}vw;font-size:${1.3+Math.random()*1.6}rem;animation-delay:${Math.random()*1.4}s;animation-duration:${2.6+Math.random()*2}s`;
+    box.appendChild(s)}
+  setTimeout(()=>box.innerHTML="",6500);
+}
 
-/* ===== 老師流程 ===== */
-let teacher={}, tstudent={}, grades={};
+/* ===== 老師：口說評分 ===== */
+let teacher={},tstudent={},grades={};
 $("tNext").onclick=()=>{
   const school=schoolVal($("t-school"),$("t-school-other")),name=$("t-name").value.trim(),mail=$("t-mail").value.trim();
   if(!school) return $("t-err").textContent="請選擇或輸入學校";
   if(!name) return $("t-err").textContent="請輸入姓名";
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return $("t-err").textContent="信箱格式不正確";
   $("t-err").textContent="";teacher={school,name,mail};
-  $("ts-school").value=SCHOOLS.includes(school)?school:"";
-  show("s-tstudent");
+  $("ts-school").value=SCHOOLS.includes(school)?school:"";show("s-tstudent");
 };
 $("tsBack").onclick=()=>show("s-teacher");
 $("tsStart").onclick=()=>{
   const school=schoolVal($("ts-school"),$("ts-school-other")),cls=$("ts-class").value.trim(),sid=$("ts-id").value.trim();
   if(!school) return $("ts-err").textContent="請選擇或輸入學生學校";
-  if(!classOK(cls)) return $("ts-err").textContent="班級與座號要是 5 碼數字，例如 40107，請重新輸入";
+  if(!classOK(cls)) return $("ts-err").textContent="班級座號要是 5 碼數字（例如 40107），請重新輸入";
   if(!sid) return $("ts-err").textContent="請輸入學號";
   $("ts-err").textContent="";tstudent={school,cls,sid};grades={};
-  $("g-who").innerHTML=`受測：${esc(school)}　${esc(cls)}　學號 ${esc(sid)}<br>評分教師：${esc(teacher.name)}（${esc(teacher.school)}）`;
+  $("g-who").innerHTML=`<b>${esc(school)}　${esc(cls)}　學號 ${esc(sid)}</b><br>評分教師：${esc(teacher.name)}`;
   renderGrading();show("s-speak");
 };
 function renderGrading(){
   $("g-list").innerHTML=SPEAK.map((s,i)=>`
-   <div class="g-item"><h3>${s.type}・${s.id}</h3>
-    <div class="g-q">${esc(s.q)}</div>
-    ${s.f?`<button class="btn g-play" data-f="${s.f}">🔊 播放示範音檔</button>`:""}
-    <div class="scores" data-i="${i}">${[1,2,3,4,5].map(n=>`<button data-v="${n}">${n}</button>`).join("")}</div>
+   <div class="g-item"><div class="g-main">
+     ${s.f?`<button class="play g-play" data-f="${s.f}" aria-label="播放音檔">🔊</button>`:`<span class="sp"></span>`}
+     <div><span class="tag">${s.id}</span><div class="g-q">${esc(s.q)}</div></div></div>
+     <div class="scores" data-i="${i}">${[1,2,3,4,5].map(n=>`<button data-v="${n}"><b>${n}</b><small>${SCORE_LABEL[n]||""}</small></button>`).join("")}</div>
    </div>`).join("");
-  document.querySelectorAll(".g-play").forEach(b=>b.onclick=()=>play(b.dataset.f));
+  document.querySelectorAll(".g-play").forEach(b=>b.onclick=()=>play(b.dataset.f,b));
   document.querySelectorAll(".scores").forEach(box=>box.querySelectorAll("button").forEach(b=>b.onclick=()=>{
     grades[SPEAK[box.dataset.i].id]=+b.dataset.v;
-    box.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
-    updTotal();
+    box.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));updTotal();
   }));
   updTotal();
 }
 function updTotal(){
   const t=Object.values(grades).reduce((a,b)=>a+b,0);
-  $("g-total").textContent=`${t} / ${SPEAK.length*5}（已評 ${Object.keys(grades).length}/${SPEAK.length} 題）`;
+  $("g-total").textContent=`${t} / ${SPEAK.length*5} 分（${Object.keys(grades).length}/${SPEAK.length}）`;
 }
 $("g-submit").onclick=()=>{
   const miss=SPEAK.filter(s=>!(s.id in grades)).map(s=>s.id);
@@ -340,16 +365,12 @@ $("g-submit").onclick=()=>{
   $("g-err").textContent="";$("g-submit").disabled=true;$("g-submit").textContent="送出中…";
   const total=Object.values(grades).reduce((a,b)=>a+b,0);
   post({type:"speaking",teacher,student:tstudent,grades,total,max:SPEAK.length*5,order:SPEAK.map(s=>s.id)})
-   .then(r=>{
-     if(!r.ok) throw new Error(r.error);
-     audio.pause();
-     $("d-msg").textContent=`學號 ${tstudent.sid} 的口說總分：${total} / ${SPEAK.length*5}`;
-     show("s-done");
-   }).catch(()=>{$("g-err").textContent="✘ 送出失敗，請檢查網路後再按一次（評分不會消失）"})
+   .then(r=>{if(!r.ok)throw 0;audio.pause();$("d-msg").textContent=`學號 ${tstudent.sid} 口說總分：${total} / ${SPEAK.length*5}`;show("s-done")})
+   .catch(()=>{$("g-err").textContent="送出失敗，請檢查網路後再按一次（評分不會消失）"})
    .finally(()=>{$("g-submit").disabled=false;$("g-submit").textContent="送出評分"});
 };
-$("g-cancel").onclick=()=>{if(confirm("尚未送出，確定要離開？")){audio.pause();show("s-role")}};
-$("d-next").onclick=()=>{["ts-class","ts-id"].forEach(i=>$(i).value="");show("s-tstudent")};
+$("g-cancel").onclick=async()=>{if(await dlg("評分還沒送出，確定要離開嗎？","離開","繼續評分")){audio.pause();show("s-role")}};
+$("d-next").onclick=()=>{$("ts-class").value="";$("ts-id").value="";show("s-tstudent")};
 $("d-home").onclick=()=>show("s-role");
 </script>
 </body>
