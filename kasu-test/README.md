@@ -1,3 +1,6 @@
+https://script.google.com/macros/s/AKfycbyZgwh7NWuZIXTgX8Ek5hIf0gv1aJq4T3QCHaPLlTA6FRVmMXLTgE9M2s55YPz0pExzQw/exec
+
+
 部分一：建立試算表並貼上後端程式
 用瀏覽器登入你的 Google 帳號，開啟 https://sheets.google.com。
 點左上角「空白」試算表，新增一份。

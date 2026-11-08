@@ -69,13 +69,15 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .qrow.talk{gap:.8rem}
 .qrow.talk .qtext{position:relative;flex:1;background:var(--tint);border-radius:1.3rem;padding:.5rem 1.1rem;font-size:clamp(1.4rem,3vw,1.8rem)}
 .qrow.talk .qtext::before{content:"";position:absolute;left:-.55rem;top:50%;margin-top:-.45rem;border-style:solid;border-width:.45rem .55rem .45rem 0;border-color:transparent var(--tint) transparent transparent}
-.qrow.talk .play{order:3;width:3.4rem;height:3.4rem}
+.qrow.talk .play{order:3;width:4rem;height:4rem}
 .ansrow{display:flex;align-items:center;gap:.8rem}
 .ansrow .opts{flex:1}
 .intro{text-align:center;padding:2rem 1.4rem}
 .i-art{font-size:4.2rem;line-height:1.2;margin:.8rem 0}
 .i-text{font-size:clamp(1.6rem,3.6vw,2.1rem);font-weight:700;margin:.3rem 0 1.4rem;line-height:1.5}
 .intro .btn{min-width:12rem;font-size:1.5rem}
+.opt .play{width:3rem;height:3rem;box-shadow:none;margin-left:auto;margin-right:auto}
+.opts.aud .opt{justify-content:flex-start;min-height:5rem}
 .qnav{margin-top:1rem}
 .qnav .btn{width:100%;font-size:1.4rem;padding:.7rem}
 .qnav2{display:grid;grid-template-columns:1fr 2fr;gap:.8rem;margin-top:1rem}
@@ -222,22 +224,24 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 
 <script>
 /* ===== 設定區 ===== */
-const GAS_URL = "TgX8Ek5hIf0gv1aJq4T3QCHaPLlTA6FRVmMXLTgE9M2s55YPz0pExzQw/exec"; // Apps Script 部署網址（/exec 結尾）
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyZgwh7NWuZIXTgX8Ek5hIf0gv1aJq4T3QCHaPLlTA6FRVmMXLTgE9M2s55YPz0pExzQw/exec"; // Apps Script 部署網址（/exec 結尾）
 const AUDIO_BASE = "audio/";          // 音檔資料夾
-const SHOW_RESPONSE_TEXT = true;      // 「聽選正確回應」是否顯示題目文字
 const SCHOOLS = ["崙背國中","崙背國小","東興國小","陽明國小","豐榮國小","二崙國中","二崙國小","三和國小","來惠國小","光復國小"];
 
+// 聽選正確句子：f=題目音檔，a=正確答案文字，o=其他三個選項文字
+// 聽選正確回應：f=題目音檔，af=四個選項音檔（第 1 個為正確答案），畫面不顯示任何文字
+const AF=n=>[1,2,3,4].map(i=>`listen${String(n).padStart(2,"0")}-${i}.mp3`);
 const LISTEN = [
- {n:1,type:"聽選正確句子",q:"(注意聽)",a:"𠊎蹛在崙背",o:["佢蹛在港尾","你蹛在虎尾","佢蹛在崙下"],f:"listen01.mp3"},
- {n:2,type:"聽選正確句子",q:"(注意聽)",a:"佢討去學校坪尞",o:["佢感覺真歡喜","佢討賞鬼抓人","𠊎討去圖書館䀴書"],f:"listen02.mp3"},
- {n:3,type:"聽選正確句子",q:"(注意聽)",a:"這滿十二點",o:["這滿係拜四","這滿請企起來","這有十五個人"],f:"listen03.mp3"},
- {n:4,type:"聽選正確句子",q:"(注意聽)",a:"𠊎食肚疾",o:["你手疾","𠊎目珠疾","佢牙疾"],f:"listen04.mp3"},
- {n:5,type:"聽選正確句子",q:"(注意聽)",a:"拜六毋使去學校",o:["今日毋係拜六","拜六愛去學校","韶日係拜六"],f:"listen05.mp3"},
- {n:6,type:"聽選正確回應",q:"遐個人係哪儕？",a:"佢係護士阿姨",o:["這係𠊎个物件","佢在健康中心","𠊎係灶下阿姨"],f:"listen06.mp3"},
- {n:7,type:"聽選正確回應",q:"你討賞球無？",a:"好啊，𠊎討",o:["好啊，請坐","無愛，𠊎食飽啊","毋係，佢在打電話"],f:"listen07.mp3"},
- {n:8,type:"聽選正確回應",q:"你昨日仰子啊？",a:"𠊎真寒，頭真疾",o:["好，𠊎會講客事","𠊎擱試䀴望","𠊎坐車來學校"],f:"listen08.mp3"},
- {n:9,type:"聽選正確回應",q:"你有紅色个筆無？",a:"有，𠊎有三支筆",o:["無，𠊎正有青色个筆","毋係，遐毋係紅色","無，佢个筆係綠豆色"],f:"listen09.mp3"},
- {n:10,type:"聽選正確回應",q:"你今年幾多歲？讀幾多年？",a:"𠊎十一歲，讀五年",o:["今日拜三，這滿兩點","𠊎在這，佢在便所","猶吂，𠊎猶吂食"],f:"listen10.mp3"}
+ {n:1,type:"聽選正確句子",f:"listen01.mp3",a:"我住在崙背",o:["他住在港尾","你住在虎尾","他住在崙前"]},
+ {n:2,type:"聽選正確句子",f:"listen02.mp3",a:"他要去操場玩",o:["他覺得很高興","他要玩鬼抓人","我要去圖書館"]},
+ {n:3,type:"聽選正確句子",f:"listen03.mp3",a:"現在十二點",o:["目前是星期四","現在請站起來","這裡有十五個人"]},
+ {n:4,type:"聽選正確句子",f:"listen04.mp3",a:"我肚子痛",o:["你手在痛","我眼睛痛","他牙齒痛"]},
+ {n:5,type:"聽選正確句子",f:"listen05.mp3",a:"星期六不必去學校",o:["今天不是星期六","星期六要去學校","明天是星期六"]},
+ {n:6,type:"聽選正確回應",f:"listen06.mp3",af:AF(6)},
+ {n:7,type:"聽選正確回應",f:"listen07.mp3",af:AF(7)},
+ {n:8,type:"聽選正確回應",f:"listen08.mp3",af:AF(8)},
+ {n:9,type:"聽選正確回應",f:"listen09.mp3",af:AF(9)},
+ {n:10,type:"聽選正確回應",f:"listen10.mp3",af:AF(10)}
 ];
 const SPEAK = [
  {id:"複誦1",type:"複誦題",q:"今日𠊎感覺真歡喜。",f:"repeat01.mp3"},
@@ -253,7 +257,7 @@ const SPEAK = [
 ];
 const INTRO={
  "聽選正確句子":{art:"🔊 ＝ 📝",text:"選跟音檔一樣的句子。"},
- "聽選正確回應":{art:"👦💬 ➜ 👧💬",text:"音檔是別人說的話，你要回應適當的句子。"}
+ "聽選正確回應":{art:"👦💬 ➜ 👧💬",text:"音檔是別人說的話，請選出適當回應的音檔。"}
 };
 const SCORE_LABEL={3:"尚可",5:"優"};
 const ICON_IDLE='<svg viewBox="0 0 24 24" width="55%" height="55%" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#fff"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
@@ -313,13 +317,23 @@ $("stStart").onclick=()=>{
   if(!classOK(cls)) return $("st-err").textContent="班級座號要是 5 碼數字（例如 40107），請重新輸入";
   if(!sid) return $("st-err").textContent="請輸入學號";
   $("st-err").textContent="";student={school,cls,sid};
-  quiz=LISTEN.map(q=>({...q,opts:shuffle([q.a,...q.o])}));
+  quiz=LISTEN.map(q=>{
+    const opts=q.af?q.af.map(f=>({k:f,f})):[q.a,...q.o].map(t=>({k:t,t}));
+    return {...q,correct:q.af?q.af[0]:q.a,opts:shuffle(opts)};
+  });
   answers=quiz.map(()=>null);idx=0;lock=false;goQ();
 };
 function renderOpts(){
-  const L=["A","B","C","D"];
-  $("l-opts").innerHTML=quiz[idx].opts.map((t,i)=>`<button class="opt ${answers[idx]===t?"sel":""}" data-i="${i}"><b>${L[i]}</b><span>${esc(t)}</span></button>`).join("");
-  $("l-opts").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{if(lock)return;answers[idx]=quiz[idx].opts[b.dataset.i];renderOpts()});
+  const L=["A","B","C","D"],q=quiz[idx],aud=!!q.af;
+  $("l-opts").classList.toggle("aud",aud);
+  $("l-opts").innerHTML=q.opts.map((o,i)=>`<button class="opt ${answers[idx]===o.k?"sel":""}" data-i="${i}"><b>${L[i]}</b>${aud?`<span class="play" aria-hidden="true">${ICON_IDLE}</span>`:`<span>${esc(o.t)}</span>`}</button>`).join("");
+  $("l-opts").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+    if(lock)return;
+    const o=q.opts[b.dataset.i];
+    answers[idx]=o.k;renderOpts();
+    // 音檔選項：點到就選取並播放該音檔
+    if(aud) play(o.f,$("l-opts").children[b.dataset.i].querySelector(".play"));
+  });
   $("l-dots").innerHTML=quiz.map((_,i)=>`<i class="${i===idx?"cur":i<idx?"done":""}"></i>`).join("");
   $("l-ok").disabled=answers[idx]===null;
   $("l-ok").textContent=idx===quiz.length-1?"完成 ✔":"確定";
@@ -337,8 +351,9 @@ $("i-ok").onclick=()=>{show("s-listen");renderQ()};
 function renderQ(){
   const q=quiz[idx];
   $("l-type").textContent=`第 ${idx+1} 題・${q.type}`;
-  $("l-text").textContent=(q.type==="聽選正確回應"&&!SHOW_RESPONSE_TEXT)?"(注意聽)":q.q;
-  const talk=q.type==="聽選正確回應";
+  const talk=!!q.af;
+  $("l-text").textContent="(注意聽)";
+  $("l-text").classList.toggle("hide",talk);
   $("l-row").classList.toggle("talk",talk);
   $("l-av1").classList.toggle("hide",!talk);$("l-av2").classList.toggle("hide",!talk);
   renderOpts();play(q.f,$("l-play"));
@@ -352,7 +367,7 @@ $("l-play").onclick=()=>play(quiz[idx].f,$("l-play"));
 
 function finishListen(){
   audio.pause();stopUI();
-  const detail=quiz.map((q,i)=>({n:q.n,answer:answers[i],correct:q.a,ok:answers[i]===q.a}));
+  const detail=quiz.map((q,i)=>({n:q.n,answer:answers[i],correct:q.correct,ok:answers[i]===q.correct}));
   pending={type:"listening",school:student.school,cls:student.cls,sid:student.sid,score:detail.filter(d=>d.ok).length,total:quiz.length,detail};
   const faces=["🎆","🥳","🤩","😻","🐯","🦄","🐣"];
   $("r-emoji").textContent=faces[Math.floor(Math.random()*faces.length)];
