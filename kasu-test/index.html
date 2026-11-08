@@ -25,6 +25,7 @@ label{display:block;font-weight:700;margin:.7rem 0 .25rem;font-size:1rem}
 input,select{width:100%;font-size:1.25rem;padding:.6rem .8rem;border:2px solid var(--line);border-radius:.8rem;background:#fff}
 input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--tint)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
 .hint{font-size:.82rem;color:var(--muted);margin:.2rem 0 0}
 .err{color:var(--warn);font-weight:700;min-height:1.4em;margin:.4rem 0 0;font-size:.95rem}
 .btn{border:0;border-radius:1rem;padding:.75rem 1.2rem;font-size:1.25rem;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;box-shadow:0 6px 14px rgba(58,123,247,.25);transition:background .15s,transform .12s}
@@ -107,6 +108,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .mbox p{font-size:1.3rem;margin:.2rem 0 1.2rem;font-weight:700}
 .mact{display:flex;gap:.7rem}.mact .btn{flex:1}
 @media(max-width:640px){
+ .row3{gap:.5rem}.row3 select{font-size:1.05rem;padding:.6rem .4rem}
  .opts,.row2,.tiles{grid-template-columns:1fr}.opts{gap:.55rem}.opt{min-height:3.6rem}
  .tiles{gap:.7rem}.tile{padding:.9rem}.tile span{display:inline;font-size:2rem;margin-right:.5rem}
  .av{font-size:2.3rem}.ansrow,.qrow.talk{gap:.5rem}.card{padding:1rem}.actions{grid-template-columns:1fr 1fr}.dots i{width:.65rem;height:.65rem}.scores{gap:.4rem}
@@ -131,11 +133,12 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   <h2>學生資料</h2>
   <label for="st-school">學校</label><select id="st-school"></select>
   <input id="st-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.5rem">
-  <div class="row2">
-    <div><label for="st-class">班級座號（5碼）</label><input id="st-class" inputmode="numeric" maxlength="5" placeholder="40107"></div>
-    <div><label for="st-id">學號</label><input id="st-id" inputmode="numeric" placeholder="學號"></div>
+  <div class="row3">
+    <div><label for="st-grade">年級</label><select id="st-grade"></select></div>
+    <div><label for="st-cls">班級</label><select id="st-cls"></select></div>
+    <div><label for="st-seat">座號</label><select id="st-seat"></select></div>
   </div>
-  <p class="hint">例：四年甲班 7 號 → 40107（年級1碼＋班級2碼＋座號2碼）</p>
+  <label for="st-id">學號（選填）</label><input id="st-id" inputmode="numeric" placeholder="沒有可以不填">
   <p class="err" id="st-err"></p>
   <div class="actions"><button class="btn ghost" data-back>返回</button><button class="btn" id="stStart">開始聽力測驗</button></div>
 </section>
@@ -156,10 +159,12 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   <h2>受測學生資料</h2>
   <label for="ts-school">學生學校</label><select id="ts-school"></select>
   <input id="ts-school-other" class="hide" placeholder="請輸入學校名稱" style="margin-top:.5rem">
-  <div class="row2">
-    <div><label for="ts-class">班級座號（5碼）</label><input id="ts-class" inputmode="numeric" maxlength="5" placeholder="40107"></div>
-    <div><label for="ts-id">學號</label><input id="ts-id" inputmode="numeric" placeholder="學號"></div>
+  <div class="row3">
+    <div><label for="ts-grade">年級</label><select id="ts-grade"></select></div>
+    <div><label for="ts-cls">班級</label><select id="ts-cls"></select></div>
+    <div><label for="ts-seat">座號</label><select id="ts-seat"></select></div>
   </div>
+  <label for="ts-id">學號（選填）</label><input id="ts-id" inputmode="numeric" placeholder="沒有可以不填">
   <p class="err" id="ts-err"></p>
   <div class="actions"><button class="btn ghost" id="tsBack">返回</button><button class="btn" id="tsStart">開始口說評分</button></div>
 </section>
@@ -302,7 +307,17 @@ function fillSchools(sel,other){
   sel.onchange=()=>other.classList.toggle("hide",sel.value!=="__other");
 }
 const schoolVal=(s,o)=>s.value==="__other"?o.value.trim():s.value;
-const classOK=v=>/^\d{5}$/.test(v);
+// 年級・班級・座號 用選的，系統自動換算成 5 碼（例：四年1班7號 → 40107）
+const CN="一二三四五六七八九",STEM="甲乙丙丁戊己庚辛壬癸",pad2=n=>String(n).padStart(2,"0");
+function fillClass(p){
+  $(p+"-grade").innerHTML='<option value="">選擇</option>'+[...Array(9)].map((_,i)=>`<option value="${i+1}">${CN[i]}年級</option>`).join("");
+  $(p+"-cls").innerHTML='<option value="">選擇</option>'+[...Array(20)].map((_,i)=>`<option value="${i+1}">${i+1}班${i<10?"（"+STEM[i]+"）":""}</option>`).join("");
+  $(p+"-seat").innerHTML='<option value="">選擇</option>'+[...Array(40)].map((_,i)=>`<option value="${i+1}">${i+1}號</option>`).join("");
+}
+const pick3=p=>({g:$(p+"-grade").value,c:$(p+"-cls").value,n:$(p+"-seat").value});
+const clsCode=p=>{const {g,c,n}=pick3(p);return g&&c&&n?g+pad2(c)+pad2(n):""};
+const clsLabel=p=>{const {g,c,n}=pick3(p);return `${g}年${c}班${n}號`};
+["st","ts"].forEach(fillClass);
 const post=p=>fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)}).then(r=>r.json());
 [["st"],["t"],["ts"]].forEach(([p])=>fillSchools($(p+"-school"),$(p+"-school-other")));
 document.querySelectorAll("[data-back]").forEach(b=>b.onclick=()=>show("s-role"));
@@ -312,10 +327,9 @@ $("roleTeacher").onclick=()=>show("s-teacher");
 /* ===== 學生：聽力 ===== */
 let student={},quiz=[],idx=0,answers=[],pending=null,lock=false;
 $("stStart").onclick=()=>{
-  const school=schoolVal($("st-school"),$("st-school-other")),cls=$("st-class").value.trim(),sid=$("st-id").value.trim();
+  const school=schoolVal($("st-school"),$("st-school-other")),cls=clsCode("st"),sid=$("st-id").value.trim();
   if(!school) return $("st-err").textContent="請選擇或輸入學校";
-  if(!classOK(cls)) return $("st-err").textContent="班級座號要是 5 碼數字（例如 40107），請重新輸入";
-  if(!sid) return $("st-err").textContent="請輸入學號";
+  if(!cls) return $("st-err").textContent="請選擇年級、班級和座號";
   $("st-err").textContent="";student={school,cls,sid};
   quiz=LISTEN.map(q=>{
     const opts=q.af?q.af.map(f=>({k:f,f})):[q.a,...q.o].map(t=>({k:t,t}));
@@ -401,12 +415,11 @@ $("tNext").onclick=()=>{
 };
 $("tsBack").onclick=()=>show("s-teacher");
 $("tsStart").onclick=()=>{
-  const school=schoolVal($("ts-school"),$("ts-school-other")),cls=$("ts-class").value.trim(),sid=$("ts-id").value.trim();
+  const school=schoolVal($("ts-school"),$("ts-school-other")),cls=clsCode("ts"),sid=$("ts-id").value.trim();
   if(!school) return $("ts-err").textContent="請選擇或輸入學生學校";
-  if(!classOK(cls)) return $("ts-err").textContent="班級座號要是 5 碼數字（例如 40107），請重新輸入";
-  if(!sid) return $("ts-err").textContent="請輸入學號";
-  $("ts-err").textContent="";tstudent={school,cls,sid};grades={};gi=0;
-  $("g-who").textContent=`${school}　${cls}　學號 ${sid}　｜　評分教師：${teacher.name}`;
+  if(!cls) return $("ts-err").textContent="請選擇年級、班級和座號";
+  $("ts-err").textContent="";tstudent={school,cls,sid,label:clsLabel("ts")};grades={};gi=0;
+  $("g-who").textContent=`${school}　${tstudent.label}${sid?"　學號 "+sid:""}　｜　評分教師：${teacher.name}`;
   show("s-speak");enterG();
 };
 function renderG(){
@@ -436,11 +449,11 @@ function submitG(){
   $("g-err").textContent="";$("g-next").disabled=true;$("g-next").textContent="送出中…";
   const total=Object.values(grades).reduce((a,b)=>a+b,0);
   post({type:"speaking",teacher,student:tstudent,grades,total,max:SPEAK.length*5,order:SPEAK.map(s=>s.id)})
-   .then(r=>{if(!r.ok)throw 0;$("d-msg").textContent=`學號 ${tstudent.sid} 口說總分：${total} / ${SPEAK.length*5}`;show("s-done")})
+   .then(r=>{if(!r.ok)throw 0;$("d-msg").textContent=`${tstudent.label}${tstudent.sid?"（學號 "+tstudent.sid+"）":""} 口說總分：${total} / ${SPEAK.length*5}`;show("s-done")})
    .catch(()=>{$("g-err").textContent="送出失敗，請檢查網路後再按一次（評分不會消失）";$("g-next").disabled=false;$("g-next").textContent="送出評分"});
 }
 $("g-cancel").onclick=async()=>{if(await dlg("評分還沒送出，確定要離開嗎？","離開","繼續評分")){gStop();show("s-role")}};
-$("d-next").onclick=()=>{$("ts-class").value="";$("ts-id").value="";show("s-tstudent")};
+$("d-next").onclick=()=>{$("ts-seat").value="";$("ts-id").value="";show("s-tstudent")};
 $("d-home").onclick=()=>show("s-role");
 </script>
 </body>
